@@ -445,6 +445,7 @@ a {
 
 .sidebar {
   width: 260px;
+  height: 100vh;
   min-height: 100vh;
   background: #ffffff;
   border-right: 1px solid #e5e7eb;
@@ -497,7 +498,8 @@ a {
 }
 
 .sidebar-nav {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 16px 0;
   overflow-y: auto;
 }
@@ -545,7 +547,10 @@ a {
 }
 
 .sidebar-footer {
+  margin-top: auto;
+  flex-shrink: 0;
   padding: 12px 10px 16px;
+  background: #ffffff;
   border-top: 1px solid #f3f4f6;
 }
 

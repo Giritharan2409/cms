@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createUserSession, getUserSession } from '../auth/sessionController';
 import { demoUsers } from '../data/roleConfig';
 
 function GraduationIcon() {
@@ -43,8 +44,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const activeSession = getUserSession();
+    if (activeSession) {
+      navigate(`/dashboard?role=${encodeURIComponent(activeSession.role)}`, { replace: true });
+      return;
+    }
+
     document.title = 'MIT Connect — Multi Role Login';
-  }, []);
+  }, [navigate]);
 
   const hint = `Demo ${role.toUpperCase()}: ${demoUsers[role].userId} / ${demoUsers[role].password}`;
 
@@ -62,9 +69,8 @@ export default function LoginPage() {
     window.setTimeout(() => {
       const allowedUser = demoUsers[role];
       if (allowedUser.userId === userId.trim() && allowedUser.password === password) {
-        localStorage.setItem('cmsRole', role);
-        localStorage.setItem('cmsUserId', userId.trim());
-        navigate(`/dashboard?role=${encodeURIComponent(role)}`);
+        createUserSession(role, userId.trim());
+        navigate(`/dashboard?role=${encodeURIComponent(role)}`, { replace: true });
         return;
       }
 

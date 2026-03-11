@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { cmsRoles, getValidRole, roleMenuGroups } from '../data/roleConfig';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { destroyUserSession, getUserSession } from '../auth/sessionController';
+import { cmsRoles, roleMenuGroups } from '../data/roleConfig';
 
 function GraduationIcon() {
   return (
@@ -28,24 +29,43 @@ function LogoutIcon() {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const storedRole = localStorage.getItem('cmsRole') || 'student';
-  const role = getValidRole(searchParams.get('role') || storedRole);
+  const session = getUserSession();
+  const sessionRole = session?.role || null;
+  const sessionUserId = session?.userId || null;
+  const role = sessionRole || 'student';
   const data = cmsRoles[role];
   const menuGroups = roleMenuGroups[role] || roleMenuGroups.student;
-  const userId = localStorage.getItem('cmsUserId') || 'N/A';
+  const userId = sessionUserId || 'N/A';
 
   useEffect(() => {
+    if (!sessionRole || !sessionUserId) {
+      navigate('/', { replace: true });
+      return undefined;
+    }
+
     document.title = `MIT Connect - ${data.label} Dashboard`;
-    localStorage.setItem('cmsRole', role);
-  }, [data.label, role]);
+
+    const expectedSearch = `?role=${encodeURIComponent(sessionRole)}`;
+    if (location.search !== expectedSearch) {
+      navigate(`/dashboard${expectedSearch}`, { replace: true });
+    }
+
+    function enforceSessionOnPageRestore() {
+      if (!getUserSession()) {
+        navigate('/', { replace: true });
+      }
+    }
+
+    window.addEventListener('pageshow', enforceSessionOnPageRestore);
+    return () => window.removeEventListener('pageshow', enforceSessionOnPageRestore);
+  }, [data.label, location.search, navigate, sessionRole, sessionUserId]);
 
   function handleLogout() {
-    localStorage.removeItem('cmsRole');
-    localStorage.removeItem('cmsUserId');
-    navigate('/');
+    destroyUserSession();
+    navigate('/', { replace: true });
   }
 
   return (
