@@ -112,8 +112,7 @@ export default function ExamsPage({ noLayout = false }) {
     <>
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Exam Schedule</h1>
-          <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
+          <p className="text-slate-500">Department of Computer Science — Semester 4</p>
         </div>
         {!isStudent && (
           <button

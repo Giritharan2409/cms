@@ -52,6 +52,13 @@ export default function DashboardPage() {
     '/placement': 'Placement',
     '/facility': 'Facility',
   };
+  const pageSubtitles = {
+    '/timetable': 'View and manage weekly class schedules across subjects and sections.',
+    '/attendance': 'Track and record student attendance for all mapped subjects.',
+    '/exams': 'Manage exam schedules, seat plans, and result submissions.',
+    '/placement': 'Monitor campus recruitment drives and student placement status.',
+    '/facility': 'Oversee campus infrastructure, labs, and facility bookings.',
+  };
   const ActivePage = activePage ? pageMap[activePage] : null;
 
   const session = getUserSession();
@@ -180,7 +187,7 @@ export default function DashboardPage() {
               </button>
               <div className="topbar-left">
                 <h2>{activePage ? pageTitles[activePage] : `${data.label} Dashboard`}</h2>
-                <p>{data.subtitle}</p>
+                <p>{activePage ? pageSubtitles[activePage] : data.subtitle}</p>
               </div>
             </div>
             <div className="topbar-right">
