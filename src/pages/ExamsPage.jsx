@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import Layout from '../components/Layout'
+import { getUserSession } from '../auth/sessionController'
 
 const initialExamsData = [
   { id: 1, code: 'CS401', name: 'Data Structures',      date: '2023-12-10', time: '10:00', room: 'Hall A',    type: 'Mid-Sem',  status: 'Upcoming', duration: '120', maxMarks: '100' },
@@ -10,6 +11,8 @@ const initialExamsData = [
 ]
 
 export default function ExamsPage({ noLayout = false }) {
+  const session = getUserSession()
+  const isStudent = session?.role === 'student'
   const [exams, setExams] = useState(initialExamsData)
   const [showModal, setShowModal] = useState(false)
   const [editingExam, setEditingExam] = useState(null)
@@ -112,12 +115,14 @@ export default function ExamsPage({ noLayout = false }) {
           <h1 className="text-3xl font-bold text-slate-900">Exam Schedule</h1>
           <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">add</span>Schedule Exam
-        </button>
+        {!isStudent && (
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>Schedule Exam
+          </button>
+        )}
       </div>
       
       {/* Stats Cards */}
@@ -156,9 +161,9 @@ export default function ExamsPage({ noLayout = false }) {
           <tbody className="divide-y divide-slate-100">
             {exams.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={isStudent ? 6 : 7} className="px-6 py-12 text-center text-slate-500">
                   <span className="material-symbols-outlined text-5xl mb-2 opacity-20">quiz</span>
-                  <p className="text-sm">No exams scheduled yet. Click "Schedule Exam" to add one.</p>
+                  <p className="text-sm">{isStudent ? 'No exams scheduled yet.' : 'No exams scheduled yet. Click "Schedule Exam" to add one.'}</p>
                 </td>
               </tr>
             ) : (
@@ -186,6 +191,7 @@ export default function ExamsPage({ noLayout = false }) {
                       {exam.status}
                     </span>
                   </td>
+                  {!isStudent && (
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -204,6 +210,7 @@ export default function ExamsPage({ noLayout = false }) {
                       </button>
                     </div>
                   </td>
+                  )}
                 </tr>
               ))
             )}

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import Layout from '../components/Layout'
+import { getUserSession } from '../auth/sessionController'
 
 const studentData = [
   { name: 'Johnathan Doe', id: '#STU-2024-001', course: 'Data Structures',  present: 22, total: 24, pct: 91 },
@@ -80,6 +81,7 @@ function getStatus(pct) {
 }
 
 export default function AttendancePage({ noLayout = false }) {
+  const isStudent = getUserSession()?.role === 'student'
   const [activeTab, setActiveTab] = useState('students')
   const [statusFilter, setStatusFilter] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
@@ -101,9 +103,11 @@ export default function AttendancePage({ noLayout = false }) {
           <h1 className="text-3xl font-bold text-slate-900">Attendance Register</h1>
           <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4 (Section A)</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90">
-          <span className="material-symbols-outlined text-lg">download</span>Export Report
-        </button>
+        {!isStudent && (
+          <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90">
+            <span className="material-symbols-outlined text-lg">download</span>Export Report
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
