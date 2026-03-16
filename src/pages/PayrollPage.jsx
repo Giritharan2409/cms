@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Layout from '../components/Layout';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 // Icons
 function ViewIcon() {

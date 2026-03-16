@@ -1,36 +1,25 @@
-import os
 from pymongo import MongoClient
+import os
 from dotenv import load_dotenv
-from urllib.parse import urlsplit
 
-load_dotenv()
-
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/cms")
-
-
-def mask_mongodb_uri(uri: str | None) -> str:
-    if not uri:
-        return "<not configured>"
-
-    try:
-        parts = urlsplit(uri)
-        host = parts.hostname or "unknown-host"
-        scheme = parts.scheme or "mongodb"
-        return f"{scheme}://{host}"
-    except Exception:
-        return "<configured>"
+dotenv_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
+load_dotenv(dotenv_path)
 
 def seed():
-    print(f"Connecting to {mask_mongodb_uri(MONGODB_URI)}...")
-    client = MongoClient(MONGODB_URI)
-    db = client["cms"] if "mongodb.net" in MONGODB_URI else client.get_database()
-    
-    # 1. Seed Staff Details
-    print("Seeding staff_details collection...")
-        print("Retrieving staff_details from MongoDB...")
+    uri = "mongodb+srv://giritharand3_db_user:cms@cms.sufjn3m.mongodb.net/?appName=CMS"
+    print(f"Connecting to Atlas...")
+    client = MongoClient(uri, serverSelectionTimeoutMS=30000)
+    db = client["cms"]
+    try:
+        # Test connection and retrieval
+        sample_staff = db.staff_details.find_one()
+        if sample_staff:
+            print("Sample staff document:", sample_staff)
+        else:
+            print("No staff documents found in staff_details collection.")
+        # ...existing code...
         staff_details = list(db.staff_details.find())
         print(f"Retrieved {len(staff_details)} staff from staff_details collection.")
-        # Create payroll entries for each staff
         payroll_entries = []
         for staff in staff_details:
             payroll_entry = {
@@ -39,7 +28,6 @@ def seed():
                 "designation": staff.get("designation"),
                 "department": staff.get("department"),
                 "category": staff.get("category"),
-                # Add payroll fields as needed
                 "salary": 0,
                 "createdAt": "2026-03-16"
             }
@@ -49,12 +37,8 @@ def seed():
             print(f"SUCCESS: Seeded {len(payroll_entries)} payroll entries into payroll collection.")
         else:
             print("No staff found to create payroll entries.")
-    
-    # 2. Seed Payroll
-    print("Seeding payroll collection...")
-    
-    print("Database seeded successfully!")
-    client.close()
+    except Exception as e:
+        print(f"ERROR: {e}")
 
 if __name__ == "__main__":
     seed()

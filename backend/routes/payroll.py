@@ -99,3 +99,12 @@ async def delete_payroll(record_id: str):
         raise HTTPException(status_code=404, detail="Record not found")
 
     return {"message": "Record deleted"}
+
+
+@router.get("/staff-details")
+async def get_staff_details():
+    db = get_db()
+    staff = []
+    async for member in db["staff_Details"].find():
+        staff.append(serialize_doc(member))
+    return staff
