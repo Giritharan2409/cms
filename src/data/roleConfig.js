@@ -125,8 +125,12 @@ export const roleMenuGroups = {
       items: ['Dashboard', 'Students', 'Faculty', 'Department'],
     },
     {
+      title: 'Admissions',
+      items: ['Admission', 'Admission Dashboard', 'Admission Status', 'Staff Admission', 'Enrollment'],
+    },
+    {
       title: 'Administration',
-      items: ['Admission', 'Fees', 'Payroll', 'Invoices'],
+      items: ['Fees', 'Semester Fees', 'Payroll', 'Invoices'],
     },
     {
       title: 'Intelligence',
@@ -157,8 +161,12 @@ export const roleMenuGroups = {
       items: ['Dashboard', 'Department'],
     },
     {
+      title: 'Admissions',
+      items: ['Admission Dashboard', 'Enrollment'],
+    },
+    {
       title: 'Administration',
-      items: ['Fees', 'Payroll', 'Invoices'],
+      items: ['Fees', 'Semester Fees', 'Payroll', 'Invoices'],
     },
     {
       title: 'Intelligence',
