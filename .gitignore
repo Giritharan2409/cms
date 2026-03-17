@@ -6,3 +6,7 @@ dist/
 # Backend
 backend/node_modules/
 backend/.env
+
+# Python cache artifacts
+__pycache__/
+*.py[cod]
