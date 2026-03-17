@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
 
-const facilities = [
+const FALLBACK_FACILITIES = [
   { name: 'Computer Lab 4', type: 'Laboratory',   capacity: 40,  status: 'Available',   amenities: ['AC', 'Projector', '40 PCs'] },
   { name: 'Hall A',         type: 'Lecture Hall', capacity: 120, status: 'In Use',       amenities: ['AC', 'Mic System', 'Projector'] },
   { name: 'Room 302',       type: 'Classroom',    capacity: 60,  status: 'Available',   amenities: ['Whiteboard', 'Projector'] },
@@ -19,8 +19,9 @@ const statusStyle = {
 
 export default function FacilityPage({ noLayout = false }) {
   const session = getUserSession()
-  const role = localStorage.getItem('role') || session?.role || 'student'
+  const role = session?.role || 'student'
 
+  const [facilities, setFacilities] = useState(FALLBACK_FACILITIES)
   const [statusFilter, setStatusFilter] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -28,6 +29,19 @@ export default function FacilityPage({ noLayout = false }) {
   const [bookingForm, setBookingForm] = useState({ room: '', date: '', timeFrom: '', timeTo: '', purpose: '' })
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const filterRef = useRef(null)
+
+  useEffect(() => {
+    async function fetchFacilities() {
+      try {
+        const res = await fetch('/api/academics/facilities')
+        const json = await res.json().catch(() => null)
+        if (json?.success && json.data.length > 0) setFacilities(json.data)
+      } catch (err) {
+        console.error('Failed to fetch facilities:', err)
+      }
+    }
+    fetchFacilities()
+  }, [])
 
   const visibleFacilities = role === 'admin'
     ? facilities
@@ -48,8 +62,21 @@ export default function FacilityPage({ noLayout = false }) {
 
   const availableRooms = visibleFacilities.filter(f => f.status === 'Available')
 
-  function handleBookRoom(e) {
+  async function handleBookRoom(e) {
     e.preventDefault()
+    try {
+      const res = await fetch('/api/academics/facilities/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...bookingForm, requestedBy: session?.userId || '' }),
+      })
+      const json = await res.json().catch(() => null)
+      if (json?.success) {
+        setFacilities(prev => prev.map(f => f.name === bookingForm.room ? { ...f, status: 'In Use' } : f))
+      }
+    } catch (err) {
+      console.error('Failed to book room:', err)
+    }
     setBookingSuccess(true)
     setTimeout(() => {
       setBookingOpen(false)

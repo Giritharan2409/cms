@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
-const weeklyAttendance = [
+const FALLBACK_WEEKLY = [
   { day: 'Mon', attendance: 92 },
   { day: 'Tue', attendance: 88 },
   { day: 'Wed', attendance: 90 },
@@ -44,7 +44,7 @@ function normalizeId(v) {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-const studentData = [
+const FALLBACK_STUDENTS = [
   { name: 'John Anderson',  id: '#STU-2024-1547', course: 'Data Structures',   present: 22, total: 24 },
   { name: 'Alice Smith',    id: '#STU-2024-042',  course: 'Discrete Math',     present: 23, total: 24 },
   { name: 'Michael Ross',   id: '#STU-2024-118',  course: 'Database Systems',   present: 18, total: 24 },
@@ -52,7 +52,7 @@ const studentData = [
   { name: 'David Kim',      id: '#STU-2024-203',  course: 'Operating Systems',  present: 21, total: 24 },
 ]
 
-const staffData = [
+const FALLBACK_STAFF = [
   { name: 'Dr. Rajesh Iyer',     id: '#FAC-204',      department: 'Computer Science',       present: 18, total: 20 },
   { name: 'Lydia Brooks',        id: '#FIN-880',      department: 'Finance Office',          present: 19, total: 20 },
   { name: 'Prof. James Carter',  id: '#STF-2024-002', department: 'Mathematics',             present: 17, total: 20 },
@@ -60,6 +60,17 @@ const staffData = [
   { name: 'Mr. Robert Hughes',   id: '#STF-2024-004', department: 'Database Systems',        present: 19, total: 20 },
   { name: 'Dr. Fatima Noor',     id: '#STF-2024-005', department: 'Operating Systems',       present: 14, total: 20 },
 ]
+
+function normalizeAttendanceRecord(r) {
+  return {
+    id: r.personId || r.id || '',
+    name: r.name,
+    course: r.courseOrDepartment || r.course || '',
+    department: r.courseOrDepartment || r.department || '',
+    present: r.present,
+    total: r.total,
+  }
+}
 
 function AttendanceTable({ data, type, isAdmin }) {
   return (
@@ -162,6 +173,36 @@ export default function AttendancePage({ noLayout = false }) {
   const [filterOpen,   setFilterOpen]   = useState(false)
   const [searchQuery,  setSearchQuery]  = useState('')
   const filterRef = useRef(null)
+
+  const [studentData,      setStudentData]      = useState(FALLBACK_STUDENTS)
+  const [staffData,        setStaffData]        = useState(FALLBACK_STAFF)
+  const [weeklyAttendance, setWeeklyAttendance] = useState(FALLBACK_WEEKLY)
+
+  useEffect(() => {
+    async function fetchAttendance() {
+      try {
+        const [stuRes, staffRes, weekRes] = await Promise.all([
+          fetch('/api/academics/attendance?role=student'),
+          fetch('/api/academics/attendance?role=staff'),
+          fetch('/api/academics/attendance/weekly'),
+        ])
+        const [stuJson, staffJson, weekJson] = await Promise.all([
+          stuRes.json().catch(() => null),
+          staffRes.json().catch(() => null),
+          weekRes.json().catch(() => null),
+        ])
+        if (stuJson?.success && stuJson.data.length > 0)
+          setStudentData(stuJson.data.map(normalizeAttendanceRecord))
+        if (staffJson?.success && staffJson.data.length > 0)
+          setStaffData(staffJson.data.map(normalizeAttendanceRecord))
+        if (weekJson?.success && weekJson.data.length > 0)
+          setWeeklyAttendance(weekJson.data)
+      } catch (err) {
+        console.error('Failed to fetch attendance data:', err)
+      }
+    }
+    fetchAttendance()
+  }, [])
 
   // Scope records: non-admin sees only their own row
   const scopedStudents = isAdmin

@@ -1,6 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { getUserSession } from './auth/sessionController';
+import { Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleGuard from './components/RoleGuard';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import TimetablePage from './pages/TimetablePage';
@@ -17,16 +17,9 @@ import PayrollPage from './pages/PayrollPage';
 
 
 export default function App() {
-  const session = getUserSession();
-
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          session ? <Navigate to={`/dashboard?role=${encodeURIComponent(session.role)}`} replace /> : <LoginPage />
-        }
-      />
+      <Route path="/" element={<LoginPage />} />
       <Route
         path="/dashboard"
         element={
@@ -39,7 +32,16 @@ export default function App() {
       <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
       <Route path="/exams" element={<ProtectedRoute><ExamsPage /></ProtectedRoute>} />
       <Route path="/placement" element={<ProtectedRoute><PlacementPage /></ProtectedRoute>} />
-      <Route path="/facility" element={<ProtectedRoute><FacilityPage /></ProtectedRoute>} />
+      <Route
+        path="/facility"
+        element={
+          <ProtectedRoute>
+            <RoleGuard roles={['admin', 'faculty']}>
+              <FacilityPage />
+            </RoleGuard>
+          </ProtectedRoute>
+        }
+      />
       <Route path="/payroll" element={<ProtectedRoute><PayrollPage /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationPage /></ProtectedRoute>} />
@@ -53,7 +55,7 @@ export default function App() {
       />
       <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
       <Route path="/students/:id" element={<ProtectedRoute><StudentDetailPage /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<LoginPage />} />
     </Routes>
   );
 }

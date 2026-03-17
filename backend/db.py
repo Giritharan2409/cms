@@ -6,6 +6,8 @@ from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlsplit
 
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 load_dotenv()
 
 MONGODB_URI = os.getenv("MONGODB_URI")

@@ -1,29 +1,65 @@
-import { useEffect, useState } from 'react';
-import { getExamById } from '../../data/examData';
+import { useMemo } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-export default function HallTicket({ exam, studentInfo, onClose }) {
-  const [currentDate] = useState(new Date().toLocaleDateString());
+export default function HallTicket({ exam, studentInfo, subjects = [], onClose }) {
+  const currentDate = useMemo(() => new Date().toLocaleDateString(), []);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const resolvedSemester = studentInfo.semester || exam?.semester || 'N/A';
+  const resolvedDepartment = studentInfo.department || exam?.department || 'Computer Science';
+  const normalizedSubjects = subjects.length > 0
+    ? subjects
+    : exam
+      ? [{
+          code: exam.code || '-',
+          name: exam.name || '-',
+          credits: exam.credits ?? 4,
+          semester: exam.semester || resolvedSemester,
+        }]
+      : [];
 
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+  const handleDownloadPdf = () => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const rollNo = studentInfo.rollNo || studentInfo.id || 'N/A';
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('MIT CONNECT - EXAMINATION HALL TICKET', 105, 16, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date of Issue: ${currentDate}`, 14, 24);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Student Details', 14, 32);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Name: ${studentInfo.name || 'N/A'}`, 14, 38);
+    doc.text(`Roll No: ${rollNo}`, 14, 44);
+    doc.text(`Department: ${resolvedDepartment}`, 14, 50);
+    doc.text(`Semester: ${resolvedSemester}`, 14, 56);
+
+    autoTable(doc, {
+      startY: 64,
+      head: [['S.No', 'Subject Code', 'Subject Name', 'Credits', 'Semester']],
+      body: normalizedSubjects.map((subject, index) => [
+        index + 1,
+        subject.code || '-',
+        subject.name || '-',
+        subject.credits ?? 4,
+        subject.semester || resolvedSemester,
+      ]),
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [17, 98, 212] },
+      theme: 'striped',
+      margin: { left: 14, right: 14 },
     });
-  };
 
-  const formatTime = (timeStr) => {
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+    const finalY = doc.lastAutoTable?.finalY || 70;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('This is a computer-generated hall ticket and does not require signature.', 14, Math.min(finalY + 10, 285));
+
+    doc.save(`HallTicket-${rollNo}.pdf`);
   };
 
   return (
@@ -33,11 +69,11 @@ export default function HallTicket({ exam, studentInfo, onClose }) {
           <h3 className="text-xl font-bold text-slate-900">Hall Ticket</h3>
           <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
+              onClick={handleDownloadPdf}
               className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors text-sm font-semibold"
             >
-              <span className="material-symbols-outlined text-lg">print</span>
-              Print
+              <span className="material-symbols-outlined text-lg">download</span>
+              Download PDF
             </button>
             <button
               onClick={onClose}
@@ -52,23 +88,23 @@ export default function HallTicket({ exam, studentInfo, onClose }) {
           {/* Header */}
           <div className="text-center border-b-2 border-slate-900 pb-4">
             <h1 className="text-2xl font-bold text-slate-900">COLLEGE MANAGEMENT SYSTEM</h1>
-            <p className="text-sm text-slate-600 mt-1">Department of {exam.department}</p>
+            <p className="text-sm text-slate-600 mt-1">Department of {resolvedDepartment}</p>
             <h2 className="text-xl font-bold text-[#1162d4] mt-3">EXAMINATION HALL TICKET</h2>
           </div>
 
-          {/* Exam Details */}
+          {/* Hall Ticket Meta */}
           <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Exam Type</p>
-              <p className="text-sm font-bold text-slate-900">{exam.type}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Ticket Type</p>
+              <p className="text-sm font-bold text-slate-900">Semester Hall Ticket</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Academic Year</p>
-              <p className="text-sm font-bold text-slate-900">{exam.year}</p>
+              <p className="text-sm font-bold text-slate-900">2025-2026</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Semester</p>
-              <p className="text-sm font-bold text-slate-900">Semester {exam.semester}</p>
+              <p className="text-sm font-bold text-slate-900">Semester {resolvedSemester}</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Date of Issue</p>
@@ -88,51 +124,52 @@ export default function HallTicket({ exam, studentInfo, onClose }) {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Roll Number</p>
-                <p className="text-sm font-bold text-slate-900">{studentInfo.id}</p>
+                <p className="text-sm font-bold text-slate-900">{studentInfo.rollNo || studentInfo.id || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Department</p>
-                <p className="text-sm font-bold text-slate-900">{studentInfo.department || exam.department}</p>
+                <p className="text-sm font-bold text-slate-900">{resolvedDepartment}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Semester</p>
-                <p className="text-sm font-bold text-slate-900">Semester {studentInfo.semester || exam.semester}</p>
+                <p className="text-sm font-bold text-slate-900">Semester {resolvedSemester}</p>
               </div>
             </div>
           </div>
 
-          {/* Exam Schedule */}
+          {/* Enrolled Subjects */}
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-3 uppercase border-b border-slate-300 pb-2">
-              Examination Details
+              Enrolled Subjects
             </h3>
-            <div className="bg-gradient-to-r from-[#1162d4]/5 to-transparent p-4 rounded-lg border border-[#1162d4]/20">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Course Code</p>
-                  <p className="text-sm font-bold text-[#1162d4]">{exam.code}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Course Name</p>
-                  <p className="text-sm font-bold text-slate-900">{exam.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Date</p>
-                  <p className="text-sm font-bold text-slate-900">{formatDate(exam.date)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Time</p>
-                  <p className="text-sm font-bold text-slate-900">{formatTime(exam.time)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Duration</p>
-                  <p className="text-sm font-bold text-slate-900">{exam.duration} minutes</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Venue</p>
-                  <p className="text-sm font-bold text-slate-900">{exam.room}</p>
-                </div>
-              </div>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50">
+                  <tr className="text-xs uppercase tracking-wider text-slate-500">
+                    <th className="px-4 py-3">S.No</th>
+                    <th className="px-4 py-3">Subject Code</th>
+                    <th className="px-4 py-3">Subject Name</th>
+                    <th className="px-4 py-3">Credits</th>
+                    <th className="px-4 py-3">Semester</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {normalizedSubjects.length === 0 && (
+                    <tr className="text-sm text-slate-500">
+                      <td className="px-4 py-4 text-center" colSpan={5}>No enrolled subjects found.</td>
+                    </tr>
+                  )}
+                  {normalizedSubjects.map((subject, index) => (
+                    <tr key={`${subject.code}-${index}`} className="text-sm text-slate-700">
+                      <td className="px-4 py-3">{index + 1}</td>
+                      <td className="px-4 py-3 font-semibold text-[#1162d4]">{subject.code || '-'}</td>
+                      <td className="px-4 py-3">{subject.name || '-'}</td>
+                      <td className="px-4 py-3">{subject.credits ?? 4}</td>
+                      <td className="px-4 py-3">{subject.semester || resolvedSemester}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 

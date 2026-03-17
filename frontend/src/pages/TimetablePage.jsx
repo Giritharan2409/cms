@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
+import { getStudentById } from '../data/studentData'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -37,6 +38,9 @@ const LEGEND = [
 ]
 
 const EMPTY_ENTRY = { code: '', name: '', room: '', instructor: '', credits: 1, type: 'Lecture', theme: 'blue' }
+const DEMO_STUDENT_CLASS_BY_ID = {
+  'STU-2024-1547': { department: 'Computer Science', semester: 4, section: 'A' },
+}
 
 // kept for backward compat with initialData builder below
 const C = {
@@ -359,8 +363,96 @@ export default function TimetablePage({ noLayout = false }) {
   const [editTarget,   setEditTarget]   = useState(null)   // { slotIdx, dayIdx }
   const [showNewClass, setShowNewClass] = useState(false)
   const [isSyncing,    setIsSyncing]    = useState(false)
+  const [studentProfile, setStudentProfile] = useState(null)
 
-  const current = timetables[activeClass]
+  const toNormalizedText = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const toSemesterNumber = (value) => {
+    const match = String(value || '').match(/\d+/)
+    return match ? Number(match[0]) : null
+  }
+  const toSectionCode = (value) => {
+    const match = String(value || '').toUpperCase().match(/[A-Z]/)
+    return match ? match[0] : null
+  }
+
+  function findStudentClassId(allTimetables, profile) {
+    if (!profile) return null
+
+    const wantedDept = toNormalizedText(profile.department)
+    const wantedSemester = toSemesterNumber(profile.semester)
+    const wantedSection = toSectionCode(profile.section)
+    const entries = Object.entries(allTimetables)
+
+    const exact = entries.find(([, record]) => {
+      const dept = toNormalizedText(record.dept)
+      const semester = toSemesterNumber(record.semester)
+      const section = toSectionCode(record.section)
+      return dept === wantedDept && semester === wantedSemester && section === wantedSection
+    })
+    if (exact) return exact[0]
+
+    const semSection = entries.find(([, record]) => {
+      const semester = toSemesterNumber(record.semester)
+      const section = toSectionCode(record.section)
+      return semester === wantedSemester && section === wantedSection
+    })
+    if (semSection) return semSection[0]
+
+    const semOnly = entries.find(([, record]) => toSemesterNumber(record.semester) === wantedSemester)
+    return semOnly ? semOnly[0] : null
+  }
+
+  const visibleTimetableEntries = role === 'student'
+    ? (() => {
+        const matchedId = findStudentClassId(timetables, studentProfile)
+        if (matchedId && timetables[matchedId]) {
+          return [[matchedId, timetables[matchedId]]]
+        }
+        const first = Object.entries(timetables)[0]
+        return first ? [first] : []
+      })()
+    : Object.entries(timetables)
+
+  const visibleTimetableMap = Object.fromEntries(visibleTimetableEntries)
+  const currentClassId = visibleTimetableMap[activeClass] ? activeClass : visibleTimetableEntries[0]?.[0]
+  const current = currentClassId ? visibleTimetableMap[currentClassId] : null
+
+  useEffect(() => {
+    if (role !== 'student' || !session?.userId) return
+
+    let isMounted = true
+
+    async function loadStudentProfile() {
+      try {
+        const response = await fetch(`/api/students/${encodeURIComponent(session.userId)}`)
+        if (response.ok) {
+          const profile = await response.json()
+          if (isMounted) {
+            setStudentProfile(profile)
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch student profile for timetable:', error)
+      }
+
+      const localProfile = getStudentById(session.userId)
+      if (localProfile) {
+        if (isMounted) setStudentProfile(localProfile)
+        return
+      }
+
+      if (isMounted) setStudentProfile(DEMO_STUDENT_CLASS_BY_ID[session.userId] || null)
+    }
+
+    loadStudentProfile()
+    return () => { isMounted = false }
+  }, [role, session?.userId])
+
+  useEffect(() => {
+    if (!currentClassId || activeClass === currentClassId) return
+    setActiveClass(currentClassId)
+  }, [activeClass, currentClassId])
 
   useEffect(() => {
     let isMounted = true
@@ -462,7 +554,7 @@ export default function TimetablePage({ noLayout = false }) {
     <>
       {/* ── Class Tabs ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
-        {Object.entries(timetables).map(([id, tt]) => (
+        {visibleTimetableEntries.map(([id, tt]) => (
           <button
             key={id}
             onClick={() => { setActiveClass(id); setEditMode(false) }}
@@ -488,7 +580,7 @@ export default function TimetablePage({ noLayout = false }) {
       {/* ── Toolbar ────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <p className="text-slate-500">
-          {current.dept} — {current.semester} ({current.section})
+          {current ? `${current.dept} — ${current.semester} (${current.section})` : 'No timetable found'}
         </p>
         <div className="flex gap-3 items-center">
           {isSyncing && (
@@ -507,9 +599,6 @@ export default function TimetablePage({ noLayout = false }) {
               {editMode ? 'Done Editing' : 'Edit Timetable'}
             </button>
           )}
-          <button className="bg-white p-2 border border-slate-200 rounded-lg text-slate-600 hover:border-slate-300">
-            <span className="material-symbols-outlined">print</span>
-          </button>
         </div>
       </div>
 
@@ -521,6 +610,7 @@ export default function TimetablePage({ noLayout = false }) {
       )}
 
       {/* ── Timetable Grid ─────────────────────────────────────────────── */}
+      {current ? (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
         <div style={{ minWidth: 780 }}>
           {/* Header */}
@@ -593,6 +683,11 @@ export default function TimetablePage({ noLayout = false }) {
           ))}
         </div>
       </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center text-slate-500">
+          No timetable is available for the current class and semester.
+        </div>
+      )}
 
       {/* ── Legend ─────────────────────────────────────────────────────── */}
       <div className="mt-8 flex flex-wrap gap-6 items-center">

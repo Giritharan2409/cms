@@ -6,7 +6,9 @@ dotenv_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
 load_dotenv(dotenv_path)
 
 def seed():
-    uri = "mongodb+srv://giritharand3_db_user:cms@cms.sufjn3m.mongodb.net/?appName=CMS"
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise RuntimeError("MONGODB_URI is not set. Add it to backend/.env")
     print(f"Connecting to Atlas...")
     client = MongoClient(uri, serverSelectionTimeoutMS=30000)
     db = client["cms"]

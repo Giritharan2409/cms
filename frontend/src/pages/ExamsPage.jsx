@@ -15,9 +15,11 @@ import InternalMarksModal from '../components/exam/InternalMarksModal'
 import TimetableApprovalModal from '../components/exam/TimetableApprovalModal'
 import NotificationPanel from '../components/exam/NotificationPanel'
 import { initializeExamData, getAllExams } from '../data/examData'
+import { getStudentById } from '../data/studentData'
 
 export default function ExamsPage({ noLayout = false }) {
   const session = getUserSession()
+  const studentRecordForHallTicket = getStudentById(session?.userId)
   const isStudent = session?.role === 'student'
   const isFaculty = session?.role === 'faculty'
   const isAdmin = session?.role === 'admin'
@@ -73,9 +75,31 @@ export default function ExamsPage({ noLayout = false }) {
       alert('No exams registered yet.');
       return;
     }
-    // For now, open hall ticket with first exam (can be enhanced to show all)
+    // Open hall ticket with one consolidated subject list for this student
     setSelectedExam(registeredExams[0]);
     setShowHallTicket(true);
+  }
+
+  const buildHallTicketSubjects = () => {
+    const studentRecord = studentRecordForHallTicket
+    if (studentRecord?.subjects?.length) {
+      return studentRecord.subjects.map((subject) => ({
+        code: subject.code,
+        name: subject.name,
+        credits: subject.credits ?? 4,
+        semester: studentRecord.semester,
+      }))
+    }
+
+    // Fallback: derive enrolled subjects from registered exams
+    return exams
+      .filter((exam) => exam.registered)
+      .map((exam) => ({
+        code: exam.code,
+        name: exam.name,
+        credits: exam.credits ?? 4,
+        semester: exam.semester || 4,
+      }))
   }
 
   // Fetch exams from backend
@@ -118,6 +142,23 @@ export default function ExamsPage({ noLayout = false }) {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  const parseDurationToMinutes = (value) => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+
+    const raw = String(value).trim().toLowerCase()
+    if (!raw) return ''
+
+    const numeric = parseFloat(raw)
+    if (!Number.isFinite(numeric)) return ''
+
+    if (raw.includes('hr')) {
+      return String(Math.round(numeric * 60))
+    }
+
+    return String(Math.round(numeric))
+  }
+
   const openAddModal = () => {
     setEditingExam(null)
     setFormData({
@@ -136,7 +177,10 @@ export default function ExamsPage({ noLayout = false }) {
 
   const openEditModal = (exam) => {
     setEditingExam(exam)
-    setFormData({ ...exam })
+    setFormData({
+      ...exam,
+      duration: parseDurationToMinutes(exam.duration),
+    })
     setShowModal(true)
   }
 
@@ -147,13 +191,18 @@ export default function ExamsPage({ noLayout = false }) {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault()
+    const payload = {
+      ...formData,
+      duration: parseDurationToMinutes(formData.duration),
+      senderRole: session?.role || 'faculty'
+    }
     
     try {
       if (editingExam) {
-        const res = await fetch(`/api/exams/${editingExam._id}`, {
+        const res = await fetch(`/api/exams/${editingExam._id || editingExam.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, senderRole: session?.role || 'faculty' })
+          body: JSON.stringify(payload)
         })
         const json = await res.json()
         if (json.success) {
@@ -164,7 +213,7 @@ export default function ExamsPage({ noLayout = false }) {
         const res = await fetch('/api/exams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, senderRole: session?.role || 'faculty' })
+          body: JSON.stringify(payload)
         })
         const json = await res.json()
         if (json.success) {
@@ -251,11 +300,20 @@ export default function ExamsPage({ noLayout = false }) {
 
   const inner = (
     <>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <div>
           <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {(isAdmin || isFaculty) && (
+            <button 
+              onClick={openAddModal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
+            >
+              <span className="material-symbols-outlined text-lg">calendar_add_on</span>
+              Schedule Exam
+            </button>
+          )}
           {isStudent && (
             <button 
               onClick={handleOpenAllHallTickets}
@@ -289,15 +347,6 @@ export default function ExamsPage({ noLayout = false }) {
                 Approve Timetables
               </button>
             </>
-          )}
-          {(isAdmin || isFaculty) && (
-            <button 
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
-            >
-              <span className="material-symbols-outlined text-lg">calendar_add_on</span>
-              Schedule Exam
-            </button>
           )}
         </div>
       </div>
@@ -370,7 +419,9 @@ export default function ExamsPage({ noLayout = false }) {
                       {exam.type}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{exam.duration} min</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {parseDurationToMinutes(exam.duration) || exam.duration} min
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       exam.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 
@@ -634,12 +685,13 @@ export default function ExamsPage({ noLayout = false }) {
         <HallTicket
           exam={selectedExam}
           studentInfo={{
-            name: session?.name || 'Student Name',
+            name: studentRecordForHallTicket?.name || 'Student Name',
             rollNo: session?.userId || 'N/A',
-            department: session?.team || 'Computer Science',
-            semester: '4',
+            department: studentRecordForHallTicket?.department || 'Computer Science',
+            semester: studentRecordForHallTicket?.semester || selectedExam?.semester || '4',
             photo: null
           }}
+          subjects={buildHallTicketSubjects()}
           onClose={() => setShowHallTicket(false)}
         />
       )}

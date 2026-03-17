@@ -77,6 +77,7 @@ class PlacementEntry(BaseModel):
     package: str
     status: str = "Process"
     date: str
+    ownerId: Optional[str] = None
 
 
 class FacilityRecord(BaseModel):

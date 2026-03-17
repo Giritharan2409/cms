@@ -115,7 +115,7 @@ async def create_booking(payload: FacilityBooking):
     if room.get("status") == "Maintenance":
         raise HTTPException(status_code=400, detail="Facility under maintenance")
 
-    result = await db["academic_facility_bookings"].insert_one(payload.model_dump())
+    result = await db["academic_facility_bookings"].insert_one(payload.model_dump(mode="json"))
     await db["academic_facilities"].update_one({"name": payload.room}, {"$set": {"status": "In Use"}})
 
     created = await db["academic_facility_bookings"].find_one({"_id": result.inserted_id})

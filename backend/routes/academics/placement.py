@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/academics/placement", tags=["academics:placement
 
 
 @router.get("")
-async def list_placements(status: str | None = None, search: str | None = None):
+async def list_placements(status: str | None = None, search: str | None = None, person_id: str | None = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -28,6 +28,8 @@ async def list_placements(status: str | None = None, search: str | None = None):
             {"name": {"$regex": search, "$options": "i"}},
             {"company": {"$regex": search, "$options": "i"}},
         ]
+    if person_id:
+        query["ownerId"] = person_id
 
     rows = []
     async for row in db["academic_placements"].find(query).sort("date", -1):
