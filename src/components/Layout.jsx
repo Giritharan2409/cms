@@ -1,19 +1,19 @@
-
+import { useState } from 'react'
 import AcademicSidebar from './AcademicSidebar'
 import TopBar from './TopBar'
-import { useState } from 'react'
 
 export default function Layout({ children, title }) {
-  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true)
 
-  const handleToggleSidebar = () => setSidebarVisible((v) => !v)
+  function toggleSidebar() {
+    setIsSidebarVisible((prev) => !prev)
+  }
 
   return (
     <div className="flex min-h-screen bg-[#f8fafc] text-[#1e293b]">
-      {sidebarVisible && (
-        <AcademicSidebar onToggleSidebar={handleToggleSidebar} />
-      )}
-      <main className={sidebarVisible ? "ml-64 flex-1 flex flex-col" : "flex-1 flex flex-col"}>
+      <AcademicSidebar isSidebarVisible={isSidebarVisible} onToggleSidebar={toggleSidebar} />
+
+      <main className={`flex-1 flex flex-col transition-all duration-300 ${isSidebarVisible ? 'ml-64' : 'ml-0'}`}>
         <TopBar title={title} />
         <div className="flex-1 p-8">
           {children}

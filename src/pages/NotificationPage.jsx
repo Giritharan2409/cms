@@ -1,8 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cmsRoles, getValidRole, roleMenuGroups } from '../data/roleConfig';
-import Layout from '../components/Layout';
-import { destroyUserSession } from '../auth/sessionController';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = {
@@ -117,9 +115,6 @@ const CAT_META = {
   payments:   { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', emoji: '💳', label: 'Payments'    },
   pending:    { color: '#c2410c', bg: '#fff7ed', border: '#fed7aa', emoji: '⏳', label: 'Pending'     },
   scholarship:{ color: '#1d4ed8', bg: '#eff6ff', border: '#bfdbfe', emoji: '🎓', label: 'Scholarship' },
-  exams:      { color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', emoji: '📝', label: 'Exams'       },
-  administrative:{ color: '#7c3aed', bg: '#faf5ff', border: '#e9d5ff', emoji: '🏫', label: 'Administrative' },
-  alerts:     { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', emoji: '🚨', label: 'Alerts'      },
 };
 
 // ─── Sample notifications per role ───────────────────────────────────────────
@@ -197,6 +192,7 @@ export default function NotificationsPage({ role: propRole }) {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const searchRef = useRef(null);
 
   const storedRole = localStorage.getItem('cmsRole') || 'student';
@@ -206,110 +202,18 @@ export default function NotificationsPage({ role: propRole }) {
   const filters    = ROLE_FILTERS[role] || ROLE_FILTERS.student;
 
   // ── State
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(() =>
+    [...(SAMPLE_NOTIFICATIONS[role] || SAMPLE_NOTIFICATIONS.student)].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    )
+  );
   const [activeFilter, setActiveFilter]   = useState('all');
   const [searchQuery, setSearchQuery]     = useState('');
   const [expandedId, setExpandedId]       = useState(null);
   const [showArchived, setShowArchived]   = useState(false);
   const [statusFilter, setStatusFilter]   = useState('all'); // 'all' | 'unread' | 'read'
   const [toastMsg, setToastMsg]           = useState('');
-
-  // ── Fetch from MongoDB API
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const res = await fetch(`/api/notifications/${role}`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          const mapped = json.data.map(n => ({
-            id: n._id,
-            title: n.title,
-            message: n.message,
-            category: (n.module || 'system').toLowerCase(),
-            sender: n.senderRole || 'System',
-            date: n.createdAt,
-            read: n.status === 'read',
-            pinned: false,
-            archived: false,
-          }));
-          setNotifications(mapped.sort((a, b) => new Date(b.date) - new Date(a.date)));
-        }
-      } catch (err) {
-        console.error('Failed to load notifications:', err);
-        // Fallback to sample data
-        setNotifications(
-          [...(SAMPLE_NOTIFICATIONS[role] || SAMPLE_NOTIFICATIONS.student)].sort(
-            (a, b) => new Date(b.date) - new Date(a.date)
-          )
-        );
-      }
-    }
-    loadNotifications();
-  }, [role]);
   const [justMarked, setJustMarked]       = useState(null); // for micro-animation
-
-  // ── Compose state (admin/faculty only)
-  const [showCompose, setShowCompose] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [compose, setCompose] = useState({
-    title: '',
-    message: '',
-    receivers: { student: true, faculty: false, admin: false, finance: false },
-    module: 'Academic',
-    priority: 'Medium',
-  });
-
-  function resetCompose() {
-    setCompose({ title: '', message: '', receivers: { student: true, faculty: false, admin: false, finance: false }, module: 'Academic', priority: 'Medium' });
-  }
-
-  async function handleSendNotification(e) {
-    e.preventDefault();
-    if (!compose.title.trim() || !compose.message.trim()) return;
-    setSending(true);
-
-    const selectedRoles = Object.entries(compose.receivers).filter(([, v]) => v).map(([k]) => k);
-    const sendAll = selectedRoles.length === 4;
-
-    try {
-      if (sendAll) {
-        await fetch('/api/notifications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: compose.title, message: compose.message, senderRole: role, receiverRole: 'ALL', module: compose.module, priority: compose.priority }),
-        });
-      } else {
-        await Promise.all(selectedRoles.map(r =>
-          fetch('/api/notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: compose.title, message: compose.message, senderRole: role, receiverRole: r, module: compose.module, priority: compose.priority }),
-          })
-        ));
-      }
-
-      // Reload notifications
-      const res = await fetch(`/api/notifications/${role}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        const mapped = json.data.map(n => ({
-          id: n._id, title: n.title, message: n.message,
-          category: (n.module || 'system').toLowerCase(), sender: n.senderRole || 'System',
-          date: n.createdAt, read: n.status === 'read', pinned: false, archived: false,
-        }));
-        setNotifications(mapped.sort((a, b) => new Date(b.date) - new Date(a.date)));
-      }
-
-      resetCompose();
-      setShowCompose(false);
-      toast('Notification sent successfully!');
-    } catch (err) {
-      console.error('Failed to send notification:', err);
-      toast('Failed to send notification');
-    } finally {
-      setSending(false);
-    }
-  }
 
   useEffect(() => {
     document.title = `MIT Connect – Notifications`;
@@ -317,8 +221,9 @@ export default function NotificationsPage({ role: propRole }) {
   }, [role]);
 
   function handleLogout() {
-    destroyUserSession();
-    navigate('/', { replace: true });
+    localStorage.removeItem('cmsRole');
+    localStorage.removeItem('cmsUserId');
+    navigate('/');
   }
 
   // ── Derived
@@ -355,13 +260,11 @@ export default function NotificationsPage({ role: propRole }) {
     setJustMarked(id);
     setTimeout(() => setJustMarked(null), 500);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    fetch(`/api/notifications/${id}/read`, { method: 'PUT' }).catch(() => {});
     toast('Marked as read');
   }
 
   function markAllRead() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    fetch(`/api/notifications/${role}/read-all`, { method: 'PUT' }).catch(() => {});
     toast('All notifications marked as read');
   }
 
@@ -378,7 +281,6 @@ export default function NotificationsPage({ role: propRole }) {
   function deleteNotif(id) {
     setNotifications(prev => prev.filter(n => n.id !== id));
     if (expandedId === id) setExpandedId(null);
-    fetch(`/api/notifications/${id}`, { method: 'DELETE' }).catch(() => {});
     toast('Notification deleted');
   }
 
@@ -513,7 +415,7 @@ export default function NotificationsPage({ role: propRole }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <Layout title="Notifications">
+    <>
       <style>{`
         @keyframes pulse-dot {
           0%, 100% { box-shadow: 0 0 0 3px #fee2e2; }
@@ -543,7 +445,126 @@ export default function NotificationsPage({ role: propRole }) {
         </div>
       )}
 
+      {!isSidebarVisible && (
+        <button
+          type="button"
+          className="sidebar-desktop-toggle"
+          onClick={() => setIsSidebarVisible(true)}
+          aria-label="Show sidebar"
+          title="Show sidebar"
+        >
+          <Icon.Menu />
+        </button>
+      )}
+
       <div className={`sidebar-overlay${sidebarOpen ? ' active' : ''}`} onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+
+      <div className="dashboard-wrapper role-layout">
+        {/* ── Sidebar ── */}
+        <aside className={`sidebar${sidebarOpen ? ' open' : ''}${isSidebarVisible ? '' : ' hidden-desktop'}`} id="sidebar">
+          <div className="sidebar-logo">
+            <div className="logo-mark"><Icon.Graduation /></div>
+            <div className="logo-text-wrap">
+              <div className="logo-title">MIT Connect</div>
+              <div className="logo-sub">{data.label} Portal</div>
+            </div>
+            <button
+              type="button"
+              className="sidebar-toggle-btn"
+              onClick={() => setIsSidebarVisible(false)}
+              aria-label="Hide sidebar"
+              title="Hide sidebar"
+            >
+              <Icon.Menu />
+            </button>
+          </div>
+          <nav className="sidebar-nav">
+            {menuGroups.map((group, gi) => (
+              <div key={group.title}>
+                <div className="nav-section-label">{group.title}</div>
+                <ul>
+  {group.items.map((item) => (
+  <li key={item}>
+    <a
+      href="#"
+      className={item === "Notifications" ? "active" : ""}
+      onClick={(e) => {
+        e.preventDefault();
+
+        if (item === "Notifications") {
+          navigate(`/notifications?role=${role}`);
+        } else {
+          navigate(`/${item.toLowerCase().replace(/\s+/g, "-")}?role=${role}`);
+        }
+      }}
+      style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+    >
+      {item}
+
+      {item === "Notifications" && unreadCount > 0 && (
+        <span
+          style={{
+            background: "#ef4444",
+            color: "#fff",
+            fontSize: "11px",
+            fontWeight: "700",
+            padding: "2px 7px",
+            borderRadius: "50%",
+          }}
+        >
+          {unreadCount}
+        </span>
+      )}
+    </a>
+  </li>
+))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+          <div className="sidebar-footer">
+            <a href="#" onClick={(e) => { e.preventDefault(); handleLogout(); }}>
+              <Icon.Logout /> Logout
+            </a>
+          </div>
+        </aside>
+
+        {/* ── Main ── */}
+        <main className={`main-content${isSidebarVisible ? '' : ' sidebar-hidden'}`}>
+
+          {/* Topbar */}
+          <div className="topbar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button className="mobile-menu-btn" onClick={() => { setIsSidebarVisible(true); setSidebarOpen(true); }} aria-label="Toggle menu"><Icon.Menu /></button>
+              <button type="button" onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '0 12px', height: 36, fontSize: 13, fontWeight: 500, color: '#6b7280', cursor: 'pointer' }}>
+                <Icon.Back /> Back
+              </button>
+              <div className="topbar-left">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ position: 'relative', display: 'inline-flex' }}>
+                    <Icon.Bell />
+                    {unreadCount > 0 && (
+                      <span style={{
+                        position: 'absolute', top: -6, right: -8,
+                        background: '#ef4444', color: '#fff',
+                        fontSize: 10, fontWeight: 800,
+                        width: 18, height: 18, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '2px solid #fff',
+                      }}>{unreadCount}</span>
+                    )}
+                  </span>
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span style={{ fontSize: 13, fontWeight: 500, color: '#ef4444', background: '#fef2f2', padding: '2px 10px', borderRadius: 999 }}>
+                      {unreadCount} unread
+                    </span>
+                  )}
+                </h2>
+                <p>All your alerts, reminders, and updates</p>
+              </div>
+            </div>
+          </div>
 
           {/* ── Control bar ── */}
           <div className="content-card" style={{ marginBottom: 20, padding: '14px 18px' }}>
@@ -602,125 +623,7 @@ export default function NotificationsPage({ role: propRole }) {
               }}>
                 <Icon.Archive /> {showArchived ? 'Show Active' : 'Archived'}
               </button>
-
-              {/* Send Notification button (admin/faculty only) */}
-              {(role === 'admin' || role === 'faculty') && (
-                <button type="button" onClick={() => { setShowCompose(!showCompose); if (showCompose) resetCompose(); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  height: 42, padding: '0 18px', borderRadius: 10,
-                  border: 'none', background: showCompose ? '#dc2626' : '#2563eb',
-                  color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  whiteSpace: 'nowrap', transition: 'all 0.15s',
-                  boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
-                }}>
-                  {showCompose ? '✕ Cancel' : '✉ Send Notification'}
-                </button>
-              )}
             </div>
-
-            {/* ── Compose Notification Form (admin/faculty) ── */}
-            {showCompose && (role === 'admin' || role === 'faculty') && (
-              <form onSubmit={handleSendNotification} style={{
-                marginTop: 16, padding: 20, background: '#f8faff', borderRadius: 14,
-                border: '1.5px solid #bfdbfe', display: 'flex', flexDirection: 'column', gap: 16,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 18 }}>✉</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: '#1e40af' }}>Compose Notification</span>
-                </div>
-
-                {/* Title */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 0.3 }}>Title *</label>
-                  <input type="text" required value={compose.title} onChange={e => setCompose(p => ({ ...p, title: e.target.value }))}
-                    placeholder="e.g., Exam Schedule Updated" style={{
-                      height: 40, borderRadius: 8, border: '1.5px solid #d1d5db', padding: '0 12px',
-                      fontSize: 13, outline: 'none', transition: 'border 0.15s',
-                    }} onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#d1d5db'} />
-                </div>
-
-                {/* Description */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 0.3 }}>Description *</label>
-                  <textarea required value={compose.message} onChange={e => setCompose(p => ({ ...p, message: e.target.value }))}
-                    placeholder="Write the notification message here..." rows={3} style={{
-                      borderRadius: 8, border: '1.5px solid #d1d5db', padding: '10px 12px',
-                      fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', transition: 'border 0.15s',
-                    }} onFocus={e => e.target.style.borderColor = '#2563eb'} onBlur={e => e.target.style.borderColor = '#d1d5db'} />
-                </div>
-
-                {/* Send To — Checkboxes */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 0.3 }}>Send To *</label>
-                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                    {[
-                      { key: 'student', label: 'Students', emoji: '🎓' },
-                      { key: 'faculty', label: 'Faculty', emoji: '👨‍🏫' },
-                      { key: 'admin', label: 'Admin', emoji: '🛡️' },
-                      { key: 'finance', label: 'Finance', emoji: '💰' },
-                    ].map(r => (
-                      <label key={r.key} style={{
-                        display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                        padding: '6px 14px', borderRadius: 8,
-                        border: `1.5px solid ${compose.receivers[r.key] ? '#2563eb' : '#e5e7eb'}`,
-                        background: compose.receivers[r.key] ? '#eff6ff' : '#fff',
-                        fontSize: 13, fontWeight: 600, color: compose.receivers[r.key] ? '#1e40af' : '#6b7280',
-                        transition: 'all 0.15s',
-                      }}>
-                        <input type="checkbox" checked={compose.receivers[r.key]}
-                          onChange={e => setCompose(p => ({ ...p, receivers: { ...p.receivers, [r.key]: e.target.checked } }))}
-                          style={{ accentColor: '#2563eb', width: 15, height: 15 }} />
-                        <span>{r.emoji}</span> {r.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Module + Priority row */}
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 0.3 }}>Module</label>
-                    <select value={compose.module} onChange={e => setCompose(p => ({ ...p, module: e.target.value }))} style={{
-                      height: 40, borderRadius: 8, border: '1.5px solid #d1d5db', padding: '0 10px',
-                      fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer',
-                    }}>
-                      <option value="Academic">📚 Academic</option>
-                      <option value="Finance">💰 Finance</option>
-                      <option value="Administrative">🏫 Administrative</option>
-                      <option value="Exams">📝 Exams</option>
-                      <option value="System">🔧 System</option>
-                      <option value="Alerts">🚨 Alerts</option>
-                    </select>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', letterSpacing: 0.3 }}>Priority</label>
-                    <select value={compose.priority} onChange={e => setCompose(p => ({ ...p, priority: e.target.value }))} style={{
-                      height: 40, borderRadius: 8, border: '1.5px solid #d1d5db', padding: '0 10px',
-                      fontSize: 13, outline: 'none', background: '#fff', cursor: 'pointer',
-                    }}>
-                      <option value="Low">🟢 Low</option>
-                      <option value="Medium">🟡 Medium</option>
-                      <option value="High">🟠 High</option>
-                      <option value="Critical">🔴 Critical</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Send button */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
-                  <button type="button" onClick={() => { setShowCompose(false); resetCompose(); }} style={{
-                    height: 40, padding: '0 20px', borderRadius: 8, border: '1.5px solid #e5e7eb',
-                    background: '#fff', color: '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  }}>Cancel</button>
-                  <button type="submit" disabled={sending || !Object.values(compose.receivers).some(v => v)} style={{
-                    height: 40, padding: '0 24px', borderRadius: 8, border: 'none',
-                    background: sending ? '#93c5fd' : '#2563eb', color: '#fff',
-                    fontSize: 13, fontWeight: 700, cursor: sending ? 'wait' : 'pointer',
-                    boxShadow: '0 2px 8px rgba(37,99,235,0.3)', transition: 'all 0.15s',
-                  }}>{sending ? 'Sending...' : '✉ Send Notification'}</button>
-                </div>
-              </form>
-            )}
 
             {/* Divider */}
             <div style={{ height: 1, background: '#f3f4f6', margin: '12px 0 0' }} />
@@ -892,6 +795,8 @@ export default function NotificationsPage({ role: propRole }) {
               </span>
             </div>
           )}
-    </Layout>
+        </main>
+      </div>
+    </>
   );
 }

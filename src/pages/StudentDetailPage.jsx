@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { fetchStudentById } from '../api/studentsApi'
+import { getStudentById } from '../data/studentData'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
@@ -519,25 +519,8 @@ export default function StudentDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
-  const [student, setStudent] = useState(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchStudentById(decodeURIComponent(id)).then(data => {
-      setStudent(data)
-      setLoading(false)
-    })
-  }, [id])
-
-  if (loading) {
-    return (
-      <DashboardLayout title="Loading..." showProfileHeader={false}>
-        <div className="flex items-center justify-center py-24">
-          <p className="text-slate-500">Loading student data...</p>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  const student = getStudentById(decodeURIComponent(id))
 
   if (!student) {
     return (
