@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import Layout from '../components/Layout'
+import DashboardLayout from '../components/DashboardLayout'
 import StatCard from '../components/StatCard'
 import SearchFilter from '../components/SearchFilter'
 import StudentTable from '../components/StudentTable'
@@ -56,17 +56,11 @@ export default function StudentsPage() {
   }
 
   return (
-    <Layout title="Students">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Students</h1>
-          <p className="text-slate-500 mt-1">Manage and monitor comprehensive student enrollment records.</p>
-        </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 hidden xl:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-600">March 12, 2026 • 10:25 AM</p>
-        </div>
-      </div>
+    <DashboardLayout 
+      title="Students" 
+      subtitle="Manage and monitor comprehensive student enrollment records."
+      showProfileHeader={false}
+    >
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -146,6 +140,6 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
-    </Layout>
+    </DashboardLayout>
   )
 }

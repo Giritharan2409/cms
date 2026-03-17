@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import Layout from '../components/Layout'
+import DashboardLayout from '../components/DashboardLayout'
 import { fetchStudentById } from '../api/studentsApi'
 
 // ─── Tab Components ──────────────────────────────────────────────
@@ -531,17 +531,17 @@ export default function StudentDetailPage() {
 
   if (loading) {
     return (
-      <Layout title="Loading...">
+      <DashboardLayout title="Loading..." showProfileHeader={false}>
         <div className="flex items-center justify-center py-24">
           <p className="text-slate-500">Loading student data...</p>
         </div>
-      </Layout>
+      </DashboardLayout>
     )
   }
 
   if (!student) {
     return (
-      <Layout title="Student Not Found">
+      <DashboardLayout title="Student Not Found" showProfileHeader={false}>
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">person_off</span>
           <h2 className="text-xl font-bold text-slate-700 mb-2">Student Not Found</h2>
@@ -553,12 +553,15 @@ export default function StudentDetailPage() {
             Back to Students
           </button>
         </div>
-      </Layout>
+      </DashboardLayout>
     )
   }
 
   return (
-    <Layout title={`Students / ${student.name}`}>
+    <DashboardLayout 
+      title={`Students / ${student.name}`} 
+      showProfileHeader={false}
+    >
       {/* Top Navigation Row */}
       <div className="flex items-center justify-between mb-8">
         <button 
@@ -683,6 +686,6 @@ export default function StudentDetailPage() {
         {activeTab === 'fees' && <FeesTab student={student} />}
         {activeTab === 'documents' && <DocumentsTab student={student} />}
       </div>
-    </Layout>
+    </DashboardLayout>
   )
 }
