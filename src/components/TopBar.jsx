@@ -53,7 +53,14 @@ export default function TopBar({ title }) {
             <span className="material-symbols-outlined text-[24px]">settings</span>
           </button>
         </div>
-        <div className="flex items-center gap-4 border-l border-slate-100 pl-6 cursor-pointer group">
+        <div
+          className="flex items-center gap-4 border-l border-slate-100 pl-6 cursor-pointer group"
+          onClick={() => navigate(`/settings?role=${encodeURIComponent(role)}`)}
+          role="button"
+          tabIndex={0}
+          aria-label="Open settings"
+          onKeyDown={(e) => e.key === 'Enter' && navigate(`/settings?role=${encodeURIComponent(role)}`)}
+        >
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-[#1e293b]">{userName}</p>
             <p className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider">{roleLabel}</p>

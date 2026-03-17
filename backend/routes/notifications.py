@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 
 @router.get("/{role}")
-async def list_notifications(role: str, limit: int | None = None, search: str | None = None):
+async def list_notifications(role: str, limit: int | None = None, search: str | None = None, user_id: str | None = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -24,13 +24,16 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
             data, unread_count = list_dev_notifications(role, limit, search)
             return {"success": True, "role": role, "data": data, "count": len(data), "unreadCount": unread_count}
         raise
-    query = {
-        "$or": [
-            {"receiverRole": role},
-            {"receiverRole": "ALL"},
-            {"senderRole": role},
-        ]
-    }
+
+    # Build base query: notifications addressed to this role or to this specific user
+    role_conditions = [
+        {"receiverRole": role},
+        {"receiverRole": "ALL"},
+    ]
+    if user_id:
+        role_conditions.append({"receiverIds": user_id})
+
+    query = {"$or": role_conditions}
 
     if search:
         query["$and"] = [
@@ -50,13 +53,17 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
     async for row in cursor:
         data.append(serialize_doc(row))
 
+    # Unread count: only notifications the user received (not sent)
+    unread_role_conditions = [
+        {"receiverRole": role},
+        {"receiverRole": "ALL"},
+    ]
+    if user_id:
+        unread_role_conditions.append({"receiverIds": user_id})
+
     unread_count = await db["notifications"].count_documents(
         {
-            "$or": [
-                {"receiverRole": role},
-                {"receiverRole": "ALL"},
-                {"senderRole": role},
-            ],
+            "$or": unread_role_conditions,
             "status": "unread",
         }
     )
@@ -71,20 +78,25 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
 
 
 @router.get("/{role}/unread")
-async def unread_count(role: str):
+async def unread_count(role: str, user_id: str | None = None):
     try:
         db = get_db()
     except HTTPException as error:
         if error.status_code == 503:
             return {"success": True, "role": role, "unreadCount": unread_dev_notifications(role)}
         raise
+
+    # Only count notifications the user received (not sent by them)
+    conditions = [
+        {"receiverRole": role},
+        {"receiverRole": "ALL"},
+    ]
+    if user_id:
+        conditions.append({"receiverIds": user_id})
+
     unread = await db["notifications"].count_documents(
         {
-            "$or": [
-                {"receiverRole": role},
-                {"receiverRole": "ALL"},
-                {"senderRole": role},
-            ],
+            "$or": conditions,
             "status": "unread",
         }
     )
