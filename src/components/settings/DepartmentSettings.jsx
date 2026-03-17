@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { settingsApi } from '../../api/settingsApi';
 import SettingsActionBar from './SettingsActionBar';
 import SettingsToast from './SettingsToast';
@@ -18,6 +18,13 @@ export default function DepartmentSettings() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (modalOpen && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [modalOpen]);
 
   useEffect(() => {
     async function load() {
@@ -131,9 +138,22 @@ export default function DepartmentSettings() {
       </article>
 
       {modalOpen ? (
-        <div className="settings-modal-backdrop" onClick={closeModal} aria-hidden="true">
-          <div className="settings-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>{activeDepartment.id ? 'Edit Department' : 'Create Department'}</h3>
+        <div
+          className="settings-modal-backdrop"
+          onClick={closeModal}
+          aria-hidden="true"
+        >
+          <div
+            className="settings-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dept-modal-title"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => { if (event.key === 'Escape') closeModal(); }}
+            tabIndex={-1}
+            ref={modalRef}
+          >
+            <h3 id="dept-modal-title">{activeDepartment.id ? 'Edit Department' : 'Create Department'}</h3>
             <div className="settings-form-grid compact">
               <label>
                 Department Code

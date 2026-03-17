@@ -42,9 +42,9 @@ async def lifespan(app):
         
         # Add SSL/TLS configuration for MongoDB Atlas
         if MONGODB_URI and "mongodb+srv" in MONGODB_URI:
-            # For development, allow invalid certificates
-            # This resolves SSL/TLS handshake issues on some Windows systems
-            connection_kwargs["tlsInsecure"] = True
+            # tlsInsecure skips certificate verification — only enable explicitly for local dev
+            if os.getenv("MONGODB_TLS_INSECURE", "false").lower() == "true":
+                connection_kwargs["tlsInsecure"] = True
         
         client = AsyncIOMotorClient(MONGODB_URI, **connection_kwargs)
         await client.admin.command("ping")

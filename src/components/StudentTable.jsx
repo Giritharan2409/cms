@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
-export default function StudentTable({ students }) {
+export default function StudentTable({ students, onEdit, onDelete }) {
   const navigate = useNavigate()
 
   const statusStyles = {
@@ -80,10 +80,18 @@ export default function StudentTable({ students }) {
                 </td>
                 <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-end gap-2">
-                    <button className="p-1.5 text-slate-400 hover:text-[#1162d4] hover:bg-[#1162d4]/10 rounded-lg transition-colors">
+                    <button
+                      className="p-1.5 text-slate-400 hover:text-[#1162d4] hover:bg-[#1162d4]/10 rounded-lg transition-colors"
+                      onClick={() => onEdit && onEdit(s)}
+                      aria-label={`Edit ${s.name}`}
+                    >
                       <span className="material-symbols-outlined text-lg">edit</span>
                     </button>
-                    <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      onClick={() => onDelete && onDelete(s)}
+                      aria-label={`Delete ${s.name}`}
+                    >
                       <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
                   </div>

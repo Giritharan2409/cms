@@ -2,6 +2,8 @@
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel
 
 from backend.db import get_db
 from backend.schemas.notifications import NotificationAutoTrigger
@@ -11,14 +13,21 @@ from backend.utils.websocket_manager import connection_manager
 router = APIRouter(prefix="/api/fees", tags=["finance:fees"])
 
 
-class FeeCreate:
+class FeeCreate(BaseModel):
     """Fee creation model"""
-    feeType: str  # 'tuition', 'hostel', 'transport', etc.
+    feeType: str
     amount: float
-    dueDate: str  # ISO date string
-    studentIds: list[str]  # Students affected
-    description: str | None = None
+    dueDate: str  # ISO date string e.g. "2026-04-15"
+    studentIds: list[str] = []
+    description: Optional[str] = None
     notify: bool = False  # Send notification on creation
+
+
+class FeeUpdate(BaseModel):
+    """Fee update model"""
+    status: Optional[str] = None
+    dueDate: Optional[str] = None
+    amount: Optional[float] = None
 
 
 @router.get("")
@@ -36,7 +45,7 @@ async def list_fees():
 
 
 @router.post("")
-async def create_fee(payload: dict):
+async def create_fee(payload: FeeCreate):
     """
     Create a new fee with optional auto-notification.
     
@@ -59,11 +68,11 @@ async def create_fee(payload: dict):
         }
     
     fee_data = {
-        "feeType": payload.get("feeType"),
-        "amount": payload.get("amount"),
-        "dueDate": datetime.fromisoformat(payload.get("dueDate")),
-        "studentIds": payload.get("studentIds", []),
-        "description": payload.get("description"),
+        "feeType": payload.feeType,
+        "amount": payload.amount,
+        "dueDate": datetime.fromisoformat(payload.dueDate),
+        "studentIds": payload.studentIds,
+        "description": payload.description,
         "status": "pending",
         "notified": False,
         "createdAt": datetime.utcnow(),
@@ -74,8 +83,8 @@ async def create_fee(payload: dict):
     created_doc = serialize_doc(created)
     
     # Send notification if requested
-    should_notify = payload.get("notify", False)
-    student_ids = payload.get("studentIds", [])
+    should_notify = payload.notify
+    student_ids = payload.studentIds
     
     if should_notify and student_ids:
         # Notify students
@@ -152,7 +161,7 @@ async def create_fee(payload: dict):
 
 
 @router.put("/{fee_id}")
-async def update_fee(fee_id: str, payload: dict):
+async def update_fee(fee_id: str, payload: FeeUpdate):
     """Update a fee"""
     try:
         db = get_db()
@@ -160,12 +169,12 @@ async def update_fee(fee_id: str, payload: dict):
         return {"success": True, "message": "Fee updated"}
     
     update_data = {}
-    if "status" in payload:
-        update_data["status"] = payload["status"]
-    if "dueDate" in payload:
-        update_data["dueDate"] = datetime.fromisoformat(payload["dueDate"])
-    if "amount" in payload:
-        update_data["amount"] = payload["amount"]
+    if payload.status is not None:
+        update_data["status"] = payload.status
+    if payload.dueDate is not None:
+        update_data["dueDate"] = datetime.fromisoformat(payload.dueDate)
+    if payload.amount is not None:
+        update_data["amount"] = payload.amount
     
     updated = await db["fees"].find_one_and_update(
         {"_id": parse_object_id(fee_id)},

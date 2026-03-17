@@ -2,20 +2,28 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * Hook for real-time WebSocket notifications
- * Connects to ws://localhost:5000/api/notifications/ws/{userId}
+ * Connects to ws(s)://<API host>/api/notifications/ws/{userId}
  * Receives notifications in real-time
  */
 export function useRealtimeNotifications(userId) {
   const [notifications, setNotifications] = useState([])
   const [isConnected, setIsConnected] = useState(false)
   const wsRef = useRef(null)
+  const pingIntervalRef = useRef(null)
+  const reconnectTimeoutRef = useRef(null)
 
   useEffect(() => {
     if (!userId) return
 
-    // Construct WebSocket URL
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//127.0.0.1:5000/api/notifications/ws/${userId}`
+    // Build WebSocket URL from the configured API base or fall back to same host
+    const apiBase = import.meta.env.VITE_API_BASE_URL || ''
+    let wsUrl
+    if (apiBase) {
+      wsUrl = apiBase.replace(/^http/, 'ws') + `/api/notifications/ws/${userId}`
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsUrl = `${protocol}//${window.location.host}/api/notifications/ws/${userId}`
+    }
 
     // Connect to WebSocket
     const ws = new WebSocket(wsUrl)
@@ -25,12 +33,11 @@ export function useRealtimeNotifications(userId) {
       console.log('✓ Connected to notification WebSocket')
       setIsConnected(true)
       // Send keep-alive ping every 30 seconds
-      const interval = setInterval(() => {
+      pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send('ping')
         }
       }, 30000)
-      return () => clearInterval(interval)
     }
 
     ws.onmessage = (event) => {
@@ -68,14 +75,15 @@ export function useRealtimeNotifications(userId) {
     ws.onclose = () => {
       console.log('✗ Disconnected from notification WebSocket')
       setIsConnected(false)
-      // Attempt to reconnect after 5 seconds
-      const timeout = setTimeout(() => {
+      clearInterval(pingIntervalRef.current)
+      pingIntervalRef.current = null
+      // Schedule a reconnect attempt after 5 seconds (handled by re-triggering the effect)
+      reconnectTimeoutRef.current = setTimeout(() => {
         if (wsRef.current?.readyState === WebSocket.CLOSED) {
           console.log('Reconnecting to WebSocket...')
           // This will be handled by the component remount or a manual reconnect
         }
       }, 5000)
-      return () => clearTimeout(timeout)
     }
 
     ws.onerror = (error) => {
@@ -83,9 +91,13 @@ export function useRealtimeNotifications(userId) {
       setIsConnected(false)
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount or userId change
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      clearInterval(pingIntervalRef.current)
+      pingIntervalRef.current = null
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close()
       }
     }

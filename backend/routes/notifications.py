@@ -15,8 +15,16 @@ from backend.utils.mongo import parse_object_id, serialize_doc
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 
+def _build_receiver_query(role: str, user_id: str | None) -> dict:
+    """Build a MongoDB query that matches notifications for a given role and/or user."""
+    clauses = [{"receiverRole": role}, {"receiverRole": "ALL"}]
+    if user_id:
+        clauses.append({"receiverIds": user_id})
+    return {"$or": clauses}
+
+
 @router.get("/{role}")
-async def list_notifications(role: str, limit: int | None = None, search: str | None = None):
+async def list_notifications(role: str, limit: int | None = None, search: str | None = None, user_id: str | None = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -24,13 +32,7 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
             data, unread_count = list_dev_notifications(role, limit, search)
             return {"success": True, "role": role, "data": data, "count": len(data), "unreadCount": unread_count}
         raise
-    query = {
-        "$or": [
-            {"receiverRole": role},
-            {"receiverRole": "ALL"},
-            {"senderRole": role},
-        ]
-    }
+    query = _build_receiver_query(role, user_id)
 
     if search:
         query["$and"] = [
@@ -51,14 +53,7 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
         data.append(serialize_doc(row))
 
     unread_count = await db["notifications"].count_documents(
-        {
-            "$or": [
-                {"receiverRole": role},
-                {"receiverRole": "ALL"},
-                {"senderRole": role},
-            ],
-            "status": "unread",
-        }
+        {**_build_receiver_query(role, user_id), "status": "unread"}
     )
 
     return {
@@ -71,7 +66,7 @@ async def list_notifications(role: str, limit: int | None = None, search: str | 
 
 
 @router.get("/{role}/unread")
-async def unread_count(role: str):
+async def unread_count(role: str, user_id: str | None = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -79,14 +74,7 @@ async def unread_count(role: str):
             return {"success": True, "role": role, "unreadCount": unread_dev_notifications(role)}
         raise
     unread = await db["notifications"].count_documents(
-        {
-            "$or": [
-                {"receiverRole": role},
-                {"receiverRole": "ALL"},
-                {"senderRole": role},
-            ],
-            "status": "unread",
-        }
+        {**_build_receiver_query(role, user_id), "status": "unread"}
     )
     return {"success": True, "role": role, "unreadCount": unread}
 
