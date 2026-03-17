@@ -4,6 +4,7 @@ import { getUserSession } from '../auth/sessionController';
 import RoleGuard from '../components/RoleGuard';
 import SettingsLayout from '../components/settings/SettingsLayout';
 import UserSettingsPage from '../components/user-settings/SettingsPage';
+import Layout from '../components/Layout';
 import { cmsRoles } from '../data/roleConfig';
 import '../settings.css';
 import '../user-settings.css';
@@ -32,17 +33,21 @@ export default function SettingsPage() {
 
   if (role === 'student' || role === 'faculty') {
     return (
-      <RoleGuard roles={['student', 'faculty']}>
-        <UserSettingsPage role={role} userId={session.userId} />
-      </RoleGuard>
+      <Layout title="">
+        <RoleGuard roles={['student', 'faculty']}>
+          <UserSettingsPage role={role} userId={session.userId} />
+        </RoleGuard>
+      </Layout>
     );
   }
 
   if (role === 'admin' || role === 'finance') {
     return (
-      <RoleGuard roles={['admin', 'finance']}>
-        <SettingsLayout role={role} userId={session.userId} />
-      </RoleGuard>
+      <Layout title="">
+        <RoleGuard roles={['admin', 'finance']}>
+          <SettingsLayout role={role} userId={session.userId} />
+        </RoleGuard>
+      </Layout>
     );
   }
 
