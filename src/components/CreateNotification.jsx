@@ -10,18 +10,18 @@ const ROLES = [
 ];
 
 const MODULES = [
-  { value: 'Academic', label: 'Academic' },
-  { value: 'Finance', label: 'Finance' },
-  { value: 'Administrative', label: 'Administrative' },
-  { value: 'System', label: 'System' },
-  { value: 'Alerts', label: 'Alerts' }
+  { value: 'exam', label: 'Academic' },
+  { value: 'fee', label: 'Finance' },
+  { value: 'announcement', label: 'Administrative' },
+  { value: 'system', label: 'System' },
+  { value: 'alert', label: 'Alerts' }
 ];
 
 const PRIORITIES = [
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' },
-  { value: 'Critical', label: 'Critical' }
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' }
 ];
 
 export default function CreateNotification({ senderRole, onNotificationCreated }) {
@@ -29,8 +29,8 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
     title: '',
     message: '',
     receiverRole: 'student',
-    module: 'Academic',
-    priority: 'Medium',
+    module: 'exam',
+    priority: 'medium',
     actionId: '',
   });
   const [loading, setLoading] = useState(false);
@@ -52,13 +52,17 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
     setLoading(true);
 
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch('/api/notifications/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          ...formData,
+          title: formData.title,
+          message: formData.message,
+          category: formData.module,
+          priority: formData.priority,
+          receiverRole: formData.receiverRole,
           senderRole
         })
       });
@@ -74,8 +78,8 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
         title: '',
         message: '',
         receiverRole: 'student',
-        module: 'Academic',
-        priority: 'Medium',
+        module: 'exam',
+        priority: 'medium',
         actionId: '',
       });
 

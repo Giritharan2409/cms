@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PriorityBadge from './PriorityBadge';
 import './NotificationDropdown.css';
 
-export default function NotificationDropdown({ role = 'student', isOpen = false, onClose }) {
+export default function NotificationDropdown({ role = 'student', userId = '', isOpen = false, onClose }) {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -12,7 +14,12 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/notifications/${role}?limit=5`);
+        const params = new URLSearchParams();
+        params.append('limit', '5');
+        if (userId) {
+          params.append('userId', userId);
+        }
+        const response = await fetch(`/api/notifications/${role}?${params.toString()}`);
         const data = await response.json();
         setNotifications(data.data || []);
         setLoading(false);
@@ -23,13 +30,13 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
     };
 
     fetchNotifications();
-  }, [isOpen, role]);
+  }, [isOpen, role, userId]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {
       await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
       setNotifications(notifications.map(n =>
-        n.id === notificationId ? { ...n, status: 'read' } : n
+        (n.id || n._id) === notificationId ? { ...n, status: 'read' } : n
       ));
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -39,7 +46,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
   const handleDelete = async (notificationId) => {
     try {
       await fetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
-      setNotifications(notifications.filter(n => n.id !== notificationId));
+      setNotifications(notifications.filter(n => (n.id || n._id) !== notificationId));
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
@@ -65,7 +72,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
             <ul className="notification-list">
               {notifications.slice(0, 5).map(notif => (
                 <li
-                  key={notif.id}
+                  key={notif.id || notif._id}
                   className={`notification-item ${notif.status === 'unread' ? 'unread' : ''}`}
                 >
                   <div className="notification-item-header">
@@ -77,7 +84,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
                     {notif.status === 'unread' && (
                       <button
                         className="notification-action-btn"
-                        onClick={() => handleMarkAsRead(notif.id)}
+                        onClick={() => handleMarkAsRead(notif.id || notif._id)}
                         title="Mark as read"
                       >
                         Mark Read
@@ -85,7 +92,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
                     )}
                     <button
                       className="notification-action-btn danger"
-                      onClick={() => handleDelete(notif.id)}
+                      onClick={() => handleDelete(notif.id || notif._id)}
                       title="Delete notification"
                     >
                       Delete
@@ -103,7 +110,8 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
         <div className="notification-dropdown-footer">
           <a href="#" className="view-all-link" onClick={(e) => {
             e.preventDefault();
-            window.location.href = `/notifications?role=${encodeURIComponent(role)}`;
+            onClose?.();
+            navigate(`/notifications?role=${encodeURIComponent(role)}`);
           }}>
             View All Notifications →
           </a>

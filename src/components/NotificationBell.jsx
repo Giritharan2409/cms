@@ -6,11 +6,20 @@ export default function NotificationBell({ role = 'student', onBellClick }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch unread count
     const fetchUnreadCount = async () => {
       try {
-        const response = await fetch(`/api/notifications/${role}/unread`);
-        const data = await response.json();
+        const params = new URLSearchParams();
+        const sessionUserId = localStorage.getItem('cmsUserId') || sessionStorage.getItem('cmsUserId');
+        if (sessionUserId) {
+          params.append('userId', sessionUserId);
+        }
+        const suffix = params.toString() ? `?${params.toString()}` : '';
+        const response = await fetch(`/api/notifications/${role}/unread${suffix}`);
+        const raw = await response.text();
+        const data = raw ? JSON.parse(raw) : {};
+        if (!response.ok) {
+          throw new Error(data?.error || `Failed with status ${response.status}`);
+        }
         setUnreadCount(data.unreadCount || 0);
         setLoading(false);
       } catch (error) {
@@ -21,9 +30,18 @@ export default function NotificationBell({ role = 'student', onBellClick }) {
 
     fetchUnreadCount();
 
+    const handleRealtimeNotification = () => {
+      fetchUnreadCount();
+    };
+
+    window.addEventListener('notification-received', handleRealtimeNotification);
+
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notification-received', handleRealtimeNotification);
+    };
   }, [role]);
 
   return (
