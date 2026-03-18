@@ -153,18 +153,6 @@ export default function PlacementPage({ noLayout = false }) {
         </div>
       )}
 
-      {isStudent && !hasStudentEntry && (
-        <div className="mb-6 bg-white rounded-xl border border-dashed border-slate-300 p-10 shadow-sm text-center">
-          <p className="text-slate-600 text-sm mb-4">You have not added any placement record yet.</p>
-          <button
-            onClick={openAddModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>Add Placement Record
-          </button>
-        </div>
-      )}
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         {[
@@ -249,7 +237,17 @@ export default function PlacementPage({ noLayout = false }) {
           <tbody className="divide-y divide-slate-100">
             {filteredEntries.length === 0 && (
               <tr>
-                <td colSpan={(isAdmin || isStudent) ? 7 : 6} className="px-6 py-10 text-center text-slate-400 text-sm">No records found</td>
+                <td colSpan={(isAdmin || isStudent) ? 7 : 6} className="px-6 py-10 text-center text-sm">
+                  <p className="text-slate-400">No records found</p>
+                  {(isAdmin || isStudent) && (
+                    <button
+                      onClick={openAddModal}
+                      className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-lg">add</span>Add Placement Record
+                    </button>
+                  )}
+                </td>
               </tr>
             )}
             {filteredEntries.map((p, i) => (
