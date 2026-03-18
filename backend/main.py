@@ -34,7 +34,7 @@ app.add_middleware(
 # -------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DIST_DIR = BASE_DIR / "dist"
+DIST_DIR = BASE_DIR / "frontend" / "dist"
 DIST_ASSETS_DIR = DIST_DIR / "assets"
 DIST_INDEX_FILE = DIST_DIR / "index.html"
 
