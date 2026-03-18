@@ -3,6 +3,7 @@ setlocal EnableDelayedExpansion
 
 set "ROOT_DIR=%~dp0"
 set "BACKEND_DIR=%ROOT_DIR%backend"
+set "MONGODB_URI=mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
 
 echo =============================================
 echo MIT Connect startup script

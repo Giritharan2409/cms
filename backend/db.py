@@ -8,7 +8,8 @@ from urllib.parse import urlsplit
 
 load_dotenv()
 
-MONGODB_URI = os.getenv("MONGODB_URI")
+DEFAULT_MONGODB_URI = "mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)
 
 client: AsyncIOMotorClient | None = None
 db = None
@@ -27,6 +28,18 @@ def mask_mongodb_uri(uri: str | None) -> str:
         return "<configured>"
 
 
+def resolve_database_name(uri: str | None) -> str:
+    try:
+        parts = urlsplit(uri or "")
+        db_name = (parts.path or "").lstrip("/")
+        if db_name:
+            return db_name
+    except Exception:
+        pass
+
+    return "College_db"
+
+
 @asynccontextmanager
 async def lifespan(app):
     global client, db
@@ -37,11 +50,11 @@ async def lifespan(app):
         await client.admin.command("ping")
 
         try:
-            db = client["cms"] if "mongodb.net" in str(MONGODB_URI) else client.get_database()
-            if db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
-                db = client["cms"]
+            db = client.get_default_database()
+            if db.name == "test":
+                db = client[resolve_database_name(MONGODB_URI)]
         except Exception:
-            db = client["cms"]
+            db = client[resolve_database_name(MONGODB_URI)]
 
 
 

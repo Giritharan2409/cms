@@ -45,17 +45,17 @@ async function request(path, options = {}) {
 
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(payload?.message || 'Failed to communicate with settings service.');
+      throw new Error(payload?.message || 'Unable to load settings. Please try again.');
     }
 
     return payload;
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('Settings service request timed out. Ensure backend is running on http://localhost:5000.');
+      throw new Error('Unable to load settings. Please try again.');
     }
 
     if (error instanceof TypeError) {
-      throw new Error('Settings service is unavailable. Start backend server on http://localhost:5000 and retry.');
+      throw new Error('Unable to load settings. Please try again.');
     }
 
     throw error;

@@ -182,7 +182,7 @@ export default function DashboardPage() {
                           event.preventDefault();
                           if (item.toLowerCase() === 'settings') {
                             setSidebarOpen(false);
-                            navigate(`/settings?role=${encodeURIComponent(role)}`);
+                            navigate(`/${role}/settings`);
                           } else if (item.toLowerCase() === 'students') {
                             setSidebarOpen(false);
                             navigate(`/students?role=${encodeURIComponent(role)}`);

@@ -9,6 +9,10 @@ import ExamsPage from './pages/ExamsPage';
 import PlacementPage from './pages/PlacementPage';
 import FacilityPage from './pages/FacilityPage';
 import SettingsPage from './pages/SettingsPage';
+import StudentSettings from './pages/student/StudentSettings';
+import AdminSettings from './pages/admin/AdminSettings';
+import FacultySettings from './pages/faculty/FacultySettings';
+import FinanceSettings from './pages/finance/FinanceSettings';
 import StudentsPage from './pages/StudentsPage';
 import StudentDetailPage from './pages/StudentDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -39,6 +43,10 @@ export default function App() {
       <Route path="/placement" element={<ProtectedRoute allowedRoles={['admin', 'faculty']}><PlacementPage /></ProtectedRoute>} />
       <Route path="/facility" element={<ProtectedRoute allowedRoles={['admin']}><FacilityPage /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+      <Route path="/student/settings" element={<ProtectedRoute allowedRoles={['student']}><StudentSettings /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
+      <Route path="/faculty/settings" element={<ProtectedRoute allowedRoles={['faculty']}><FacultySettings /></ProtectedRoute>} />
+      <Route path="/finance/settings" element={<ProtectedRoute allowedRoles={['finance']}><FinanceSettings /></ProtectedRoute>} />
       <Route
         path="/settings"
         element={

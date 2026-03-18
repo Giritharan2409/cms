@@ -19,7 +19,6 @@ const NAV_ITEM_MAP = {
   'Payroll':       { to: '/payroll',       icon: 'account_balance_wallet' },
   'Analytics':     { to: '/analytics',     icon: 'analytics' },
   'Notifications': { to: '/notifications', icon: 'notifications' },
-  'Settings':      { to: '/settings',      icon: 'settings' },
 }
 
 export default function AcademicSidebar({ isSidebarVisible, onToggleSidebar }) {
@@ -76,7 +75,9 @@ export default function AcademicSidebar({ isSidebarVisible, onToggleSidebar }) {
               </p>
               <div className="space-y-1">
                 {group.items.map((itemName) => {
-                  const config = NAV_ITEM_MAP[itemName]
+                  const config = itemName === 'Settings'
+                    ? { to: `/${role}/settings`, icon: 'settings' }
+                    : NAV_ITEM_MAP[itemName]
                   if (!config) return null
                   return (
                     <NavLink

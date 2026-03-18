@@ -45,7 +45,7 @@ export default function TopBar({ title }) {
           <button
             type="button"
             className="p-2.5 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"
-            onClick={() => navigate(`/settings?role=${encodeURIComponent(role)}`)}
+            onClick={() => navigate(`/${role}/settings`)}
             aria-label="Open settings"
           >
             <span className="material-symbols-outlined text-[24px]">settings</span>
