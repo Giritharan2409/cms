@@ -3,11 +3,22 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
+from passlib.context import CryptContext
 
 from backend.db import get_db
 from backend.dev_store import create_notification as create_dev_notification
 
 router = APIRouter(tags=["settings"])
+
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(plain: str) -> str:
+    return _pwd_context.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return _pwd_context.verify(plain, hashed)
 
 SETTINGS_COLLECTION = "role_settings"
 ADMIN_COLLECTION = "admin_settings"
@@ -37,6 +48,11 @@ DEFAULT_PASSWORD_BY_USER_ID = {
     "ADM-0001": "admin123",
     "FAC-204": "faculty123",
     "FIN-880": "finance123",
+}
+
+_DEFAULT_HASHED_PASSWORDS = {
+    user_id: hash_password(plain)
+    for user_id, plain in DEFAULT_PASSWORD_BY_USER_ID.items()
 }
 
 STUDENT_FACULTY_MAP = {
@@ -133,12 +149,7 @@ DEV_SETTINGS = {
     "finance": {
         "FIN-880": deepcopy(DEFAULT_FINANCE_SETTINGS),
     },
-    "passwords": {
-        "STU-2024-1547": "student123",
-        "ADM-0001": "admin123",
-        "FAC-204": "faculty123",
-        "FIN-880": "finance123",
-    },
+    "passwords": dict(_DEFAULT_HASHED_PASSWORDS),
     "credential_requests": [],
     "credential_audit": [],
 }
@@ -356,23 +367,26 @@ async def upsert_admin_section(section: str, defaults: dict, patch: dict) -> dic
 async def load_password(user_id: str, fallback: str) -> str:
     db = get_db_or_none()
     if db is None:
-        return DEV_SETTINGS["passwords"].get(user_id, fallback)
+        if user_id in DEV_SETTINGS["passwords"]:
+            return DEV_SETTINGS["passwords"][user_id]
+        return _DEFAULT_HASHED_PASSWORDS.get(user_id) or hash_password(fallback)
 
     doc = await db[PASSWORD_COLLECTION].find_one({"user_id": user_id})
-    if not doc:
-        return fallback
-    return str(doc.get("password", fallback))
+    if doc:
+        return str(doc.get("password", ""))
+    return _DEFAULT_HASHED_PASSWORDS.get(user_id) or hash_password(fallback)
 
 
 async def upsert_password(user_id: str, password: str) -> None:
+    hashed = hash_password(password)
     db = get_db_or_none()
     if db is None:
-        DEV_SETTINGS["passwords"][user_id] = password
+        DEV_SETTINGS["passwords"][user_id] = hashed
         return
 
     await db[PASSWORD_COLLECTION].update_one(
         {"user_id": user_id},
-        {"$set": {"user_id": user_id, "password": password}},
+        {"$set": {"user_id": user_id, "password": hashed}},
         upsert=True,
     )
 
@@ -822,7 +836,13 @@ async def log_direct_admin_change(actor: dict, change_type: str, old_values: dic
 
 
 @router.get("/api/student/settings/{user_id}")
-async def get_student_settings(user_id: str):
+async def get_student_settings(
+    user_id: str,
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_self(actor, ROLE_STUDENT, user_id)
     return await load_user_settings(ROLE_STUDENT, user_id, DEFAULT_STUDENT_SETTINGS)
 
 
@@ -855,7 +875,13 @@ async def update_student_settings(
 
 
 @router.get("/api/admin/profile/{user_id}")
-async def get_admin_profile(user_id: str):
+async def get_admin_profile(
+    user_id: str,
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_self(actor, ROLE_ADMIN, user_id)
     defaults = deep_merge(DEFAULT_ADMIN_PROFILE, {"adminId": user_id})
     return await load_user_settings(ROLE_ADMIN, user_id, defaults)
 
@@ -899,7 +925,7 @@ async def change_admin_password(
         raise HTTPException(status_code=400, detail="currentPassword and newPassword are required")
 
     existing_password = await load_password(user_id, "admin123")
-    if existing_password != current_password:
+    if not verify_password(current_password, existing_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     if len(new_password) < 8:
@@ -938,7 +964,7 @@ async def change_role_password(
 
     fallback = DEFAULT_PASSWORD_BY_USER_ID.get(user_id, "password123")
     existing_password = await load_password(user_id, fallback)
-    if existing_password != old_password:
+    if not verify_password(old_password, existing_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     if len(new_password) < 8:
@@ -1078,7 +1104,12 @@ async def export_credential_audit(
 
 
 @router.get("/api/admin/system")
-async def get_admin_system_settings():
+async def get_admin_system_settings(
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_admin(actor)
     return await load_admin_section("system", DEFAULT_ADMIN_SYSTEM)
 
 
@@ -1094,7 +1125,12 @@ async def update_admin_system_settings(
 
 
 @router.get("/api/admin/academic")
-async def get_admin_academic_settings():
+async def get_admin_academic_settings(
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_admin(actor)
     return await load_admin_section("academic", DEFAULT_ADMIN_ACADEMIC)
 
 
@@ -1110,7 +1146,13 @@ async def update_admin_academic_settings(
 
 
 @router.get("/api/settings/faculty/{user_id}")
-async def get_faculty_settings(user_id: str):
+async def get_faculty_settings(
+    user_id: str,
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_self(actor, ROLE_FACULTY, user_id)
     return await load_user_settings(ROLE_FACULTY, user_id, DEFAULT_FACULTY_SETTINGS)
 
 
@@ -1157,7 +1199,13 @@ async def update_faculty_toggles(
 
 
 @router.get("/api/settings/finance/{user_id}")
-async def get_finance_settings(user_id: str):
+async def get_finance_settings(
+    user_id: str,
+    x_actor_user_id: str | None = Header(default=None, alias="X-Actor-UserId"),
+    x_actor_role: str | None = Header(default=None, alias="X-Actor-Role"),
+):
+    actor = require_actor(x_actor_user_id, x_actor_role)
+    ensure_self(actor, ROLE_FINANCE, user_id)
     return await load_user_settings(ROLE_FINANCE, user_id, DEFAULT_FINANCE_SETTINGS)
 
 

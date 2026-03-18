@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 dotenv_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
 load_dotenv(dotenv_path)
 
-DEFAULT_MONGODB_URI = "mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
 
 
 def resolve_database_name(uri: str) -> str:

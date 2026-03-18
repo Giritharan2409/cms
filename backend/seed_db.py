@@ -6,7 +6,7 @@ from pymongo import MongoClient
 
 load_dotenv()
 
-DEFAULT_MONGODB_URI = "mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
 MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)
 
 

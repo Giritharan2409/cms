@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { destroyUserSession } from '../../auth/sessionController';
+import { destroyUserSession, getUserSession } from '../../auth/sessionController';
 import { cmsRoles, roleMenuGroups } from '../../data/roleConfig';
+import { getStudentById } from '../../data/studentData';
 import NotificationBell from '../NotificationBell';
 import NotificationDropdown from '../NotificationDropdown';
 
@@ -56,6 +57,8 @@ const PORTAL_TITLE_MAP = {
   finance: 'EduCore Finance Portal',
 };
 
+const DEFAULT_STUDENT_USER_ID = 'STU-2024-1547';
+
 function getInitials(value, fallback = 'U') {
   if (!value) {
     return fallback;
@@ -83,8 +86,14 @@ function resolvePath(role, itemName) {
   switch (itemName) {
     case 'Dashboard':
       return `/dashboard${roleQuery}`;
+    case 'My Courses':
+      return '/courses';
+    case 'Department':
+      return '/department';
     case 'Students':
       return `/students${roleQuery}`;
+    case 'Faculty':
+      return '/faculty';
     case 'Exams':
       return '/exams';
     case 'Timetable':
@@ -95,6 +104,14 @@ function resolvePath(role, itemName) {
       return '/placement';
     case 'Facility':
       return '/facility';
+    case 'Fees':
+      return '/fees';
+    case 'Invoices':
+      return '/invoices';
+    case 'Admission':
+      return '/admission';
+    case 'Payroll':
+      return '/payroll';
     case 'Analytics':
       return '/analytics';
     case 'Notifications':
@@ -132,10 +149,23 @@ export default function RoleSettingsShell({
   const displayName = userName || cmsRoles[role]?.name || `${roleLabel} User`;
   const groups = useMemo(() => roleMenuGroups[role] || roleMenuGroups.student, [role]);
   const titleText = portalTitle || PORTAL_TITLE_MAP[role] || 'EduCore Portal';
+  const session = getUserSession();
 
   function handleLogout() {
     destroyUserSession();
     navigate('/', { replace: true });
+  }
+
+  function openProfileDetails() {
+    const roleQuery = `?role=${encodeURIComponent(role)}`;
+    if (role === 'student') {
+      const studentId = session?.userId;
+      const knownStudent = studentId ? getStudentById(studentId) : null;
+      const targetStudentId = knownStudent ? studentId : DEFAULT_STUDENT_USER_ID;
+      navigate(`/students/${encodeURIComponent(targetStudentId)}${roleQuery}`);
+      return;
+    }
+    navigate(`/students${roleQuery}`);
   }
 
   return (
@@ -248,7 +278,7 @@ export default function RoleSettingsShell({
               <button
                 type="button"
                 className="portal-user-chip"
-                onClick={() => navigate(`/students?role=${encodeURIComponent(role)}`)}
+                onClick={() => openProfileDetails()}
                 aria-label="Open profile details"
               >
                 <div className="portal-user-meta">

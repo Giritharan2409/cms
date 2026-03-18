@@ -3,7 +3,11 @@ setlocal EnableDelayedExpansion
 
 set "ROOT_DIR=%~dp0"
 set "BACKEND_DIR=%ROOT_DIR%backend"
-set "MONGODB_URI=mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+if not defined MONGODB_URI (
+  set "MONGODB_URI=mongodb://localhost:27017/College_db"
+  echo [INFO] MONGODB_URI not set. Defaulting to local MongoDB: mongodb://localhost:27017/College_db
+  echo [INFO] Set MONGODB_URI in your environment or a .env file to use a different database.
+)
 
 echo =============================================
 echo MIT Connect startup script
