@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { destroyUserSession } from '../../auth/sessionController';
-import { cmsRoles, roleMenuGroups } from '../../data/roleConfig';
+import { destroyUserSession, getUserSession } from '../../auth/sessionController';
+import { cmsRoles, demoUsers, roleMenuGroups } from '../../data/roleConfig';
 import NotificationBell from '../NotificationBell';
 import NotificationDropdown from '../NotificationDropdown';
 
@@ -85,6 +85,12 @@ function resolvePath(role, itemName) {
       return `/dashboard${roleQuery}`;
     case 'Students':
       return `/students${roleQuery}`;
+    case 'Faculty':
+      return `/staff${roleQuery}`;
+    case 'Department':
+      return `/department${roleQuery}`;
+    case 'My Courses':
+      return `/courses${roleQuery}`;
     case 'Exams':
       return '/exams';
     case 'Timetable':
@@ -95,6 +101,14 @@ function resolvePath(role, itemName) {
       return '/placement';
     case 'Facility':
       return '/facility';
+    case 'Fees':
+      return '/fees';
+    case 'Invoices':
+      return '/invoices';
+    case 'Admission':
+      return '/admission';
+    case 'Payroll':
+      return '/payroll';
     case 'Analytics':
       return '/analytics';
     case 'Notifications':
@@ -128,10 +142,21 @@ export default function RoleSettingsShell({
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
+  const session = getUserSession();
   const roleLabel = cmsRoles[role]?.label || 'User';
   const displayName = userName || cmsRoles[role]?.name || `${roleLabel} User`;
   const groups = useMemo(() => roleMenuGroups[role] || roleMenuGroups.student, [role]);
   const titleText = portalTitle || PORTAL_TITLE_MAP[role] || 'EduCore Portal';
+  const roleQuery = `?role=${encodeURIComponent(role)}`;
+
+  function handleProfileClick() {
+    if (role === 'student') {
+      const userId = session?.userId;
+      navigate(`/students/${encodeURIComponent(userId || demoUsers.student.userId)}${roleQuery}`);
+      return;
+    }
+    navigate(`/students${roleQuery}`);
+  }
 
   function handleLogout() {
     destroyUserSession();
@@ -248,7 +273,7 @@ export default function RoleSettingsShell({
               <button
                 type="button"
                 className="portal-user-chip"
-                onClick={() => navigate(`/students?role=${encodeURIComponent(role)}`)}
+                onClick={handleProfileClick}
                 aria-label="Open profile details"
               >
                 <div className="portal-user-meta">

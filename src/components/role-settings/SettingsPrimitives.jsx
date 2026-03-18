@@ -119,7 +119,7 @@ export function ToggleSwitch({ label, description, checked, onChange }) {
         {description ? <p>{description}</p> : null}
       </div>
       <label className="settings-toggle">
-        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} aria-label={label} />
         <span className="settings-toggle-slider" />
       </label>
     </article>

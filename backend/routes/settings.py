@@ -3,11 +3,14 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
+from passlib.context import CryptContext
 
 from backend.db import get_db
 from backend.dev_store import create_notification as create_dev_notification
 
 router = APIRouter(tags=["settings"])
+
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SETTINGS_COLLECTION = "role_settings"
 ADMIN_COLLECTION = "admin_settings"
@@ -32,12 +35,26 @@ STATUS_REJECTED = "rejected"
 DEFAULT_ADMIN_USER_ID = "ADM-0001"
 DEFAULT_FACULTY_USER_ID = "FAC-204"
 
+
+def _hash_password(plain: str) -> str:
+    return _pwd_context.hash(plain)
+
+
+def _verify_password(plain: str, hashed: str) -> bool:
+    try:
+        return _pwd_context.verify(plain, hashed)
+    except Exception:
+        return False
+
+
 DEFAULT_PASSWORD_BY_USER_ID = {
-    "STU-2024-1547": "student123",
-    "ADM-0001": "admin123",
-    "FAC-204": "faculty123",
-    "FIN-880": "finance123",
+    "STU-2024-1547": _hash_password("student123"),
+    "ADM-0001": _hash_password("admin123"),
+    "FAC-204": _hash_password("faculty123"),
+    "FIN-880": _hash_password("finance123"),
 }
+
+_FALLBACK_PASSWORD_HASH = _hash_password("password123")
 
 STUDENT_FACULTY_MAP = {
     "STU-2024-1547": "FAC-204",
@@ -134,10 +151,10 @@ DEV_SETTINGS = {
         "FIN-880": deepcopy(DEFAULT_FINANCE_SETTINGS),
     },
     "passwords": {
-        "STU-2024-1547": "student123",
-        "ADM-0001": "admin123",
-        "FAC-204": "faculty123",
-        "FIN-880": "finance123",
+        "STU-2024-1547": _hash_password("student123"),
+        "ADM-0001": _hash_password("admin123"),
+        "FAC-204": _hash_password("faculty123"),
+        "FIN-880": _hash_password("finance123"),
     },
     "credential_requests": [],
     "credential_audit": [],
@@ -365,14 +382,15 @@ async def load_password(user_id: str, fallback: str) -> str:
 
 
 async def upsert_password(user_id: str, password: str) -> None:
+    hashed = _hash_password(password)
     db = get_db_or_none()
     if db is None:
-        DEV_SETTINGS["passwords"][user_id] = password
+        DEV_SETTINGS["passwords"][user_id] = hashed
         return
 
     await db[PASSWORD_COLLECTION].update_one(
         {"user_id": user_id},
-        {"$set": {"user_id": user_id, "password": password}},
+        {"$set": {"user_id": user_id, "password": hashed}},
         upsert=True,
     )
 
@@ -898,8 +916,8 @@ async def change_admin_password(
     if not current_password or not new_password:
         raise HTTPException(status_code=400, detail="currentPassword and newPassword are required")
 
-    existing_password = await load_password(user_id, "admin123")
-    if existing_password != current_password:
+    existing_password = await load_password(user_id, DEFAULT_PASSWORD_BY_USER_ID.get(user_id, _FALLBACK_PASSWORD_HASH))
+    if not _verify_password(current_password, existing_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     if len(new_password) < 8:
@@ -936,9 +954,9 @@ async def change_role_password(
 
     ensure_self(actor, role, user_id)
 
-    fallback = DEFAULT_PASSWORD_BY_USER_ID.get(user_id, "password123")
+    fallback = DEFAULT_PASSWORD_BY_USER_ID.get(user_id, _FALLBACK_PASSWORD_HASH)
     existing_password = await load_password(user_id, fallback)
-    if existing_password != old_password:
+    if not _verify_password(old_password, existing_password):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     if len(new_password) < 8:

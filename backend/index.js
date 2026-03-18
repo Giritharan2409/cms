@@ -16,7 +16,7 @@ const SystemSetting = require('./models/SystemSetting');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/College_db';
 
 // ── Middleware ──
 app.use(cors());
