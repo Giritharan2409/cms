@@ -4,7 +4,7 @@ import StatCard from '../components/StatCard'
 import SearchFilter from '../components/SearchFilter'
 import StudentTable from '../components/StudentTable'
 import AddStudentModal from '../components/AddStudentModal'
-import { fetchStudents, createStudent } from '../api/studentsApi'
+import { fetchStudents, deleteStudent } from '../api/studentsApi'
 
 export default function StudentsPage() {
   const [studentsList, setStudentsList] = useState([])
@@ -12,6 +12,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState(null)
   const itemsPerPage = 8
 
   useEffect(() => {
@@ -39,20 +40,32 @@ export default function StudentsPage() {
 
   const handleSearch = (val) => { setSearchQuery(val); setCurrentPage(1) }
 
-  const handleEnrollSuccess = async (newStudent) => {
-    const enrichedStudent = {
-      ...newStudent,
-      cgpa: 0.0,
-      attendancePct: 0,
-      feeStatus: 'Pending',
-      status: 'Active',
-      semester: newStudent.semester || '1',
-      avatar: newStudent.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(newStudent.name)}&background=4f46e5&color=fff`
-    }
-    const saved = await createStudent(enrichedStudent)
-    setStudentsList(prev => [saved, ...prev])
+  const handleSaveSuccess = (savedStudent) => {
+    setStudentsList(prev => {
+      const exists = prev.find(s => s.id === savedStudent.id)
+      if (exists) {
+        return prev.map(s => s.id === savedStudent.id ? savedStudent : s)
+      }
+      return [savedStudent, ...prev]
+    })
     setIsModalOpen(false)
-    setCurrentPage(1)
+    setSelectedStudent(null)
+  }
+
+  const handleEdit = (student) => {
+    setSelectedStudent(student)
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
+      try {
+        await deleteStudent(id)
+        setStudentsList(prev => prev.filter(s => s.id !== id))
+      } catch (err) {
+        alert('Failed to delete student: ' + err.message)
+      }
+    }
   }
 
   return (
@@ -79,13 +92,22 @@ export default function StudentsPage() {
       </div>
 
       {/* Student Table */}
-      <StudentTable students={paginatedStudents} />
+      <StudentTable 
+        students={paginatedStudents} 
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
 
-      {/* Add Student Modal */}
+      {/* Add/Edit Student Modal */}
       <AddStudentModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={handleEnrollSuccess}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedStudent(null)
+        }} 
+        onSuccess={handleSaveSuccess}
+        students={studentsList}
+        editingStudent={selectedStudent}
       />
 
       {/* High-Fidelity Pagination */}

@@ -1,8 +1,47 @@
 import { useState, useRef, useEffect } from 'react';
+import { safeSetLocalStorage, getLocalStorage, removeLocalStorage } from '../utils/storage';
+import { createStudent, updateStudent } from '../api/studentsApi';
 
-export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
+export default function AddStudentModal({ isOpen, onClose, onSuccess, students = [], editingStudent = null }) {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [storageWarning, setStorageWarning] = useState(null);
+
+  const deptCodes = {
+    'Computer Science': 'CSE',
+    'Mechanical Eng.': 'MECH',
+    'Electrical Eng.': 'EE',
+    'Civil Engineering': 'CIV',
+    'Automobile Eng.': 'AUTO',
+    'Electronics Eng.': 'ECE'
+  };
+
+  const generateStudentId = (dept, date) => {
+    const year = new Date(date || new Date()).getFullYear();
+    const prefix = `${deptCodes[dept] || 'STU'}-${year}`;
+    
+    // Find the highest sequence number for this dept and year
+    const relevantIds = students
+      .map(s => s.id)
+      .filter(id => id.startsWith(prefix));
+    
+    let nextSeq = 1;
+    if (relevantIds.length > 0) {
+      const sequences = relevantIds.map(id => {
+        const parts = id.split('-');
+        return parseInt(parts[parts.length - 1], 10);
+      }).filter(n => !isNaN(n));
+      
+      if (sequences.length > 0) {
+        nextSeq = Math.max(...sequences) + 1;
+      }
+    }
+    
+    return `${prefix}-${String(nextSeq).padStart(3, '0')}`;
+  };
+
   const initialData = {
     // Personal
     name: '',
@@ -14,7 +53,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
     address: '',
     bloodGroup: '',
     // Academic
-    id: `STU-2025-${Math.floor(1000 + Math.random() * 9000)}`,
+    id: '',
     department: 'Computer Science',
     year: '1st Year',
     semester: '1',
@@ -40,29 +79,46 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
   };
 
   const [formData, setFormData] = useState(initialData);
+
+  // Initialize ID when modal opens or department/date changes
+  useEffect(() => {
+    if (isOpen && !editingStudent) {
+      const newId = generateStudentId(formData.department, formData.enrollDate);
+      setFormData(prev => ({ ...prev, id: newId }));
+    }
+  }, [isOpen, formData.department, formData.enrollDate, editingStudent]);
+
+  // Handle editingStudent initialization
+  useEffect(() => {
+    if (isOpen) {
+      if (editingStudent) {
+        setFormData({ ...initialData, ...editingStudent });
+        if (editingStudent.avatar) setAvatarPreview(editingStudent.avatar);
+      } else {
+        const draft = getLocalStorage('add_student_draft');
+        if (draft) {
+          setFormData(draft);
+          if (draft.avatar) setAvatarPreview(draft.avatar);
+        } else {
+          setFormData(initialData);
+          setAvatarPreview(null);
+        }
+      }
+      setStep(1);
+      setErrors({});
+      setSubmitError(null);
+    }
+  }, [isOpen, editingStudent]);
+
   const [avatarPreview, setAvatarPreview] = useState(null);
   const fileInputRef = useRef(null);
-
-  // Load draft from localStorage on mount
-  useEffect(() => {
-    const draft = localStorage.getItem('add_student_draft');
-    if (draft) {
-      try {
-        const parsed = JSON.parse(draft);
-        setFormData(parsed);
-        if (parsed.avatar) setAvatarPreview(parsed.avatar);
-      } catch (e) {
-        console.error("Failed to load draft");
-      }
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error
+    // Clear errors
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -119,21 +175,82 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
   };
 
   const handleSaveDraft = () => {
-    localStorage.setItem('add_student_draft', JSON.stringify(formData));
-    alert('Progress saved to draft!');
+    const result = safeSetLocalStorage('add_student_draft', formData);
+    if (result.success) {
+      setStorageWarning(null);
+      alert('Progress saved to draft!');
+    } else {
+      setStorageWarning({
+        type: 'QUOTA',
+        message: 'Draft could not be saved because the browser storage is full.',
+        suggestion: 'This often happens when uploading large profile photos or documents. Try using a smaller photo or clearing browser cache.'
+      });
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (validateStep(step)) {
-      console.log('Final Enrollment:', formData);
-      if (onSuccess) onSuccess(formData);
-      localStorage.removeItem('add_student_draft');
-      alert('Student Enrollment Submitted Successfuly!');
-      onClose();
-      setStep(1);
-      setFormData(initialData);
-      setAvatarPreview(null);
+      setIsSubmitting(true);
+      setSubmitError(null);
+      
+      // Attempt to save draft immediately before attempt
+      safeSetLocalStorage('add_student_draft', formData);
+
+      try {
+        const enrichedStudent = {
+          ...formData,
+          semester: parseInt(formData.semester),
+          cgpa: formData.cgpa || 0.0,
+          attendancePct: formData.attendancePct || 0,
+          feeStatus: formData.feeStatus || 'Pending',
+          status: formData.status || 'Active',
+          avatar: formData.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=4f46e5&color=fff`,
+          guardian: formData.guardianName,
+          // Mapping for backend schema consistency
+          documents: Object.entries(formData.docs)
+            .filter(([_, v]) => v !== null && !Array.isArray(v))
+            .map(([k, v]) => ({ name: k, fileName: v.name, size: v.size }))
+        };
+
+        let result;
+        if (editingStudent) {
+          result = await updateStudent(editingStudent.id, enrichedStudent);
+        } else {
+          result = await createStudent(enrichedStudent);
+          removeLocalStorage('add_student_draft');
+        }
+
+        if (onSuccess) onSuccess(result);
+        
+        onClose();
+        setStep(1);
+        setFormData(initialData);
+        setAvatarPreview(null);
+      } catch (err) {
+        if (err.message === 'DATABASE_UNAVAILABLE') {
+          setSubmitError({
+            type: 'DATABASE',
+            message: 'ENROLLMENT FAILED — Database is not available',
+            suggestion: 'The system attempted to reconnect but the database service is currently offline. Please try again in a few minutes or save your progress as a draft.'
+          });
+        } else if (err.message === 'CONNECTION_REFUSED') {
+          setSubmitError({
+            type: 'CONNECTION',
+            message: 'Backend server is unreachable (Connection Refused).',
+            suggestion: 'Please check if the backend service is running and you have a stable network connection.'
+          });
+        } else {
+          setSubmitError({
+            type: 'GENERAL',
+            message: err.message || 'Failed to enroll student. Please try again.',
+            suggestion: 'Please verify the information and try again. If the issue persists, contact support.'
+          });
+        }
+        console.error('Enrollment Error:', err);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -172,9 +289,11 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
               <div className="p-2 bg-[#1162d4]/10 rounded-lg">
-                <span className="material-symbols-outlined text-[#1162d4]">person_add</span>
+                <span className="material-symbols-outlined text-[#1162d4]">
+                  {editingStudent ? 'edit_square' : 'person_add'}
+                </span>
               </div>
-              Enroll New Student
+              {editingStudent ? 'Edit Student Details' : 'Enroll New Student'}
             </h2>
             <p className="text-sm text-slate-500 mt-1">Step {step} of 5: {steps[step-1].label} Information</p>
           </div>
@@ -185,6 +304,33 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8 bg-white custom-scrollbar">
+          
+          {storageWarning && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-xl">storage_off</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">Draft Storage Warning</h4>
+                  <button onClick={() => setStorageWarning(null)} className="text-amber-400 hover:text-amber-600">
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-700 leading-relaxed">
+                  {storageWarning.message} <br/>
+                  <span className="opacity-80 mt-1 block font-normal">{storageWarning.suggestion}</span>
+                </p>
+                <button 
+                  onClick={() => { removeLocalStorage('add_student_draft'); setStorageWarning(null); alert('Drafts cleared!'); }}
+                  className="mt-3 text-[10px] font-bold text-amber-800 hover:underline uppercase tracking-widest flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-xs">delete_sweep</span>
+                  Clear Current Draft
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* Step 1: Personal */}
           {step === 1 && (
@@ -473,7 +619,52 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
                   ))}
                 </div>
               </div>
-
+               {submitError && (
+                 <div className="rounded-xl p-5 border bg-red-50 border-red-200 flex flex-col sm:flex-row gap-4 animate-in slide-in-from-top-2 duration-300">
+                   <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                     <span className="material-symbols-outlined text-2xl">{submitError.type === 'DATABASE' ? 'database_off' : 'error'}</span>
+                   </div>
+                   <div className="flex-1">
+                     <h4 className="text-sm font-bold uppercase tracking-wider mb-1 text-red-900">
+                       {submitError.message}
+                     </h4>
+                     <p className="text-xs font-medium leading-relaxed mb-4 text-red-700">
+                       {submitError.suggestion}
+                     </p>
+                     
+                     <div className="flex flex-wrap gap-3">
+                       <button 
+                         onClick={() => {
+                           console.log(`[Diagnostic] Manual retry initiated for error type: ${submitError.type}`);
+                           handleSubmit();
+                         }} 
+                         className="px-4 py-2 bg-red-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-red-700 transition-all flex items-center gap-2 shadow-sm"
+                       >
+                         <span className="material-symbols-outlined text-sm">refresh</span>
+                         Try Again
+                       </button>
+                       <button 
+                         onClick={() => { 
+                           console.log('[Diagnostic] Saving draft and closing modal after failure.');
+                           handleSaveDraft(); 
+                           onClose(); 
+                         }} 
+                         className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"
+                       >
+                         <span className="material-symbols-outlined text-sm">drafts</span>
+                         Save Draft & Close
+                       </button>
+                       <a 
+                         href="mailto:support@mit.edu?subject=Enrollment Failure Report" 
+                         className="px-4 py-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-200 transition-all flex items-center gap-2"
+                       >
+                         <span className="material-symbols-outlined text-sm">contact_support</span>
+                         Contact Support
+                       </a>
+                     </div>
+                   </div>
+                 </div>
+               )}
               <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 flex gap-4">
                 <span className="material-symbols-outlined text-blue-600 text-3xl">contract_edit</span>
                 <div>
@@ -526,10 +717,22 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess }) {
               ) : (
                 <button 
                    onClick={handleSubmit}
-                   className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                   disabled={isSubmitting}
+                   className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Complete Enrollment
-                  <span className="material-symbols-outlined text-base">verified_user</span>
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {editingStudent ? 'UPDATING...' : 'ENROLLING...'}
+                    </>
+                  ) : (
+                    <>
+                      {editingStudent ? 'Update Student' : 'Complete Enrollment'}
+                      <span className="material-symbols-outlined text-base">
+                        {editingStudent ? 'save' : 'verified_user'}
+                      </span>
+                    </>
+                  )}
                 </button>
               )}
             </div>

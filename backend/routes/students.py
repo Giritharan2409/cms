@@ -36,3 +36,25 @@ async def create_student(payload: StudentRecord):
     result = await db["students"].insert_one(data)
     created = await db["students"].find_one({"_id": result.inserted_id})
     return serialize_doc(created)
+@router.put("/{student_id}")
+async def update_student(student_id: str, payload: StudentRecord):
+    db = get_db()
+    data = payload.model_dump()
+    # Ensure ID consistency
+    data["id"] = student_id
+    
+    result = await db["students"].replace_one({"id": student_id}, data)
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    updated = await db["students"].find_one({"id": student_id})
+    return serialize_doc(updated)
+
+
+@router.delete("/{student_id}")
+async def delete_student(student_id: str):
+    db = get_db()
+    result = await db["students"].delete_one({"id": student_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {"message": "Student deleted successfully", "id": student_id}

@@ -6,7 +6,8 @@ from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlsplit
 
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 
@@ -33,15 +34,15 @@ async def lifespan(app):
 
     print(f"Connecting to MongoDB at {mask_mongodb_uri(MONGODB_URI)}...")
     try:
-        client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=15000)
         await client.admin.command("ping")
 
         try:
-            db = client["cms"] if "mongodb.net" in str(MONGODB_URI) else client.get_database()
-            if db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
-                db = client["cms"]
+            db = client.get_database()
+            if not db.name or db.name == "test":
+                db = client["College_db"]
         except Exception:
-            db = client["cms"]
+            db = client["College_db"]
 
 
 

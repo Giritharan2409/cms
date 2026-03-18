@@ -16,6 +16,7 @@ if errorlevel 1 (
 )
 
 echo [1/4] Installing frontend dependencies...
+cd /d "%ROOT_DIR%frontend"
 call npm install
 if errorlevel 1 (
   echo Frontend dependency installation failed.
@@ -44,7 +45,7 @@ if exist "%BACKEND_DIR%\main.py" (
   echo backend\main.py not found. FastAPI backend was not started.
 )
 
-start "MIT Connect Frontend" cmd /k "cd /d ""%ROOT_DIR%"" && npm run dev"
+start "MIT Connect Frontend" cmd /k "cd /d ""%ROOT_DIR%frontend"" && npm run dev"
 
 echo.
 echo Both services were started in separate terminal windows.

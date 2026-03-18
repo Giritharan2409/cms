@@ -10,9 +10,9 @@ def check_db():
     uri = os.getenv("MONGODB_URI")
     print(f"Connecting to: {uri}")
     try:
-        client = MongoClient(uri, serverSelectionTimeoutMS=10000)
-        # Explicitly use 'cms' if not in URI
-        db = client["cms"]
+        client = MongoClient(uri, serverSelectionTimeoutMS=20000)
+        # Explicitly use 'College_db' if not in URI
+        db = client["College_db"]
         print(f"Database name: {db.name}")
         
         collections = db.list_collection_names()
