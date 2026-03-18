@@ -266,76 +266,64 @@ export default function AdminInvoicePage() {
   return (
     <Layout title="Invoice Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Invoice Management</h1>
-          <p className="text-blue-100">Generate and manage student payments</p>
-        </div>
-
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              title: 'Total Invoices',
-              value: stats.totalInvoices,
-              icon: 'receipt_long',
-              color: 'blue',
-            },
-            {
-              title: 'Paid Invoices',
-              value: stats.paidInvoices,
-              icon: 'check_circle',
-              color: 'green',
-            },
-            {
-              title: 'Pending Invoices',
-              value: stats.pendingInvoices,
-              icon: 'pending',
-              color: 'orange',
-            },
-            {
-              title: 'Total Revenue',
-              value: `₹${stats.totalRevenue}`,
-              icon: 'trending_up',
-              color: 'purple',
-            },
-          ].map((stat, idx) => (
-            <div
-              key={idx}
-              className={`bg-white rounded-lg shadow p-6 border-t-4 border-${stat.color}-500`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
-                </div>
-                <span className={`material-symbols-outlined text-3xl text-${stat.color}-500`}>
-                  {stat.icon}
-                </span>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalInvoices}</p>
               </div>
+              <span className="material-symbols-outlined text-4xl text-blue-500">description</span>
             </div>
-          ))}
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Paid Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.paidInvoices}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-green-500">check_circle</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Pending Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingInvoices}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-orange-500">schedule</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalRevenue.toLocaleString()}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-purple-500">trending_up</span>
+            </div>
+          </div>
         </div>
 
-        {/* Filters */}
+        {/* Main Table */}
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-gray-800">All Invoices</h2>
+          </div>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Search (Name, ID, or Invoice)
-              </label>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Search..."
+                placeholder="Search by name, ID, or invoice..."
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Status
-              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -347,9 +335,6 @@ export default function AdminInvoicePage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Course
-              </label>
               <select
                 value={courseFilter}
                 onChange={(e) => setCourseFilter(e.target.value)}
@@ -364,96 +349,79 @@ export default function AdminInvoicePage() {
               </select>
             </div>
           </div>
-        </div>
-
-        {/* Invoices Grid */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Invoices</h2>
 
           {filteredInvoices.length === 0 ? (
-            <div className="text-center py-12">
-              <span className="material-symbols-outlined text-6xl text-gray-300 block mb-4">
-                receipt_long
-              </span>
-              <p className="text-gray-500 text-lg">No invoices found</p>
+            <div className="text-center py-12 text-gray-500">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">receipt_long</span>
+              <p className="font-medium">No invoices found</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredInvoices.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className={`rounded-lg shadow border-l-4 p-6 cursor-pointer transition hover:shadow-lg ${
-                    invoice.paymentStatus === 'Paid'
-                      ? 'bg-green-50 border-l-green-500'
-                      : 'bg-orange-50 border-l-orange-500'
-                  }`}
-                  onClick={() => handleView(invoice)}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-bold text-gray-800 text-lg">
-                      {invoice.course ? invoice.course.split(' ').slice(0, 2).join(' ') : 'Fee'} Fee
-                    </h3>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        invoice.paymentStatus === 'Paid'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-orange-100 text-orange-800'
-                      }`}
-                    >
-                      {invoice.paymentStatus}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-gray-600 mb-4">ID: {invoice.id}</p>
-
-                  <div className="bg-white rounded p-3 mb-4">
-                    <p className="text-2xl font-bold text-gray-800">₹{invoice.total}</p>
-                  </div>
-
-                  <div className="space-y-2 text-sm text-gray-700 mb-4">
-                    <p>
-                      <span className="font-semibold">Student:</span> {invoice.studentName}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Course:</span> {invoice.course}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Date:</span> {invoice.generatedDate}
-                    </p>
-                    {invoice.paymentMethod && (
-                      <p>
-                        <span className="font-semibold">Method:</span> {invoice.paymentMethod}
-                      </p>
-                    )}
-                    {invoice.transactionId && (
-                      <p>
-                        <span className="font-semibold">TXN ID:</span> {invoice.transactionId}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadPDF(invoice);
-                      }}
-                      className="flex-1 bg-blue-500 text-white py-2 rounded text-sm hover:bg-blue-600 transition"
-                    >
-                      Download
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(invoice.id);
-                      }}
-                      className="flex-1 bg-red-500 text-white py-2 rounded text-sm hover:bg-red-600 transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Invoice ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Student Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Student ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Course</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Amount</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map((invoice) => (
+                    <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-gray-700 font-mono">{invoice.id}</td>
+                      <td className="py-3 px-4 text-gray-700">{invoice.studentName}</td>
+                      <td className="py-3 px-4 text-gray-700">{invoice.studentId}</td>
+                      <td className="py-3 px-4 text-gray-700">{invoice.course}</td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">₹{invoice.total?.toLocaleString()}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          invoice.paymentStatus === 'Paid'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {invoice.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleView(invoice)}
+                            className="p-2 hover:bg-blue-100 text-blue-600 rounded transition"
+                            title="View details"
+                          >
+                            <span className="material-symbols-outlined text-lg">visibility</span>
+                          </button>
+                          <button
+                            onClick={() => handleDownloadPDF(invoice)}
+                            className="p-2 hover:bg-green-100 text-green-600 rounded transition"
+                            title="Download PDF"
+                          >
+                            <span className="material-symbols-outlined text-lg">download</span>
+                          </button>
+                          <button
+                            onClick={() => handlePrint(invoice)}
+                            className="p-2 hover:bg-purple-100 text-purple-600 rounded transition"
+                            title="Print"
+                          >
+                            <span className="material-symbols-outlined text-lg">print</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(invoice.id)}
+                            className="p-2 hover:bg-red-100 text-red-600 rounded transition"
+                            title="Delete"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

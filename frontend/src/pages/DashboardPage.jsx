@@ -255,53 +255,59 @@ export default function DashboardPage() {
           {ActivePage && <ActivePage noLayout />}
           {!ActivePage && (
             <>
-              <div className="profile-header">
-                <div className="profile-left">
-                  <button
-                    type="button"
-                    onClick={handleOpenProfileDetails}
-                    className="profile-avatar-wrap bg-transparent border-0 cursor-pointer"
-                    aria-label="Open student full details"
-                  >
-                    <div className="avatar-initials">{data.label.slice(0, 2).toUpperCase()}</div>
-                    <span className="avatar-status" />
-                  </button>
-                  <div className="profile-info">
-                    <div className="student-name">{data.name}</div>
-                    <div className="profile-meta">
-                      <span className="meta-item">ID: {userId}</span>
-                      <span className="meta-item">Team: {data.team}</span>
-                      <span className="meta-item">Focus: {data.focus}</span>
+              {/* Profile Header */}
+              <div className="bg-white rounded-lg shadow p-6 mb-8">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={handleOpenProfileDetails}
+                      className="bg-transparent border-0 cursor-pointer"
+                      aria-label="Open profile details"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+                        {data.label.slice(0, 2).toUpperCase()}
+                      </div>
+                    </button>
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">{data.name}</h2>
+                      <p className="text-sm text-gray-600">ID: {userId}</p>
+                      <p className="text-sm text-gray-600">Team: {data.team}</p>
+                      <p className="text-sm text-gray-600">Focus: {data.focus}</p>
                     </div>
                   </div>
-                </div>
-                <div className="profile-right">
-                  <button type="button" className="btn-primary-sm">
-                    {data.primaryAction}
-                  </button>
-                  <button type="button" className="btn-secondary-sm">
-                    {data.secondaryAction}
-                  </button>
+                  <div className="flex gap-3">
+                    <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
+                      {data.primaryAction}
+                    </button>
+                    <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+                      {data.secondaryAction}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="section-header">
-                <span className="section-title">Quick Overview</span>
-              </div>
-
-              <div className="stats-grid">
-                {data.stats.map((entry, index) => {
-                  const tone = ['blue', 'green', 'purple', 'orange'][index % 4];
-                  return (
-                    <div key={entry.label} className={`stat-card stat-card-${tone}`}>
-                      <div className="stat-body">
-                        <div className="stat-value">{entry.value}</div>
-                        <div className="stat-label">{entry.label}</div>
-                        <div className="stat-sub">{entry.sub}</div>
+              {/* Quick Overview */}
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Overview</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {data.stats.map((entry, index) => {
+                    const colors = [
+                      { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
+                      { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-600' },
+                      { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600' },
+                      { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-600' }
+                    ];
+                    const color = colors[index % 4];
+                    return (
+                      <div key={entry.label} className={`${color.bg} border ${color.border} rounded-lg p-6`}>
+                        <p className={`text-3xl font-bold ${color.text} mb-1`}>{entry.value}</p>
+                        <p className="text-sm font-medium text-gray-700">{entry.label}</p>
+                        <p className={`text-xs ${color.text} mt-1`}>{entry.sub}</p>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="content-card">
@@ -321,42 +327,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              <div className="bottom-grid">
-                <div className="content-card">
-                  <div className="section-header" style={{ marginBottom: 14 }}>
-                    <span className="section-title">Today Tasks</span>
-                  </div>
-                  <div className="notice-list">
-                    {data.tasks.map((task) => (
-                      <div key={task.title} className="notice-item">
-                        <div className="notice-dot dot-blue" />
-                        <div className="notice-text">
-                          <div className="notice-title">{task.title}</div>
-                          <div className="notice-desc">{task.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="content-card">
-                  <div className="section-header" style={{ marginBottom: 14 }}>
-                    <span className="section-title">Alerts</span>
-                  </div>
-                  <div className="notice-list">
-                    {data.alerts.map((alert, index) => (
-                      <div key={alert.title} className="notice-item">
-                        <div className={`notice-dot ${index % 2 === 0 ? 'dot-orange' : 'dot-red'}`} />
-                        <div className="notice-text">
-                          <div className="notice-title">{alert.title}</div>
-                          <div className="notice-desc">{alert.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             </>

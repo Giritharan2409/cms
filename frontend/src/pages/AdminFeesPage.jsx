@@ -152,58 +152,99 @@ export default function AdminFeesPage() {
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Fee Management</h1>
-          <p className="text-blue-100">Assign fees to approved students</p>
-        </div>
-
-        {/* Section 1: Students Awaiting Fee Assignment */}
+        {/* Main Table */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">
-            Students Awaiting Fee Assignment
-          </h2>
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-gray-800">All Fee Assignments</h2>
+          </div>
 
-          {studentsWithoutFees.length === 0 ? (
-            <div className="bg-green-50 border border-green-300 rounded-lg p-8 text-center">
-              <span className="material-symbols-outlined text-4xl text-green-600 block mb-4">
-                check_circle
-              </span>
-              <p className="text-green-800 font-semibold">
-                ✓ All approved students have been assigned fees
-              </p>
+          {feeAssignments.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">receipt_long</span>
+              <p className="font-medium">No fee assignments yet</p>
+              <p className="text-sm">Start by assigning fees to approved students</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Student Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Application ID</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Semester</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Course</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Total Fee</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Payment Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feeAssignments.map((assignment) => (
+                    <tr key={assignment.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 text-gray-700">{assignment.studentName}</td>
+                      <td className="py-3 px-4 text-gray-700">{assignment.applicationId}</td>
+                      <td className="py-3 px-4 text-gray-700">{assignment.semester}</td>
+                      <td className="py-3 px-4 text-gray-700">{assignment.course}</td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">₹{assignment.totalFee.toLocaleString()}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          assignment.paymentStatus === 'Paid'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {assignment.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleGenerateInvoice(assignment)}
+                            className="p-2 hover:bg-yellow-100 text-yellow-600 rounded transition"
+                            title="Generate Invoice"
+                          >
+                            <span className="material-symbols-outlined text-lg">receipt</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(assignment)}
+                            className="p-2 hover:bg-red-100 text-red-600 rounded transition"
+                            title="Delete"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Students Awaiting Fee Assignment */}
+        {studentsWithoutFees.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-bold text-gray-800 mb-6">
+              Students Awaiting Fee Assignment ({studentsWithoutFees.length})
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {studentsWithoutFees.map((student) => (
                 <div
                   key={student.id}
-                  className="bg-white border-l-4 border-blue-500 rounded-lg shadow p-6 hover:shadow-lg transition"
+                  className="bg-blue-50 border border-blue-200 rounded-lg p-6 hover:shadow-lg transition"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="material-symbols-outlined text-3xl text-blue-500">
-                      check_circle
-                    </span>
+                  <div className="mb-4">
                     <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
                       Approved
                     </span>
                   </div>
-                  <h3 className="font-bold text-gray-800 text-lg mb-4">
+                  <h3 className="font-bold text-gray-800 text-base mb-3">
                     {student.name || student.fullName}
                   </h3>
-                  <div className="space-y-2 text-sm text-gray-600 mb-6">
-                    <p>
-                      <span className="font-semibold">Application ID:</span> {student.id}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Course:</span> {student.course}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Email:</span> {student.email}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Phone:</span> {student.phone}
-                    </p>
+                  <div className="space-y-1 text-sm text-gray-600 mb-6">
+                    <p><span className="font-semibold">ID:</span> {student.id}</p>
+                    <p><span className="font-semibold">Course:</span> {student.course}</p>
+                    <p><span className="font-semibold">Email:</span> {student.email}</p>
                   </div>
                   <button
                     onClick={() => handleAssignClick(student)}
@@ -214,112 +255,8 @@ export default function AdminFeesPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Section 2: Fee Assignments */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Fee Assignments</h2>
-
-          {feeAssignments.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">
-                receipt_long
-              </span>
-              <p>No fees assigned yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {feeAssignments.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="bg-green-50 border border-green-300 rounded-lg shadow p-6 hover:shadow-lg transition"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="material-symbols-outlined text-3xl text-green-600">
-                      receipt_long
-                    </span>
-                    <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
-                      Fee Assigned
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-gray-800 text-lg mb-4">
-                    {assignment.studentName}
-                  </h3>
-
-                  <div className="space-y-2 text-sm text-gray-700 mb-4">
-                    <p>
-                      <span className="font-semibold">Application ID:</span>{' '}
-                      {assignment.applicationId}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Semester:</span> {assignment.semester}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Course:</span> {assignment.course}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Total Fee:</span> ₹{assignment.totalFee}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Assigned Date:</span>{' '}
-                      {assignment.assignedDate}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Payment Status:</span>{' '}
-                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-semibold">
-                        {assignment.paymentStatus}
-                      </span>
-                    </p>
-                  </div>
-
-                  {/* Fee Breakdown */}
-                  <div className="bg-white rounded p-4 mb-4 max-h-48 overflow-y-auto">
-                    <p className="font-bold text-gray-800 mb-2">Fee Breakdown:</p>
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        • Semester Fee: <span className="font-semibold">₹{assignment.semesterFee}</span>
-                      </p>
-                      <p>
-                        • Book Fee: <span className="font-semibold">₹{assignment.bookFee}</span>
-                      </p>
-                      <p>
-                        • Exam Fee: <span className="font-semibold">₹{assignment.examFee}</span>
-                      </p>
-                      {assignment.hostelFee > 0 && (
-                        <p>
-                          • Hostel Fee:{' '}
-                          <span className="font-semibold">₹{assignment.hostelFee}</span>
-                        </p>
-                      )}
-                      {assignment.miscFee > 0 && (
-                        <p>
-                          • Misc Fee: <span className="font-semibold">₹{assignment.miscFee}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleGenerateInvoice(assignment)}
-                      className="flex-1 bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600 transition font-medium text-sm"
-                    >
-                      Generate Invoice
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(assignment)}
-                      className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition font-medium text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Assign Fee Modal */}

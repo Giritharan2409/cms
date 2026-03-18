@@ -64,12 +64,12 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
       id="sidebar"
     >
       <div className="p-5 flex items-start gap-2">
-        <div className="bg-[#2563eb] w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-100 shrink-0">
-          <span className="material-symbols-outlined text-2xl font-bold">school</span>
+        <div className="bg-[#2563eb] w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-100 shrink-0">
+          <span className="material-symbols-outlined text-xl font-bold">school</span>
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="font-extrabold text-[#1e293b] text-[29px] tracking-tight leading-none">MIT Connect</h1>
-          <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-[0.06em] mt-1">{roleLabel} Portal</p>
+          <h1 className="font-black text-[#1e293b] text-xl tracking-tight leading-tight">MIT Connect</h1>
+          <p className="text-[11px] font-semibold text-[#64748b] uppercase tracking-widest mt-0.5">{roleLabel} Portal</p>
         </div>
         <button
           type="button"
@@ -107,7 +107,6 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
                       }`
                     }
                   >
-                    <span className="material-symbols-outlined text-[22px]">{iconMap[item] || 'circle'}</span>
                     <span>{item}</span>
                   </NavLink>
                 )
@@ -122,7 +121,6 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-all duration-200"
         >
-          <span className="material-symbols-outlined text-[22px]">logout</span>
           <span>Logout</span>
         </button>
       </div>

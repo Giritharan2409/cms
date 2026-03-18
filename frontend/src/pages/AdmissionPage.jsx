@@ -101,27 +101,50 @@ export default function AdmissionPage() {
   return (
     <Layout title="Admission Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">EduCore Admin Portal</h1>
-          <p className="text-blue-100">Manage admissions, approvals and student enrollment</p>
-        </div>
-
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, idx) => (
-            <div key={idx} className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
-                </div>
-                <span className="material-symbols-outlined text-3xl text-blue-500">
-                  {stat.icon}
-                </span>
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Student Adm</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{studentApps.length}</p>
               </div>
+              <span className="material-symbols-outlined text-4xl text-teal-500">group</span>
             </div>
-          ))}
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Faculty</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{facultyApps.length}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-teal-500">person</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Approved</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {studentApps.filter((a) => a.status === 'Approved').length +
+                    facultyApps.filter((a) => a.status === 'Approved').length}
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-teal-500">done</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Rejected</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">
+                  {studentApps.filter((a) => a.status === 'Rejected').length +
+                    facultyApps.filter((a) => a.status === 'Rejected').length}
+                </p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-teal-500">close</span>
+            </div>
+          </div>
         </div>
 
         {/* Tabs and Search */}
