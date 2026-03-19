@@ -3,7 +3,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Layout from '../components/Layout';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+    ? `${import.meta.env.VITE_API_BASE_URL}/api`
+    : '/api';
 
 // Icons
 function ViewIcon() {
