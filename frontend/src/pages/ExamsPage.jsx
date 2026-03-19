@@ -14,7 +14,12 @@ import SeatAssignmentModal from '../components/exam/SeatAssignmentModal'
 import InternalMarksModal from '../components/exam/InternalMarksModal'
 import TimetableApprovalModal from '../components/exam/TimetableApprovalModal'
 import NotificationPanel from '../components/exam/NotificationPanel'
-import { initializeExamData, getAllExams } from '../data/examData'
+import {
+  initializeExamData,
+  getAllExams,
+  getRegistrationsByStudent,
+  registerForExam,
+} from '../data/examData'
 import { getStudentById } from '../data/studentData'
 
 export default function ExamsPage({ noLayout = false }) {
@@ -42,6 +47,7 @@ export default function ExamsPage({ noLayout = false }) {
   // Modal states for exam features
   const [showMarksEntryModal, setShowMarksEntryModal] = useState(false)
   const [showHallTicket, setShowHallTicket] = useState(false)
+  const [hallTicketMode, setHallTicketMode] = useState('all')
   const [showExamSessionModal, setShowExamSessionModal] = useState(false)
   const [showTimetableDraftForm, setShowTimetableDraftForm] = useState(false)
   const [showInvigilatorModal, setShowInvigilatorModal] = useState(false)
@@ -61,51 +67,77 @@ export default function ExamsPage({ noLayout = false }) {
 
   // Handle exam registration
   const handleRegister = (examId) => {
-    setExams(exams.map(exam => 
+    if (!session?.userId) {
+      alert('Please sign in to register for exams.')
+      return
+    }
+
+    const result = registerForExam(
+      examId,
+      session.userId,
+      studentRecordForHallTicket?.name || session.userId
+    )
+
+    if (!result.success) {
+      alert(result.message || 'Registration failed.')
+      return
+    }
+
+    setExams(exams.map(exam =>
       (exam._id || exam.id) === examId ? { ...exam, registered: true } : exam
-    ));
-    alert('Successfully registered for the exam!');
+    ))
+    alert('Successfully registered for the exam!')
   }
 
   // Handle opening unified hall ticket
   const handleOpenAllHallTickets = () => {
     // Get all registered exams
-    const registeredExams = exams.filter(e => e.registered);
+    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
+    const registeredIds = new Set(registrations.map(reg => reg.examId))
+    const registeredExams = exams.filter(exam => registeredIds.has(exam._id || exam.id))
     if (registeredExams.length === 0) {
       alert('No exams registered yet.');
       return;
     }
     // Open hall ticket with one consolidated subject list for this student
     setSelectedExam(registeredExams[0]);
+    setHallTicketMode('all');
     setShowHallTicket(true);
   }
 
-  const buildHallTicketSubjects = () => {
-    const studentRecord = studentRecordForHallTicket
-    if (studentRecord?.subjects?.length) {
-      return studentRecord.subjects.map((subject) => ({
-        code: subject.code,
-        name: subject.name,
-        credits: subject.credits ?? 4,
-        semester: studentRecord.semester,
-      }))
+  const buildHallTicketSubjects = ({ mode, exam } = {}) => {
+    const mapExam = (item) => ({
+      code: item.code,
+      name: item.name,
+      credits: item.credits ?? 4,
+      semester: item.semester || studentRecordForHallTicket?.semester || 4,
+    })
+
+    if (mode === 'single' && exam) {
+      return [mapExam(exam)]
     }
 
-    // Fallback: derive enrolled subjects from registered exams
-    return exams
-      .filter((exam) => exam.registered)
-      .map((exam) => ({
-        code: exam.code,
-        name: exam.name,
-        credits: exam.credits ?? 4,
-        semester: exam.semester || 4,
-      }))
+    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
+    const registeredIds = new Set(registrations.map((reg) => reg.examId))
+    const registeredExams = exams.filter((item) => registeredIds.has(item._id || item.id))
+    return registeredExams.map(mapExam)
   }
 
   // Fetch exams from backend
   useEffect(() => {
     fetchExams()
   }, [])
+
+  const applyRegistrations = (examList) => {
+    if (!session?.userId) return examList
+    const registrations = getRegistrationsByStudent(session.userId)
+    if (!registrations.length) return examList
+    const registeredIds = new Set(registrations.map((reg) => reg.examId))
+    return examList.map((exam) => ({
+      ...exam,
+      registered: registeredIds.has(exam._id || exam.id),
+    }))
+  }
 
   const fetchExams = async () => {
     const localSampleExams = getAllExams()
@@ -116,13 +148,13 @@ export default function ExamsPage({ noLayout = false }) {
       const json = raw ? JSON.parse(raw) : null
 
       if (res.ok && json?.success && Array.isArray(json.data) && json.data.length > 0) {
-        setExams(json.data)
+        setExams(applyRegistrations(json.data))
       } else {
-        setExams(localSampleExams)
+        setExams(applyRegistrations(localSampleExams))
       }
     } catch (err) {
       console.error('Failed to fetch exams:', err)
-      setExams(localSampleExams)
+      setExams(applyRegistrations(localSampleExams))
     } finally {
       setLoading(false)
     }
@@ -249,6 +281,7 @@ export default function ExamsPage({ noLayout = false }) {
   
   const handleOpenHallTicket = (exam) => {
     setSelectedExam(exam)
+    setHallTicketMode('single')
     setShowHallTicket(true)
   }
   
@@ -691,7 +724,7 @@ export default function ExamsPage({ noLayout = false }) {
             semester: studentRecordForHallTicket?.semester || selectedExam?.semester || '4',
             photo: null
           }}
-          subjects={buildHallTicketSubjects()}
+          subjects={buildHallTicketSubjects({ mode: hallTicketMode, exam: selectedExam })}
           onClose={() => setShowHallTicket(false)}
         />
       )}

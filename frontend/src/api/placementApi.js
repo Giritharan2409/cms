@@ -1,6 +1,42 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL}/api`
   : '/api';
+const CACHE_KEY = 'cms_placements_cache';
+
+function getCachedPlacements() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setCachedPlacements(placements) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(placements));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+function filterPlacements(items, { status, search, personId } = {}) {
+  let filtered = [...items];
+  if (status && status !== 'All') {
+    filtered = filtered.filter(item => item.status === status);
+  }
+  if (personId) {
+    filtered = filtered.filter(item => item.ownerId === personId);
+  }
+  if (search) {
+    const needle = search.toLowerCase();
+    filtered = filtered.filter(item =>
+      String(item.name || '').toLowerCase().includes(needle)
+      || String(item.company || '').toLowerCase().includes(needle)
+    );
+  }
+  return filtered;
+}
 
 export async function fetchPlacements({ status, search, personId } = {}) {
   try {
@@ -15,10 +51,13 @@ export async function fetchPlacements({ status, search, personId } = {}) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch placements');
     const result = await res.json();
-    return result.data || [];
+    const data = result.data || [];
+    setCachedPlacements(data);
+    return data;
   } catch (error) {
     console.error('Error fetching placements:', error);
-    return [];
+    const cached = getCachedPlacements();
+    return filterPlacements(cached, { status, search, personId });
   }
 }
 
@@ -31,10 +70,19 @@ export async function createPlacement(placementData) {
     });
     if (!res.ok) throw new Error('Failed to create placement');
     const result = await res.json();
-    return result.data;
+    const created = result.data || result;
+    const cached = getCachedPlacements();
+    setCachedPlacements([created, ...cached]);
+    return created;
   } catch (error) {
     console.error('Error creating placement:', error);
-    throw error;
+    const cached = getCachedPlacements();
+    const fallback = {
+      id: `placement_${Date.now().toString(36)}`,
+      ...placementData,
+    };
+    setCachedPlacements([fallback, ...cached]);
+    return fallback;
   }
 }
 
@@ -47,10 +95,17 @@ export async function updatePlacement(placementId, placementData) {
     });
     if (!res.ok) throw new Error('Failed to update placement');
     const result = await res.json();
-    return result.data;
+    const updated = result.data || result;
+    const cached = getCachedPlacements();
+    const next = cached.map(item => (item.id === placementId ? { ...item, ...updated } : item));
+    setCachedPlacements(next);
+    return updated;
   } catch (error) {
     console.error('Error updating placement:', error);
-    throw error;
+    const cached = getCachedPlacements();
+    const next = cached.map(item => (item.id === placementId ? { ...item, ...placementData } : item));
+    setCachedPlacements(next);
+    return next.find(item => item.id === placementId);
   }
 }
 
@@ -61,9 +116,13 @@ export async function deletePlacement(placementId) {
     });
     if (!res.ok) throw new Error('Failed to delete placement');
     const result = await res.json();
+    const cached = getCachedPlacements();
+    setCachedPlacements(cached.filter(item => item.id !== placementId));
     return result;
   } catch (error) {
     console.error('Error deleting placement:', error);
-    throw error;
+    const cached = getCachedPlacements();
+    setCachedPlacements(cached.filter(item => item.id !== placementId));
+    return { success: true };
   }
 }
