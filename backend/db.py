@@ -40,15 +40,9 @@ async def lifespan(app):
         await client.admin.command("ping")
 
         try:
-<<<<<<< HEAD
             db = client["College_db"] if "mongodb.net" in str(MONGODB_URI) else client.get_database()
             if db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
                 db = client["College_db"]
-=======
-            db = client.get_database()
-            if db.name == "test":
-                db = client["cms"]
->>>>>>> c10e7d5074fee957e11486f5f75b3bb8cdb2b414
         except Exception:
             db = client["College_db"]
 

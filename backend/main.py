@@ -7,20 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-<<<<<<< HEAD
-from db import lifespan
-from routes.academics.attendance import router as attendance_router
-from routes.academics.exams import router as exams_router
-from routes.academics.facility import router as facility_router
-from routes.academics.placement import router as placement_router
-from routes.academics.timetable import router as timetable_router
-from routes.analytics import router as analytics_router
-from routes.notifications import router as notifications_router
-from routes.payroll import router as payroll_router
-from routes.staff import router as staff_router
-from routes.students import router as students_router
-
-=======
 # Allow `uvicorn main:app --reload` from the backend directory by making
 # the project root importable so `backend.*` absolute imports resolve.
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -34,6 +20,7 @@ from backend.routes.academics.exams import router as exams_router
 from backend.routes.academics.facility import router as facility_router
 from backend.routes.academics.placement import router as placement_router
 from backend.routes.academics.timetable import router as timetable_router
+from backend.routes.analytics import router as analytics_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.payroll import router as payroll_router
 from backend.routes.settings import router as settings_router
@@ -42,7 +29,6 @@ from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
 from backend.routes.administration.invoices import router as invoices_router
->>>>>>> c10e7d5074fee957e11486f5f75b3bb8cdb2b414
 PORT = int(os.getenv("PORT", 5000))
 
 app = FastAPI(title="CMS API", lifespan=lifespan)
