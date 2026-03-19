@@ -1,4 +1,5 @@
-﻿import { NavLink, useNavigate } from 'react-router-dom'
+﻿import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
 import { getUserSession, destroyUserSession } from '../auth/sessionController'
 import { cmsRoles, roleMenuGroups } from '../data/roleConfig'
 
@@ -46,6 +47,8 @@ const routeMap = {
 
 export default function AcademicSidebar({ isSidebarVisible = true, onToggleSidebar }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const navRef = useRef(null)
   const session = getUserSession()
   const role = session?.role || 'student'
   const roleMeta = cmsRoles[role] || cmsRoles.student
@@ -70,6 +73,36 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
     navigate('/', { replace: true })
   }
 
+  useEffect(() => {
+    const saved = sessionStorage.getItem('cmsSidebarScroll')
+    if (navRef.current && saved) {
+      const value = Number.parseInt(saved, 10)
+      if (Number.isFinite(value)) {
+        navRef.current.scrollTop = value
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!navRef.current) return
+    const handleScroll = () => {
+      sessionStorage.setItem('cmsSidebarScroll', String(navRef.current.scrollTop))
+    }
+    navRef.current.addEventListener('scroll', handleScroll)
+    return () => navRef.current?.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    if (!navRef.current) return
+    const saved = sessionStorage.getItem('cmsSidebarScroll')
+    if (saved) {
+      const value = Number.parseInt(saved, 10)
+      if (Number.isFinite(value)) {
+        navRef.current.scrollTop = value
+      }
+    }
+  }, [location.pathname])
+
   return (
     <aside className={`w-64 border-r border-slate-200 bg-white flex flex-col fixed h-full overflow-y-auto z-50 transition-transform duration-300 ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-6 flex items-center gap-3 relative">
@@ -90,7 +123,7 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-6 overflow-y-auto">
+      <nav ref={navRef} className="flex-1 px-4 space-y-6 overflow-y-auto">
         {menuGroups.map((group) => (
           <div key={group.title}>
             <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">

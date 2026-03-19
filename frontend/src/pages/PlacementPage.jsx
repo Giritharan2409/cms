@@ -2,30 +2,43 @@
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import { getUserSession } from '../auth/sessionController'
-
-const initialData = [
-  { name: 'Johnathan Doe', company: 'Google',    role: 'SWE Intern',     package: '$12,000/yr', status: 'Selected', date: '2023-11-05'  },
-  { name: 'Alice Smith',   company: 'Microsoft', role: 'Cloud Intern',   package: '$10,500/yr', status: 'Selected', date: '2023-11-08'  },
-  { name: 'Michael Ross',  company: 'Amazon',    role: 'Data Analyst',   package: '$9,000/yr',  status: 'Process',  date: '2023-12-01'  },
-  { name: 'Elena Lopez',   company: 'Figma',     role: 'Design Intern',  package: '$8,500/yr',  status: 'Process',  date: '2023-12-03'  },
-  { name: 'David Kim',     company: 'Stripe',    role: 'Backend Intern', package: '$11,000/yr', status: 'Selected', date: '2023-11-20' },
-]
+import { fetchPlacements, createPlacement } from '../api/placementApi'
+import { fetchStudentById } from '../api/studentsApi'
 
 const emptyForm = { name: '', company: '', role: '', package: '', status: 'Selected', date: '' }
 
 export default function PlacementPage({ noLayout = false }) {
   const session = getUserSession()
   const role = session?.role || 'student'
+  const userId = session?.userId || null
   const isAdmin = role === 'admin'
 
-  const [entries, setEntries] = useState(initialData)
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [studentName, setStudentName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef(null)
 
+  // Fetch placements on mount and when filters change
+  useEffect(() => {
+    async function loadPlacements() {
+      setLoading(true)
+      const data = await fetchPlacements({
+        status: statusFilter,
+        search: searchQuery,
+        personId: !isAdmin ? userId : undefined, // Only filter by personId for students
+      })
+      setEntries(data)
+      setLoading(false)
+    }
+    loadPlacements()
+  }, [statusFilter, searchQuery, isAdmin, userId])
+
+  // Handle click outside filter dropdown
   useEffect(() => {
     function handleClickOutside(e) {
       if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false)
@@ -34,47 +47,112 @@ export default function PlacementPage({ noLayout = false }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredEntries = entries.filter(p => {
-    const matchStatus = statusFilter === 'All' || p.status === statusFilter
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        p.company.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchStatus && matchSearch
-  })
+  useEffect(() => {
+    if (isAdmin || !userId) return
+    let isActive = true
+
+    async function loadStudent() {
+      try {
+        const student = await fetchStudentById(userId)
+        if (isActive) setStudentName(student?.name || '')
+      } catch (error) {
+        if (isActive) setStudentName('')
+        console.error('Failed to load student profile:', error)
+      }
+    }
+
+    loadStudent()
+    return () => {
+      isActive = false
+    }
+  }, [isAdmin, userId])
+
+  const filteredEntries = entries
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     if (e) e.preventDefault()
-    setEntries(prev => [...prev, form])
-    setForm(emptyForm)
-    setShowModal(false)
+    try {
+      const submitData = { ...form };
+      if (!isAdmin && userId) {
+        submitData.ownerId = userId;
+        submitData.name = studentName || form.name;
+      }
+      const newEntry = await createPlacement(submitData)
+      setEntries(prev => [newEntry, ...prev])
+      setForm(emptyForm)
+      setShowModal(false)
+    } catch (error) {
+      console.error('Failed to create placement:', error)
+      // Optionally show error toast here
+    }
   }
 
   const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1162d4]/10 focus:border-[#1162d4] outline-none transition-all text-sm text-slate-700 bg-white";
   const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-0.5";
 
+  function parsePackageValue(value) {
+    if (!value) return null
+    const numeric = String(value).replace(/[^0-9.]/g, '')
+    const amount = Number.parseFloat(numeric)
+    return Number.isFinite(amount) ? amount : null
+  }
+
+  function formatPackageValue(amount) {
+    if (!Number.isFinite(amount)) return '—'
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`
+    return `$${amount.toFixed(0)}`
+  }
+
+  const avgPackage = (() => {
+    const values = entries
+      .map((entry) => parsePackageValue(entry.package))
+      .filter((value) => value !== null)
+    if (values.length === 0) return '—'
+    const total = values.reduce((sum, value) => sum + value, 0)
+    return formatPackageValue(total / values.length)
+  })()
+
+  const addButton = (
+    <button
+      onClick={() => setShowModal(true)}
+      className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95 w-fit"
+    >
+      <span className="material-symbols-outlined text-lg">add</span>Add Placement
+    </button>
+  );
+
   const inner = (
     <>
       {isAdmin && (
         <div className="mb-6">
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95 w-fit"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>Add Entry
-          </button>
+          {addButton}
+        </div>
+      )}
+      
+      {!isAdmin && entries.length > 0 && (
+        <div className="mb-6">
+          {addButton}
         </div>
       )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        {[
-          { icon: 'emoji_events', label: 'Students Placed',   value: entries.filter(e => e.status === 'Selected').length,     color: 'text-[#1162d4] bg-[#1162d4]/10' },
-          { icon: 'business',    label: 'Companies Visited',  value: new Set(entries.map(e => e.company)).size,               color: 'text-purple-600 bg-purple-100' },
-          { icon: 'attach_money',label: 'Avg. Package',       value: '$10.2k',                                                color: 'text-emerald-600 bg-emerald-100' },
-        ].map((s) => (
+        {(isAdmin
+          ? [
+              { icon: 'emoji_events', label: 'Students Placed',   value: entries.filter(e => e.status === 'Selected').length,     color: 'text-[#1162d4] bg-[#1162d4]/10' },
+              { icon: 'business',    label: 'Companies Visited',  value: new Set(entries.map(e => e.company)).size,               color: 'text-purple-600 bg-purple-100' },
+              { icon: 'attach_money',label: 'Avg. Package',       value: avgPackage,                                              color: 'text-emerald-600 bg-emerald-100' },
+            ]
+          : [
+              { icon: 'emoji_events', label: 'Placements',        value: entries.length,                                           color: 'text-[#1162d4] bg-[#1162d4]/10' },
+              { icon: 'assignment_turned_in', label: 'Selected',   value: entries.filter(e => e.status === 'Selected').length,    color: 'text-emerald-600 bg-emerald-100' },
+              { icon: 'schedule',     label: 'In Process',        value: entries.filter(e => e.status === 'Process').length,     color: 'text-orange-600 bg-orange-100' },
+            ])
+        .map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
             <div className={`p-3 rounded-xl ${s.color}`}>
               <span className="material-symbols-outlined">{s.icon}</span>
@@ -93,7 +171,7 @@ export default function PlacementPage({ noLayout = false }) {
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
           <input
             type="text"
-            placeholder="Search student or company..."
+            placeholder={isAdmin ? "Search student or company..." : "Search company..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 pr-4 py-2 w-full bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4] transition-all duration-200"
@@ -140,7 +218,7 @@ export default function PlacementPage({ noLayout = false }) {
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              <th className="px-6 py-4">Student</th>
+              {isAdmin && <th className="px-6 py-4">Student</th>}
               <th className="px-6 py-4">Company</th>
               <th className="px-6 py-4">Role</th>
               <th className="px-6 py-4">Package</th>
@@ -149,14 +227,32 @@ export default function PlacementPage({ noLayout = false }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredEntries.length === 0 && (
+            {loading && (
               <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-slate-400 text-sm">No records found</td>
+                <td colSpan={isAdmin ? 6 : 5} className="px-6 py-10 text-center text-slate-400 text-sm">Loading...</td>
               </tr>
             )}
-            {filteredEntries.map((p, i) => (
+            {!loading && filteredEntries.length === 0 && (
+              <tr>
+                <td colSpan={isAdmin ? 6 : 5}>
+                  <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
+                    {!isAdmin && (
+                      <>
+                        <span className="material-symbols-outlined text-5xl text-slate-300 mb-3">work_outline</span>
+                        <p className="text-slate-500 font-medium mb-4">No placements yet</p>
+                        {addButton}
+                      </>
+                    )}
+                    {isAdmin && (
+                      <p className="text-slate-400 text-sm">No records found</p>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!loading && filteredEntries.map((p, i) => (
               <tr key={i} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 text-sm font-semibold text-slate-900">{p.name}</td>
+                {isAdmin && <td className="px-6 py-4 text-sm font-semibold text-slate-900">{p.name}</td>}
                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">{p.company}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{p.role}</td>
                 <td className="px-6 py-4 text-sm font-bold text-slate-900">{p.package}</td>
@@ -175,7 +271,7 @@ export default function PlacementPage({ noLayout = false }) {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title="Add Placement Entry"
+        title={isAdmin ? "Add Placement Entry" : "Add Your Placement"}
         icon="work"
         maxWidth="max-w-2xl"
         footer={
@@ -196,13 +292,15 @@ export default function PlacementPage({ noLayout = false }) {
         }
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-1.5">
-            <label className={labelClasses}>Student Name *</label>
-            <input
-              type="text" name="name" value={form.name} onChange={handleChange} required
-              placeholder="e.g., John Doe" className={inputClasses}
-            />
-          </div>
+          {isAdmin && (
+            <div className="space-y-1.5">
+              <label className={labelClasses}>Student Name *</label>
+              <input
+                type="text" name="name" value={form.name} onChange={handleChange} required
+                placeholder="e.g., John Doe" className={inputClasses}
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className={labelClasses}>Company *</label>
             <input
