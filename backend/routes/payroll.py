@@ -5,10 +5,16 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
+<<<<<<< HEAD
+from db import get_db
+from schemas.payroll import PayrollRecord, PayrollUpdate
+from utils.mongo import parse_object_id, serialize_doc
+=======
 from backend.db import get_db
 from backend.dev_store import DEV_STORE
 from backend.schemas.payroll import PayrollRecord, PayrollUpdate
 from backend.utils.mongo import parse_object_id, serialize_doc
+>>>>>>> c10e7d5074fee957e11486f5f75b3bb8cdb2b414
 
 router = APIRouter(prefix="/api/payroll", tags=["payroll"])
 

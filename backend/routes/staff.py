@@ -2,9 +2,14 @@ from copy import deepcopy
 
 from fastapi import APIRouter, HTTPException
 
+<<<<<<< HEAD
+from db import get_db
+from utils.mongo import serialize_doc
+=======
 from backend.db import get_db
 from backend.dev_store import DEV_STORE
 from backend.utils.mongo import serialize_doc
+>>>>>>> c10e7d5074fee957e11486f5f75b3bb8cdb2b414
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
