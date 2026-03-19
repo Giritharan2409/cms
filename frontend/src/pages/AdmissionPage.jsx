@@ -182,7 +182,7 @@ export default function AdmissionPage() {
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
               >
                 <span className="material-symbols-outlined">add</span>
-                Add {activeTab === 'students' ? 'Student' : 'Staff'}
+                Add {activeTab === 'students' ? 'New Member' : 'New Member'}
               </button>
             </div>
           </div>

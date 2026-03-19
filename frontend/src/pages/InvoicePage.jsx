@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 
 export default function InvoicePage() {
   const session = getUserSession();
+  const isAdmin = session?.userRole === 'admin';
   const studentId = session?.userId;
 
   const [invoices, setInvoices] = useState(
@@ -13,15 +14,101 @@ export default function InvoicePage() {
   const [searchName, setSearchName] = useState('');
   const [searchDept, setSearchDept] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteReason, setDeleteReason] = useState('');
 
-  // Filter invoices for current student
-  const studentInvoices = useMemo(() => {
+  // Listen for invoice updates
+  React.useEffect(() => {
+    const handleInvoiceUpdate = () => {
+      const updatedInvoices = JSON.parse(localStorage.getItem('admin_invoices') || '[]');
+      setInvoices(updatedInvoices);
+    };
+
+    window.addEventListener('invoiceUpdated', handleInvoiceUpdate);
+    return () => window.removeEventListener('invoiceUpdated', handleInvoiceUpdate);
+  }, []);
+
+  // Create sample invoices for demonstration (only if admin and no invoices exist)
+  React.useEffect(() => {
+    if (isAdmin && invoices.length === 0) {
+      const sampleInvoices = [
+        {
+          id: 'BILL1716138000000',
+          studentId: 'STU001',
+          studentName: 'John Doe',
+          applicationId: 'APP001',
+          semester: '1st Semester',
+          course: 'ECE',
+          total: 99200,
+          paymentStatus: 'Paid',
+          generatedDate: '2026-03-19',
+          paidDate: '2026-03-19',
+          paymentMethod: 'Debit Card',
+          transactionId: 'TXN332064',
+          generatedFrom: 'FEE001',
+          items: [
+            { description: 'Semester Fee', amount: 50000 },
+            { description: 'Book Fee', amount: 12000 },
+            { description: 'Exam Fee', amount: 5000 },
+            { description: 'Lab Fee', amount: 8000 },
+            { description: 'Library Fee', amount: 4200 }
+          ]
+        },
+        {
+          id: 'BILL1716138000001',
+          studentId: 'STU002',
+          studentName: 'Jane Smith',
+          applicationId: 'APP002',
+          semester: '1st Semester',
+          course: 'ECE',
+          total: 209200,
+          paymentStatus: 'Pending',
+          generatedDate: '2026-03-19',
+          generatedFrom: 'FEE002',
+          items: [
+            { description: 'Semester Fee', amount: 50000 },
+            { description: 'Book Fee', amount: 12000 },
+            { description: 'Exam Fee', amount: 5000 },
+            { description: 'Lab Fee', amount: 8000 },
+            { description: 'Library Fee', amount: 4200 },
+            { description: 'Hostel Fee', amount: 120000 },
+            { description: 'Mess Fee', amount: 10000 }
+          ]
+        },
+        {
+          id: 'BILL1716138000002',
+          studentId: 'STU003',
+          studentName: 'Mike Johnson',
+          applicationId: 'APP003',
+          semester: '1st Semester',
+          course: 'ECE',
+          total: 184200,
+          paymentStatus: 'Pending',
+          generatedDate: '2026-03-19',
+          generatedFrom: 'FEE003',
+          items: [
+            { description: 'Semester Fee', amount: 50000 },
+            { description: 'Book Fee', amount: 12000 },
+            { description: 'Exam Fee', amount: 5000 },
+            { description: 'Lab Fee', amount: 8000 },
+            { description: 'Library Fee', amount: 4200 },
+            { description: 'Hostel Fee', amount: 120000 },
+            { description: 'Misc Fee', amount: 5000 }
+          ]
+        }
+      ];
+      
+      localStorage.setItem('admin_invoices', JSON.stringify(sampleInvoices));
+      setInvoices(sampleInvoices);
+    }
+  }, [isAdmin, invoices.length]);
+
+  // Filter invoices based on user role
+  const filteredInvoices = useMemo(() => {
     let filtered = invoices;
 
-    // Filter by student ID
-    if (studentId) {
+    // If not admin, filter by student ID
+    if (!isAdmin && studentId) {
       filtered = filtered.filter((inv) => inv.studentId === studentId);
     }
 
@@ -47,7 +134,7 @@ export default function InvoicePage() {
     }
 
     return filtered;
-  }, [invoices, studentId, searchName, searchDept, statusFilter]);
+  }, [invoices, studentId, searchName, searchDept, statusFilter, isAdmin]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -60,11 +147,6 @@ export default function InvoicePage() {
       default:
         return 'bg-slate-100 text-slate-800 border-slate-300';
     }
-  };
-
-  const handleViewInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowDetailModal(true);
   };
 
   const handleDownloadPDF = (invoice) => {
@@ -186,22 +268,99 @@ export default function InvoicePage() {
     pdf.save(`invoice_${invoice.id}.pdf`);
   };
 
-  const handleSendEmail = (invoice) => {
-    const subject = `Invoice ${invoice.id} - Payment Receipt`;
-    const body = encodeURIComponent(
-      `Invoice Details:\n\nStudent: ${invoice.studentName}\nAmount: ₹${invoice.total}\nStatus: ${invoice.paymentStatus}\n\nPlease find the invoice details attached.`
-    );
+  const handleDeleteInvoice = (invoice) => {
+    setDeleteConfirm(invoice);
+    setDeleteReason('');
+  };
 
-    window.location.href = `mailto:student@college.edu?subject=${encodeURIComponent(subject)}&body=${body}`;
+  const handleConfirmDelete = () => {
+    if (!deleteReason.trim()) {
+      alert('Please provide a deletion reason');
+      return;
+    }
+
+    const updatedInvoices = invoices.filter((inv) => inv.id !== deleteConfirm.id);
+    setInvoices(updatedInvoices);
+    localStorage.setItem('admin_invoices', JSON.stringify(updatedInvoices));
+    
+    // Dispatch event for real-time updates
+    window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: updatedInvoices }));
+    
+    setDeleteConfirm(null);
+    setDeleteReason('');
+    alert('Invoice deleted successfully');
+  };
+
+  const handlePrintInvoice = (invoice) => {
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+      <html>
+        <head>
+          <title>Invoice ${invoice.id}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .info { margin-bottom: 20px; }
+            .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            .table th { background-color: #f2f2f2; }
+            .total { font-weight: bold; font-size: 18px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>INVOICE</h1>
+            <p>College Management System</p>
+            <p>123 University Road, Education City</p>
+          </div>
+          <div class="info">
+            <p><strong>Invoice #:</strong> ${invoice.id}</p>
+            <p><strong>Date:</strong> ${invoice.generatedDate}</p>
+            <p><strong>Status:</strong> ${invoice.paymentStatus}</p>
+          </div>
+          <div class="info">
+            <p><strong>Student ID:</strong> ${invoice.studentId}</p>
+            <p><strong>Student Name:</strong> ${invoice.studentName}</p>
+            <p><strong>Course:</strong> ${invoice.course}</p>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items?.map(item => `<tr><td>${item.description}</td><td>₹${item.amount}</td></tr>`).join('') || ''}
+              <tr class="total">
+                <td>Total</td>
+                <td>₹${invoice.total}</td>
+              </tr>
+            </tbody>
+          </table>
+          ${invoice.paymentStatus === 'Paid' ? `
+            <div class="info">
+              <p><strong>Payment Date:</strong> ${invoice.paidDate}</p>
+              <p><strong>Payment Method:</strong> ${invoice.paymentMethod}</p>
+              <p><strong>Transaction ID:</strong> ${invoice.transactionId}</p>
+            </div>
+          ` : ''}
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
-    <Layout title="Invoices & Bills">
+    <Layout title={isAdmin ? "Invoice Management" : "Invoices & Bills"}>
       <div className="space-y-8">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Invoices & Bills</h1>
-          <p className="text-blue-100">Your invoices and payment details</p>
+          <h1 className="text-3xl font-bold mb-2">{isAdmin ? "Invoice Management" : "Invoices & Bills"}</h1>
+          <p className="text-blue-100">{isAdmin ? "Manage all generated invoices" : "Your invoices and payment details"}</p>
         </div>
 
         {/* Info Box */}
@@ -279,100 +438,113 @@ export default function InvoicePage() {
 
         {/* Invoice Cards Grid */}
         <div className="bg-white rounded-lg shadow p-6">
-          {studentInvoices.length === 0 ? (
+          {filteredInvoices.length === 0 ? (
             <div className="text-center py-12">
               <span className="material-symbols-outlined text-6xl text-gray-300 block mb-4">
                 receipt
               </span>
               <p className="text-gray-500 text-lg">No invoices found</p>
-              <p className="text-gray-400 text-sm">Your invoices will appear here once generated</p>
+              <p className="text-gray-400 text-sm">{isAdmin ? "No invoices have been generated yet. Please go to Admin Fee Page and click 'Generate Invoice' button." : "Your invoices will appear here once generated"}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {studentInvoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => (
                 <div
                   key={invoice.id}
-                  onClick={() => handleViewInvoice(invoice)}
-                  className={`rounded-lg shadow border-l-4 p-6 cursor-pointer hover:shadow-lg transition ${
+                  className={`rounded-lg shadow-lg p-6 hover:shadow-xl transition ${
                     invoice.paymentStatus === 'Paid'
-                      ? 'bg-green-50 border-l-green-500'
+                      ? 'bg-green-100 border-2 border-green-300'
                       : invoice.paymentStatus === 'Pending'
-                      ? 'bg-orange-50 border-l-orange-500'
-                      : 'bg-red-50 border-l-red-500'
+                      ? 'bg-orange-100 border-2 border-orange-300'
+                      : 'bg-red-100 border-2 border-red-300'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  {/* Header with Status Badge */}
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <p className="text-xs text-gray-600">{invoice.id}</p>
-                      <p className="text-gray-500 text-sm">
-                        {new Date(invoice.generatedDate || new Date()).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                        })}
-                      </p>
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">
+                        {invoice.course} Bill
+                      </h3>
+                      <p className="text-sm text-gray-600">{invoice.id}</p>
                     </div>
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
-                        invoice.paymentStatus
-                      )}`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        invoice.paymentStatus === 'Paid'
+                          ? 'bg-green-500 text-white'
+                          : invoice.paymentStatus === 'Pending'
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-red-500 text-white'
+                      }`}
                     >
                       {invoice.paymentStatus}
                     </span>
                   </div>
 
-                  <div className="space-y-2 text-sm mb-4">
-                    <div>
-                      <p className="text-gray-600">Student</p>
-                      <p className="font-semibold text-gray-800">{invoice.studentName}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">ID</p>
-                      <p className="font-semibold text-gray-800">{invoice.studentId}</p>
-                    </div>
+                  {/* Amount Display */}
+                  <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+                    <p className="text-3xl font-bold text-gray-800">₹{invoice.total.toLocaleString()}</p>
                   </div>
 
-                  <p className="text-base font-semibold text-gray-600 mb-3">
-                    {invoice.course}
-                  </p>
-
-                  <div className="bg-white rounded p-3 mb-4">
-                    <p className="text-xs text-gray-600">Total Amount Due</p>
-                    <p className="text-2xl font-bold text-gray-800">₹{invoice.total}</p>
+                  {/* Student Information */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Student:</span>
+                      <span className="text-sm font-semibold text-gray-800">{invoice.studentName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Course:</span>
+                      <span className="text-sm font-semibold text-gray-800">{invoice.course}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Date:</span>
+                      <span className="text-sm font-semibold text-gray-800">{invoice.generatedDate}</span>
+                    </div>
+                    {invoice.paymentStatus === 'Paid' && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Method:</span>
+                          <span className="text-sm font-semibold text-gray-800">{invoice.paymentMethod || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">TXN ID:</span>
+                          <span className="text-sm font-semibold text-gray-800">{invoice.transactionId || 'N/A'}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-4">
-                    <div>
-                      <p className="font-semibold">Generated</p>
-                      <p>{invoice.generatedDate}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">+ fee items</p>
-                      <p>
-                        {invoice.items?.length || 0}{' '}
-                        {invoice.items?.length === 1 ? 'item' : 'items'}
-                      </p>
-                    </div>
-                  </div>
-
+                  {/* Action Buttons */}
                   <div className="flex gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDownloadPDF(invoice);
                       }}
-                      className="flex-1 bg-blue-500 text-white py-2 rounded text-sm hover:bg-blue-600 transition"
+                      className="flex-1 bg-blue-500 text-white py-2 rounded text-sm hover:bg-blue-600 transition font-medium"
                     >
-                      Download
+                      Download as PDF
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleViewInvoice(invoice);
+                        handlePrintInvoice(invoice);
                       }}
-                      className="flex-1 bg-purple-500 text-white py-2 rounded text-sm hover:bg-purple-600 transition"
+                      className="flex-1 bg-purple-500 text-white py-2 rounded text-sm hover:bg-purple-600 transition font-medium"
                     >
-                      View
+                      Print
                     </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteInvoice(invoice);
+                        }}
+                        className="p-2 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
+                        title="Delete"
+                      >
+                        <span className="material-symbols-outlined text-lg">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -381,149 +553,49 @@ export default function InvoicePage() {
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {showDetailModal && selectedInvoice && (
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Invoice Details</h2>
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">Delete Invoice</h2>
+
+            <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-800 font-semibold mb-2">⚠ Warning</p>
+              <p className="text-sm text-red-700">
+                This will delete the invoice and all related payment history. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for Deletion *
+              </label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Enter reason for deletion"
+                rows="4"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowDetailModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setDeleteReason('');
+                }}
+                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
               >
-                ✕
-              </button>
-            </div>
-
-            {/* College Header */}
-            <div className="text-center border-b pb-6 mb-6">
-              <h3 className="font-bold text-lg">College Management System</h3>
-              <p className="text-sm text-gray-600">123 University Road, Education City</p>
-              <p className="text-sm text-gray-600">Phone: +91-9876543210</p>
-            </div>
-
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
-                <h4 className="font-bold text-gray-800 mb-3">Student Information</h4>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-gray-600">ID:</span>
-                    <span className="font-semibold">{selectedInvoice.studentId}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-600">Name:</span>
-                    <span className="font-semibold">{selectedInvoice.studentName}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-600">Course:</span>
-                    <span className="font-semibold">{selectedInvoice.course}</span>
-                  </p>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-800 mb-3">Invoice Details</h4>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-gray-600">Invoice #:</span>
-                    <span className="font-semibold">{selectedInvoice.id}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-600">Date:</span>
-                    <span className="font-semibold">{selectedInvoice.generatedDate}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-600">Status:</span>
-                    <span
-                      className={`font-semibold px-2 py-1 rounded text-xs ${getStatusColor(
-                        selectedInvoice.paymentStatus
-                      )}`}
-                    >
-                      {selectedInvoice.paymentStatus}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Fee Breakdown */}
-            <div className="mb-6">
-              <h4 className="font-bold text-gray-800 mb-3">Fee Breakdown</h4>
-              {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b-2 border-gray-300">
-                      <th className="text-left py-2 text-sm text-gray-600">Description</th>
-                      <th className="text-right py-2 text-sm text-gray-600">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedInvoice.items.map((item, idx) => (
-                      <tr key={idx} className="border-b border-gray-200">
-                        <td className="text-left py-2 text-sm">{item.description}</td>
-                        <td className="text-right py-2 text-sm font-semibold">₹{item.amount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-gray-600 text-sm">No items</p>
-              )}
-            </div>
-
-            {/* Total */}
-            <div className="bg-gray-100 rounded p-4 mb-6">
-              <div className="flex justify-between">
-                <span className="font-bold text-gray-800">Total Amount:</span>
-                <span className="font-bold text-2xl text-gray-800">₹{selectedInvoice.total}</span>
-              </div>
-            </div>
-
-            {/* Payment Info */}
-            {selectedInvoice.paymentStatus === 'Paid' && (
-              <div className="bg-green-50 border border-green-300 rounded p-4 mb-6">
-                <h4 className="font-bold text-green-900 mb-3">Payment Confirmation</h4>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-green-700">Payment Date:</span>
-                    <span className="font-semibold">{selectedInvoice.paidDate || 'N/A'}</span>
-                  </p>
-                  <p>
-                    <span className="text-green-700">Method:</span>
-                    <span className="font-semibold">{selectedInvoice.paymentMethod || 'N/A'}</span>
-                  </p>
-                  <p>
-                    <span className="text-green-700">Transaction ID:</span>
-                    <span className="font-semibold">{selectedInvoice.transactionId || 'N/A'}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 mb-3">
-              <button
-                onClick={() => handleDownloadPDF(selectedInvoice)}
-                className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined">download</span>
-                Download PDF
+                Cancel
               </button>
               <button
-                onClick={() => handleSendEmail(selectedInvoice)}
-                className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"
+                onClick={handleConfirmDelete}
+                className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
               >
-                <span className="material-symbols-outlined">mail</span>
-                Send Email
+                Delete
               </button>
             </div>
-
-            <button
-              onClick={() => setShowDetailModal(false)}
-              className="w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

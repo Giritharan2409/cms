@@ -112,10 +112,8 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const handlePayment = () => {
-    if (!formData.paymentMethod) {
-      alert('Please select a payment method');
-      return;
-    }
+    // Set default payment method for popup
+    setFormData(prev => ({ ...prev, paymentMethod: 'Debit Card' }));
     setShowPaymentDetails(true);
   };
 
@@ -515,13 +513,17 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     <input
                       type="file"
                       onChange={(e) => handleFileChange(e, 'passportPhoto')}
-                      className={`w-full px-4 py-2 border rounded-lg ${formData.passportPhoto ? 'border-green-500 bg-green-50' : 'border-red-300 bg-red-50'}`}
+                      className={`w-full px-4 py-2 border rounded-lg cursor-pointer transition-colors ${
+                        formData.passportPhoto 
+                          ? 'border-green-500 bg-green-50 hover:border-green-600' 
+                          : 'border-red-300 bg-red-50 hover:border-red-400 hover:bg-red-100'
+                      }`}
                     />
                     {formData.passportPhoto && (
                       <p className="text-xs text-green-600 mt-1">✓ {formData.passportPhoto.name}</p>
                     )}
                     {!formData.passportPhoto && (
-                      <p className="text-xs text-red-600 mt-1">This field is required</p>
+                      <p className="text-xs text-red-600 mt-1 font-semibold">* Document required - Please upload</p>
                     )}
                   </div>
                   <div>
@@ -531,13 +533,17 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     <input
                       type="file"
                       onChange={(e) => handleFileChange(e, 'aadhaarCard')}
-                      className={`w-full px-4 py-2 border rounded-lg ${formData.aadhaarCard ? 'border-green-500 bg-green-50' : 'border-red-300 bg-red-50'}`}
+                      className={`w-full px-4 py-2 border rounded-lg cursor-pointer transition-colors ${
+                        formData.aadhaarCard 
+                          ? 'border-green-500 bg-green-50 hover:border-green-600' 
+                          : 'border-red-300 bg-red-50 hover:border-red-400 hover:bg-red-100'
+                      }`}
                     />
                     {formData.aadhaarCard && (
                       <p className="text-xs text-green-600 mt-1">✓ {formData.aadhaarCard.name}</p>
                     )}
                     {!formData.aadhaarCard && (
-                      <p className="text-xs text-red-600 mt-1">This field is required</p>
+                      <p className="text-xs text-red-600 mt-1 font-semibold">* Document required - Please upload</p>
                     )}
                   </div>
                   <div>
@@ -547,13 +553,17 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     <input
                       type="file"
                       onChange={(e) => handleFileChange(e, 'marksheet')}
-                      className={`w-full px-4 py-2 border rounded-lg ${formData.marksheet ? 'border-green-500 bg-green-50' : 'border-red-300 bg-red-50'}`}
+                      className={`w-full px-4 py-2 border rounded-lg cursor-pointer transition-colors ${
+                        formData.marksheet 
+                          ? 'border-green-500 bg-green-50 hover:border-green-600' 
+                          : 'border-red-300 bg-red-50 hover:border-red-400 hover:bg-red-100'
+                      }`}
                     />
                     {formData.marksheet && (
                       <p className="text-xs text-green-600 mt-1">✓ {formData.marksheet.name}</p>
                     )}
                     {!formData.marksheet && (
-                      <p className="text-xs text-red-600 mt-1">This field is required</p>
+                      <p className="text-xs text-red-600 mt-1 font-semibold">* Document required - Please upload</p>
                     )}
                   </div>
                   <div>
@@ -573,7 +583,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {currentStep === 7 && !paymentDone && (
+            {currentStep === 7 && !paymentDone && !showPaymentDetails && (
               <div className="space-y-6">
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
                   <h3 className="text-lg font-bold text-gray-800 mb-4">Application Fee</h3>
@@ -588,23 +598,6 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       💳 Click "Proceed to Payment" to complete your payment securely
                     </p>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payment Method
-                  </label>
-                  <select
-                    name="paymentMethod"
-                    value={formData.paymentMethod}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select payment method</option>
-                    <option value="Debit Card">Debit Card</option>
-                    <option value="Credit Card">Credit Card</option>
-                    <option value="UPI">UPI</option>
-                  </select>
                 </div>
               </div>
             )}
