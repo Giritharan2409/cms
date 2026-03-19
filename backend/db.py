@@ -5,6 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
+import certifi
 from urllib.parse import urlsplit
 
 # Always load .env from the backend folder, independent of process CWD.
@@ -36,7 +37,12 @@ async def lifespan(app):
 
     print(f"Connecting to MongoDB at {mask_mongodb_uri(MONGODB_URI)}...")
     try:
-        client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        client = AsyncIOMotorClient(
+            MONGODB_URI, 
+            serverSelectionTimeoutMS=15000,
+            connectTimeoutMS=15000,
+            tlsCAFile=certifi.where()
+        )
         await client.admin.command("ping")
 
         try:
@@ -45,8 +51,6 @@ async def lifespan(app):
                 db = client["College_db"]
         except Exception:
             db = client["College_db"]
-
-
 
         print(f"Connected to MongoDB successfully (Database: {db.name})")
     except Exception as error:

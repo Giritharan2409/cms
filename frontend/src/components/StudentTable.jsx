@@ -44,9 +44,9 @@ export default function StudentTable({ students, onEdit, onDelete }) {
           ) : (
             students.map((s) => (
               <tr
-                key={s.rollNumber || s._id}
+                key={s.rollNumber || s.id}
                 className="hover:bg-slate-50 transition-colors cursor-pointer"
-                onClick={() => navigate(`/students/${encodeURIComponent(s.rollNumber || s._id)}`)}
+                onClick={() => navigate(`/students/${encodeURIComponent(s.rollNumber || s.id)}`)}
               >
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -66,7 +66,13 @@ export default function StudentTable({ students, onEdit, onDelete }) {
                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">{s.departmentId || s.department}</td>
                 <td className="px-6 py-4">
                    <p className="text-sm font-medium text-slate-900">Sem {s.semester || '1'}</p>
-                   <p className="text-xs text-slate-500">{s.year ? `${s.year}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year` : '1st Year'}</p>
+                   <p className="text-xs text-slate-500">
+                     {s.year ? (
+                       typeof s.year === 'string' && s.year.toLowerCase().includes('year') 
+                         ? s.year 
+                         : `${s.year}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year`
+                     ) : '1st Year'}
+                   </p>
                 </td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[s.status.toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>

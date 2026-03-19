@@ -8,7 +8,7 @@
 export const cmsRoles = {
   student: {
     label: 'Student',
-    name: 'John Anderson',
+    name: 'Student User',
     team: 'Computer Science',
     focus: 'Academics',
     primaryAction: 'View Timetable',
@@ -112,7 +112,11 @@ export const roleMenuGroups = {
     },
     {
       title: 'Academics',
+<<<<<<< Updated upstream
       items: ['Exams', 'Timetable', 'Attendance', 'Placement'],
+=======
+      items: ['Exams', 'Timetable', 'Attendance', 'Placement', 'Facility'],
+>>>>>>> Stashed changes
     },
     {
       title: 'Administration',
@@ -148,7 +152,11 @@ export const roleMenuGroups = {
     },
     {
       title: 'Academics',
+<<<<<<< Updated upstream
       items: ['Exams', 'Timetable', 'Attendance', 'Placement'],
+=======
+      items: ['Exams', 'Timetable', 'Attendance', 'Placement', 'Facility'],
+>>>>>>> Stashed changes
     },
     {
       title: 'Intelligence',

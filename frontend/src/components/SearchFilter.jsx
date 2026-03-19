@@ -1,4 +1,4 @@
-export default function SearchFilter({ searchQuery, onSearchChange, onAddClick }) {
+export default function SearchFilter({ searchQuery, onSearchChange, onAddClick, onFilterClick, onExportClick }) {
   return (
     <div className="flex flex-col lg:flex-row items-center gap-4 mb-8">
       <div className="relative flex-1 group w-full lg:w-auto">
@@ -13,11 +13,17 @@ export default function SearchFilter({ searchQuery, onSearchChange, onAddClick }
       </div>
 
       <div className="flex items-center gap-3 w-full lg:w-auto">
-        <button className="flex items-center justify-center gap-2 h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+        <button 
+          onClick={onFilterClick}
+          className="flex items-center justify-center gap-2 h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95"
+        >
           <span className="material-symbols-outlined text-lg">filter_list</span>
           <span className="hidden sm:inline">Filter</span>
         </button>
-        <button className="flex items-center justify-center gap-2 h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm">
+        <button 
+          onClick={onExportClick}
+          className="flex items-center justify-center gap-2 h-10 px-4 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95"
+        >
           <span className="material-symbols-outlined text-lg">ios_share</span>
           <span className="hidden sm:inline">Export</span>
         </button>

@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { getStudentById } from '../data/studentData'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
@@ -519,16 +518,50 @@ export default function StudentDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
+  const [student, setStudent] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const student = getStudentById(decodeURIComponent(id))
+  useEffect(() => {
+    const fetchStudent = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`http://127.0.0.1:5000/api/students/${decodeURIComponent(id)}`)
+        if (!res.ok) {
+          if (res.status === 404) throw new Error('Student not found')
+          throw new Error('Failed to fetch student details')
+        }
+        const data = await res.json()
+        setStudent(data)
+        setError(null)
+      } catch (err) {
+        console.error('Error:', err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStudent()
+  }, [id])
 
-  if (!student) {
+  if (loading) {
+    return (
+      <Layout title="Loading Student...">
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="w-12 h-12 border-4 border-[#1162d4] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-slate-500 font-medium">Fetching profile details...</p>
+        </div>
+      </Layout>
+    )
+  }
+
+  if (error || !student) {
     return (
       <Layout title="Student Not Found">
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <span className="material-symbols-outlined text-6xl text-slate-300 mb-4">person_off</span>
-          <h2 className="text-xl font-bold text-slate-700 mb-2">Student Not Found</h2>
-          <p className="text-sm text-slate-500 mb-6">No student record exists with ID "{decodeURIComponent(id)}"</p>
+          <h2 className="text-xl font-bold text-slate-700 mb-2">{error || 'Student Not Found'}</h2>
+          <p className="text-sm text-slate-500 mb-6">Record with ID "{decodeURIComponent(id)}" is missing or unreachable.</p>
           <button
             onClick={() => navigate('/students')}
             className="px-5 py-2.5 bg-[#2563eb] text-white rounded-lg text-sm font-semibold hover:bg-[#1d4ed8] transition-all"

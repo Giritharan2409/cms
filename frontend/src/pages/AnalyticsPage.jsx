@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+<<<<<<< Updated upstream
 import { useSearchParams } from 'react-router-dom';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -427,17 +428,396 @@ function CC({title,subtitle,children,span2,style,action}){
   return(
     <div className="content-card" style={{marginBottom:0,gridColumn:span2?'span 2':'span 1',...style}}>
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{title}</div>
-          {subtitle&&<div style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{subtitle}</div>}
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
+=======
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { destroyUserSession } from '../auth/sessionController';
+import { cmsRoles, getValidRole, roleMenuGroups } from '../data/roleConfig';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getRealAnalyticsData, getAnalyticsData, insertSampleAnalyticsData } from '../services/analyticsService';
+
+// Fetch real analytics data from MongoDB
+const fetchRealAnalytics = async () => {
+  try {
+    console.log('Fetching real analytics from MongoDB...');
+    const data = await getRealAnalyticsData();
+    if (data) {
+      console.log('Real analytics data loaded:', data);
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to fetch real analytics:', error);
+    return null;
+  }
+};
+
+// Icons
+const Ico = {
+  Calendar: () => <span style={{fontSize: '15px'}}>📅</span>,
+  Download: () => <span style={{fontSize: '15px'}}>⬇️</span>,
+};
+
+// Constants
+const YEAR_RANGES = [
+  { label: '2023-2027', start: '2023', end: '2027' },
+  { label: '2024-2028', start: '2024', end: '2028' },
+  { label: '2025-2029', start: '2025', end: '2029' }
+];
+const SEMESTER_OPTS = ['Semester 4 (Current)','Semester 3','Semester 2','Semester 1'];
+const DEPT_OPTS = ['All Departments','CS','ME','EE','ECE','Computer Science'];
+
+// Helper functions
+function myToKey(year){return parseInt(year);}
+function keyToYear(k){return k.toString();}
+function myLabel(year){return year;}
+
+// Year and semester-specific static data
+function getYearSemesterSpecificStaticData(year, semester) {
+  const yearData = {
+    '2027': {
+      'Semester 4 (Current)': {
+        attendanceData: [
+          {year: '2027', attendance: 85, target: 90},
+          {year: '2027', attendance: 87, target: 90},
+          {year: '2027', attendance: 86, target: 90},
+        ],
+        performanceData: [
+          {year: '2027', passRate: 88, avgMarks: 78},
+          {year: '2027', passRate: 90, avgMarks: 82},
+          {year: '2027', passRate: 85, avgMarks: 80},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 680, faculty: 82, avgAttendance: 86, cgpa: 8.4},
+          {name: 'Physics', students: 420, faculty: 68, avgAttendance: 82, cgpa: 7.9},
+          {name: 'Mathematics', students: 390, faculty: 58, avgAttendance: 80, cgpa: 8.1},
+          {name: 'Electronics', students: 580, faculty: 94, avgAttendance: 85, cgpa: 8.2},
+          {name: 'Mechanical', students: 510, faculty: 86, avgAttendance: 81, cgpa: 7.8},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 120, color: '#22c55e'},
+          {grade: 'A', count: 280, color: '#3b82f6'},
+          {grade: 'B+', count: 200, color: '#06b6d4'},
+          {grade: 'B', count: 150, color: '#8b5cf6'},
+          {grade: 'C', count: 80, color: '#f59e0b'},
+          {grade: 'F', count: 30, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,690',
+          faculty: '400',
+          departments: '5',
+          courses: '48',
+          income: 4100000,
+          expense: 2300000,
+          scholarships: 140
+        }
+      },
+      'Semester 3': {
+        attendanceData: [
+          {year: '2027', attendance: 83, target: 90},
+          {year: '2027', attendance: 85, target: 90},
+          {year: '2027', attendance: 84, target: 90},
+        ],
+        performanceData: [
+          {year: '2027', passRate: 86, avgMarks: 76},
+          {year: '2027', passRate: 88, avgMarks: 80},
+          {year: '2027', passRate: 83, avgMarks: 78},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 650, faculty: 80, avgAttendance: 84, cgpa: 8.3},
+          {name: 'Physics', students: 410, faculty: 66, avgAttendance: 80, cgpa: 7.8},
+          {name: 'Mathematics', students: 380, faculty: 56, avgAttendance: 78, cgpa: 8.0},
+          {name: 'Electronics', students: 560, faculty: 92, avgAttendance: 83, cgpa: 8.1},
+          {name: 'Mechanical', students: 500, faculty: 84, avgAttendance: 79, cgpa: 7.7},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 100, color: '#22c55e'},
+          {grade: 'A', count: 260, color: '#3b82f6'},
+          {grade: 'B+', count: 180, color: '#06b6d4'},
+          {grade: 'B', count: 140, color: '#8b5cf6'},
+          {grade: 'C', count: 70, color: '#f59e0b'},
+          {grade: 'F', count: 40, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,550',
+          faculty: '390',
+          departments: '5',
+          courses: '46',
+          income: 3900000,
+          expense: 2100000,
+          scholarships: 130
+        }
+      },
+      'Semester 2': {
+        attendanceData: [
+          {year: '2027', attendance: 81, target: 90},
+          {year: '2027', attendance: 83, target: 90},
+          {year: '2027', attendance: 82, target: 90},
+        ],
+        performanceData: [
+          {year: '2027', passRate: 84, avgMarks: 74},
+          {year: '2027', passRate: 86, avgMarks: 78},
+          {year: '2027', passRate: 83, avgMarks: 76},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 620, faculty: 78, avgAttendance: 82, cgpa: 8.2},
+          {name: 'Physics', students: 400, faculty: 64, avgAttendance: 78, cgpa: 7.7},
+          {name: 'Mathematics', students: 370, faculty: 54, avgAttendance: 76, cgpa: 7.9},
+          {name: 'Electronics', students: 540, faculty: 90, avgAttendance: 81, cgpa: 8.0},
+          {name: 'Mechanical', students: 490, faculty: 82, avgAttendance: 77, cgpa: 7.6},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 80, color: '#22c55e'},
+          {grade: 'A', count: 240, color: '#3b82f6'},
+          {grade: 'B+', count: 160, color: '#06b6d4'},
+          {grade: 'B', count: 130, color: '#8b5cf6'},
+          {grade: 'C', count: 60, color: '#f59e0b'},
+          {grade: 'F', count: 50, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,410',
+          faculty: '380',
+          departments: '5',
+          courses: '44',
+          income: 3700000,
+          expense: 1900000,
+          scholarships: '120'
+        }
+      },
+      'Semester 1': {
+        attendanceData: [
+          {year: '2027', attendance: 79, target: 90},
+          {year: '2027', attendance: 81, target: 90},
+          {year: '2027', attendance: 80, target: 90},
+        ],
+        performanceData: [
+          {year: '2027', passRate: 82, avgMarks: 72},
+          {year: '2027', passRate: 84, avgMarks: 74},
+          {year: '2027', passRate: 81, avgMarks: 74},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 590, faculty: 76, avgAttendance: 80, cgpa: 8.1},
+          {name: 'Physics', students: 380, faculty: 62, avgAttendance: 76, cgpa: 7.5},
+          {name: 'Mathematics', students: 350, faculty: 52, avgAttendance: 74, cgpa: 7.7},
+          {name: 'Electronics', students: 520, faculty: 88, avgAttendance: 79, cgpa: 7.9},
+          {name: 'Mechanical', students: 470, faculty: 80, avgAttendance: 75, cgpa: 7.5},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 60, color: '#22c55e'},
+          {grade: 'A', count: 220, color: '#3b82f6'},
+          {grade: 'B+', count: 120, color: '#06b6d4'},
+          {grade: 'B', count: 110, color: '#8b5cf6'},
+          {grade: 'C', count: 40, color: '#f59e0b'},
+          {grade: 'F', count: 70, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,270',
+          faculty: '370',
+          departments: '5',
+          courses: '42',
+          income: 3300000,
+          expense: 1700000,
+          scholarships: '110'
+        }
+      }
+    },
+    '2026': {
+      'Semester 4 (Current)': {
+        attendanceData: [
+          {year: '2026', attendance: 82, target: 90},
+          {year: '2026', attendance: 84, target: 90},
+          {year: '2026', attendance: 83, target: 90},
+        ],
+        performanceData: [
+          {year: '2026', passRate: 85, avgMarks: 75},
+          {year: '2026', passRate: 87, avgMarks: 79},
+          {year: '2026', passRate: 82, avgMarks: 77},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 650, faculty: 78, avgAttendance: 83, cgpa: 8.2},
+          {name: 'Physics', students: 400, faculty: 65, avgAttendance: 79, cgpa: 7.8},
+          {name: 'Mathematics', students: 380, faculty: 55, avgAttendance: 77, cgpa: 8.0},
+          {name: 'Electronics', students: 560, faculty: 92, avgAttendance: 84, cgpa: 8.1},
+          {name: 'Mechanical', students: 490, faculty: 84, avgAttendance: 80, cgpa: 7.7},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 110, color: '#22c55e'},
+          {grade: 'A', count: 270, color: '#3b82f6'},
+          {grade: 'B+', count: 190, color: '#06b6d4'},
+          {grade: 'B', count: 140, color: '#8b5cf6'},
+          {grade: 'C', count: 70, color: '#f59e0b'},
+          {grade: 'F', count: 35, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,580',
+          faculty: '390',
+          departments: '5',
+          courses: '46',
+          income: 3900000,
+          expense: 2100000,
+          scholarships: 130
+        }
+      },
+      'Semester 3': {
+        attendanceData: [
+          {year: '2026', attendance: 80, target: 90},
+          {year: '2026', attendance: 82, target: 90},
+          {year: '2026', attendance: 81, target: 90},
+        ],
+        performanceData: [
+          {year: '2026', passRate: 83, avgMarks: 73},
+          {year: '2026', passRate: 85, avgMarks: 77},
+          {year: '2026', passRate: 80, avgMarks: 75},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 620, faculty: 76, avgAttendance: 81, cgpa: 8.1},
+          {name: 'Physics', students: 390, faculty: 63, avgAttendance: 77, cgpa: 7.7},
+          {name: 'Mathematics', students: 370, faculty: 53, avgAttendance: 75, cgpa: 7.9},
+          {name: 'Electronics', students: 540, faculty: 90, avgAttendance: 82, cgpa: 8.0},
+          {name: 'Mechanical', students: 480, faculty: 82, avgAttendance: 78, cgpa: 7.6},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 90, color: '#22c55e'},
+          {grade: 'A', count: 250, color: '#3b82f6'},
+          {grade: 'B+', count: 170, color: '#06b6d4'},
+          {grade: 'B', count: 130, color: '#8b5cf6'},
+          {grade: 'C', count: 60, color: '#f59e0b'},
+          {grade: 'F', count: 45, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,450',
+          faculty: '380',
+          departments: '5',
+          courses: '44',
+          income: 3700000,
+          expense: 1900000,
+          scholarships: '120'
+        }
+      },
+      'Semester 2': {
+        attendanceData: [
+          {year: '2026', attendance: 78, target: 90},
+          {year: '2026', attendance: 80, target: 90},
+          {year: '2026', attendance: 79, target: 90},
+        ],
+        performanceData: [
+          {year: '2026', passRate: 81, avgMarks: 71},
+          {year: '2026', passRate: 83, avgMarks: 75},
+          {year: '2026', passRate: 78, avgMarks: 73},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 590, faculty: 74, avgAttendance: 79, cgpa: 8.0},
+          {name: 'Physics', students: 380, faculty: 61, avgAttendance: 75, cgpa: 7.6},
+          {name: 'Mathematics', students: 360, faculty: 51, avgAttendance: 73, cgpa: 7.8},
+          {name: 'Electronics', students: 520, faculty: 88, avgAttendance: 80, cgpa: 7.9},
+          {name: 'Mechanical', students: 470, faculty: 80, avgAttendance: 76, cgpa: 7.5},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 70, color: '#22c55e'},
+          {grade: 'A', count: 230, color: '#3b82f6'},
+          {grade: 'B+', count: 150, color: '#06b6d4'},
+          {grade: 'B', count: 120, color: '#8b5cf6'},
+          {grade: 'C', count: 50, color: '#f59e0b'},
+          {grade: 'F', count: 55, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,310',
+          faculty: '370',
+          departments: '5',
+          courses: '42',
+          income: 3500000,
+          expense: 1700000,
+          scholarships: '110'
+        }
+      },
+      'Semester 1': {
+        attendanceData: [
+          {year: '2026', attendance: 76, target: 90},
+          {year: '2026', attendance: 78, target: 90},
+          {year: '2026', attendance: 77, target: 90},
+        ],
+        performanceData: [
+          {year: '2026', passRate: 79, avgMarks: 69},
+          {year: '2026', passRate: 81, avgMarks: 73},
+          {year: '2026', passRate: 76, avgMarks: 71},
+        ],
+        departmentData: [
+          {name: 'Computer Science', students: 560, faculty: 72, avgAttendance: 77, cgpa: 7.9},
+          {name: 'Physics', students: 370, faculty: 59, avgAttendance: 73, cgpa: 7.4},
+          {name: 'Mathematics', students: 340, faculty: 49, avgAttendance: 71, cgpa: 7.6},
+          {name: 'Electronics', students: 500, faculty: 86, avgAttendance: 78, cgpa: 7.8},
+          {name: 'Mechanical', students: 450, faculty: 78, avgAttendance: 74, cgpa: 7.4},
+        ],
+        gradeDistribution: [
+          {grade: 'A+', count: 50, color: '#22c55e'},
+          {grade: 'A', count: 210, color: '#3b82f6'},
+          {grade: 'B+', count: 110, color: '#06b6d4'},
+          {grade: 'B', count: 100, color: '#8b5cf6'},
+          {grade: 'C', count: 30, color: '#f59e0b'},
+          {grade: 'F', count: 75, color: '#ef4444'},
+        ],
+        summaryData: {
+          students: '2,170',
+          faculty: '360',
+          departments: '5',
+          courses: '40',
+          income: 3300000,
+          expense: 1500000,
+          scholarships: '100'
+        }
+      }
+    },
+  };
+  return yearData[year] ? yearData[year][semester] : null;
 }
 
+function fmtCr(val) {
+  if (val >= 10000000) return '₹' + (val / 10000000).toFixed(2) + ' Cr';
+  if (val >= 100000) return '₹' + (val / 100000).toFixed(2) + ' L';
+  return '₹' + val.toLocaleString();
+}
+
+const SCard = ({label, value, sub, tone, icon, trend}) => {
+  const colors = {
+    blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' },
+    green: { bg: '#f0fdf4', border: '#bbf7d0', text: '#16a34a' },
+    purple: { bg: '#f5f3ff', border: '#ddd6fe', text: '#7c3aed' },
+    orange: { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
+    red: { bg: '#fef2f2', border: '#fecaca', text: '#dc2626' }
+  };
+  const {bg, border, text} = colors[tone] || colors.blue;
+
+  return (
+    <div style={{
+      background: bg,
+      border: `1px solid ${border}`,
+      borderRadius: '12px',
+      padding: '20px',
+      flex: '1 1 200px',
+      minWidth: '200px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+>>>>>>> Stashed changes
+        <div>
+          <div style={{fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4}}>{label}</div>
+          <div style={{fontSize: 24, fontWeight: 800, color: '#1f2937', marginBottom: 4}}>{value}</div>
+          <div style={{fontSize: 13, color: text, fontWeight: 500}}>{sub}</div>
+        </div>
+<<<<<<< Updated upstream
+        {action}
+=======
+        <div style={{fontSize: 24}}>{icon}</div>
+>>>>>>> Stashed changes
+      </div>
+    </div>
+  );
+};
+
+<<<<<<< Updated upstream
 const tH={fontSize:11,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:.4,padding:'6px 10px',textAlign:'left',whiteSpace:'nowrap',borderBottom:'1.5px solid #f3f4f6'};
 const tD={fontSize:12,padding:'9px 10px',verticalAlign:'middle',borderBottom:'1px solid #f9fafb'};
 const miniBtn={fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:7,border:'1.5px solid #e5e7eb',background:'#fff',color:'#6b7280',cursor:'pointer'};
@@ -465,10 +845,120 @@ function AlertBanner({items}){
         <div style={{fontWeight:700,fontSize:13,color:'#92400e',marginBottom:2}}>Action Required</div>
         <div style={{fontSize:12,color:'#b45309'}}>{items.join(' · ')}</div>
       </div>
+=======
+const CC = ({title, subtitle, children, action, style}) => (
+  <div style={{
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    ...style
+  }}>
+    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+      <div>
+        <h3 style={{margin: 0, fontSize: 16, fontWeight: 700, color: '#111827'}}>{title}</h3>
+        {subtitle && <p style={{margin: '4px 0 0', fontSize: 13, color: '#6b7280'}}>{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+    {children}
+  </div>
+);
+
+function AdminView({activeYears, rangeLabel, department, semester, year}){
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const handleViewDetails = async (dept) => {
+    setSelectedDepartment(dept);
+    setShowDetailsModal(true);
+  };
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedDepartment(null);
+  };
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const semesterMatch = semester.match(/\d+/);
+        const semesterNum = semesterMatch ? parseInt(semesterMatch[0]) : null;
+        const deptCode = department === 'All Departments' ? null : department;
+        
+        const data = await getRealAnalyticsData(parseInt(year), semesterNum, deptCode);
+        if (data) {
+          setAnalyticsData(data);
+          window.analyticsData = data;
+        } else {
+          const fallbackData = getYearSemesterSpecificStaticData(year, semester);
+          setAnalyticsData(fallbackData);
+          window.analyticsData = fallbackData;
+        }
+      } catch (err) {
+        console.error('Error loading analytics data:', err);
+        const fallbackData = getYearSemesterSpecificStaticData(year, semester);
+        setAnalyticsData(fallbackData);
+        window.analyticsData = fallbackData;
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [year, semester, department]);
+
+  if (loading) return <div style={{padding:60, textAlign:'center'}}>Loading...</div>;
+  if (!analyticsData) return <div style={{padding:60, textAlign:'center'}}>No data</div>;
+
+  const filteredDepartmentData = department === DEPT_OPTS[0] 
+    ? analyticsData.departmentData 
+    : analyticsData.departmentData.filter(dept => dept.name === department);
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:'24px'}}>
+      <div style={{display:'flex',gap:'20px',flexWrap:'wrap'}}>
+        <SCard label="Total Students" value={analyticsData.summaryData.students} sub={rangeLabel} tone="blue" icon="👥"/>
+        <SCard label="Total Faculty" value={analyticsData.summaryData.faculty} sub="Active teachers" tone="green" icon="👨‍🏫"/>
+        <SCard label="Departments" value={analyticsData.summaryData.departments} sub="Academic units" tone="purple" icon="🏢"/>
+        <SCard label="Courses" value={analyticsData.summaryData.courses} sub="Offered this term" tone="orange" icon="📚"/>
+      </div>
+      
+      <CC title="Department Summary" subtitle="Overview of all departments">
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#f8fafc'}}>
+              <th style={{padding:'12px',textAlign:'left'}}>Department</th>
+              <th style={{padding:'12px',textAlign:'left'}}>Students</th>
+              <th style={{padding:'12px',textAlign:'left'}}>Faculty</th>
+              <th style={{padding:'12px',textAlign:'left'}}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredDepartmentData.map((dept, index) => (
+              <tr key={index} style={{borderBottom:'1px solid #f3f4f6'}}>
+                <td style={{padding:'12px',fontWeight:600}}>{dept.name}</td>
+                <td style={{padding:'12px'}}>{dept.students}</td>
+                <td style={{padding:'12px'}}>{dept.faculty}</td>
+                <td style={{padding:'12px'}}>
+                  <button onClick={() => handleViewDetails(dept)} style={{padding:'4px 12px',borderRadius:6,background:'#eff6ff',color:'#2563eb',cursor:'pointer',border:'1px solid #bfdbfe'}}>View</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CC>
+>>>>>>> Stashed changes
     </div>
   );
 }
 
+<<<<<<< Updated upstream
 function MiniProgress({value,max=100,color=C.blue}){
   return(
     <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1523,11 +2013,69 @@ export default function AnalyticsPage({role:propRole}){
           <span style={{fontSize:11,fontWeight:600,padding:'3px 10px',borderRadius:999,background:'#f5f3ff',color:'#7c3aed',border:'1px solid #ddd6fe'}}>{semester}</span>
           {department!==DEPT_OPTS[0]&&<span style={{fontSize:11,fontWeight:600,padding:'3px 10px',borderRadius:999,background:'#f0fdf4',color:'#16a34a',border:'1px solid #bbf7d0'}}>{department}</span>}
           {activeMonths.length>1&&<span style={{fontSize:11,fontWeight:600,padding:'3px 10px',borderRadius:999,background:'#fff7ed',color:'#c2410c',border:'1px solid #fed7aa'}}>{activeMonths.length} months</span>}
+=======
+function FinanceView({activeYears, rangeLabel, department, semester, year}){
+  return <div style={{padding:60, textAlign:'center'}}>Finance Analytics coming soon</div>;
+}
+
+function FacultyView({activeYears, rangeLabel, department, semester, year}){
+  return <div style={{padding:60, textAlign:'center'}}>Faculty Analytics coming soon</div>;
+}
+
+function downloadReport(role, activeYears, rangeLabel, semester, department, year) {
+  const data = window.analyticsData || getYearSemesterSpecificStaticData(year, semester);
+  const reportContent = 'Year,Students,Faculty,Semester,Department\n' +
+    activeYears.map(y => [y, data.summaryData.students, data.summaryData.faculty, semester, department].join(',')).join('\n');
+  const blob = new Blob([reportContent], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Analytics_${year}_${semester}.csv`;
+  a.click();
+}
+
+export default function AnalyticsPage({role:propRole, noLayout}){
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const storedRole = localStorage.getItem('cmsRole') || 'student';
+  const role = getValidRole(propRole||searchParams.get('role')||storedRole);
+  const data = cmsRoles[role];
+  
+  const [selectedRange, setSelectedRange] = useState(YEAR_RANGES[0]);
+  const [department, setDepartment] = useState(DEPT_OPTS[0]);
+  const [semester, setSemester] = useState(SEMESTER_OPTS[0]);
+
+  const activeYears = useMemo(() => {
+    const res = [];
+    for(let y=parseInt(selectedRange.start); y<=parseInt(selectedRange.end); y++) res.push(y.toString());
+    return res;
+  }, [selectedRange]);
+
+  const rangeLabel = `${selectedRange.start} - ${selectedRange.end}`;
+
+  function FilterBar(){
+    return (
+      <div style={{marginBottom:32,padding:'24px',background:'#fff',borderRadius:12,border:'1px solid #e5e7eb',display:'flex',gap:16,alignItems:'flex-end'}}>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',marginBottom:8}}>Semester</div>
+          <select value={semester} onChange={e=>setSemester(e.target.value)} style={{height:44,padding:'0 12px',borderRadius:10,border:'2px solid #e5e7eb'}}>{SEMESTER_OPTS.map(o=><option key={o}>{o}</option>)}</select>
         </div>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',marginBottom:8}}>Year Range</div>
+          <select value={selectedRange.label} onChange={e=>setSelectedRange(YEAR_RANGES.find(r=>r.label===e.target.value))} style={{height:44,padding:'0 12px',borderRadius:10,border:'2px solid #e5e7eb'}}>{YEAR_RANGES.map(r=><option key={r.label}>{r.label}</option>)}</select>
+>>>>>>> Stashed changes
+        </div>
+        {role!=='student' && (
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:'#9ca3af',marginBottom:8}}>Department</div>
+            <select value={department} onChange={e=>setDepartment(e.target.value)} style={{height:44,padding:'0 12px',borderRadius:10,border:'2px solid #e5e7eb'}}>{DEPT_OPTS.map(o=><option key={o}>{o}</option>)}</select>
+          </div>
+        )}
+        <button onClick={()=>downloadReport(role, activeYears, rangeLabel, semester, department, selectedRange.start)} style={{height:44,padding:'0 20px',borderRadius:10,background:'#2563eb',color:'#fff',border:'none',fontWeight:700,cursor:'pointer'}}>Download</button>
       </div>
     );
   }
 
+<<<<<<< Updated upstream
   return(
     <Layout title="Reports & Analytics">
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
@@ -1549,3 +2097,15 @@ export default function AnalyticsPage({role:propRole}){
     </Layout>
   );
 }
+=======
+  return (
+    <div style={{padding: '24px'}}>
+      <FilterBar/>
+      {role==='admin' && <AdminView activeYears={activeYears} rangeLabel={rangeLabel} department={department} semester={semester} year={selectedRange.start}/>}
+      {role==='finance' && <FinanceView activeYears={activeYears} rangeLabel={rangeLabel} department={department} semester={semester} year={selectedRange.start}/>}
+      {role==='faculty' && <FacultyView activeYears={activeYears} rangeLabel={rangeLabel} department={department} semester={semester} year={selectedRange.start}/>}
+      {role==='student' && <div style={{textAlign:'center',padding:'60px 0',color:'#9ca3af'}}>Student analytics coming soon</div>}
+    </div>
+  );
+}
+>>>>>>> Stashed changes

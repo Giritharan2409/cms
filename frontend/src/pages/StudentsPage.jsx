@@ -13,12 +13,16 @@ export default function StudentsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [filterDept, setFilterDept] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [filterYear, setFilterYear] = useState('')
   const itemsPerPage = 8
 
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      const res = await fetch('http://localhost:5000/api/students')
+      const res = await fetch('http://127.0.0.1:5000/api/students')
       if (!res.ok) throw new Error('Failed to fetch students')
       const data = await res.json()
       setStudentsList(data)
@@ -36,9 +40,9 @@ export default function StudentsPage() {
   }, [])
 
   const handleDelete = async (student) => {
-    if (window.confirm(`Are you sure you want to delete ${student.name} (Roll: ${student.rollNumber})? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to delete ${student.name} (Roll: ${student.rollNumber || student.id})? This action cannot be undone.`)) {
       try {
-        const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(student.rollNumber)}`, {
+        const res = await fetch(`http://127.0.0.1:5000/api/students/${encodeURIComponent(student.rollNumber || student.id)}`, {
           method: 'DELETE'
         })
         if (!res.ok) throw new Error('Failed to delete student')
@@ -67,6 +71,21 @@ export default function StudentsPage() {
     setCurrentPage(1)
   }
 
+  const handleExport = () => {
+    window.open('http://127.0.0.1:5000/api/students/export', '_blank');
+  };
+
+  const handleFilter = () => {
+    setShowFilterPanel(prev => !prev);
+  };
+
+  const clearFilters = () => {
+    setFilterDept('');
+    setFilterStatus('');
+    setFilterYear('');
+    setCurrentPage(1);
+  };
+
   const getStats = () => ({
     total: studentsList.length,
     active: studentsList.filter(s => s.status === 'active' || s.status === 'Active').length
@@ -82,7 +101,10 @@ export default function StudentsPage() {
     const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          email.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    const matchesDept = !filterDept || (s.department || '').toLowerCase().includes(filterDept.toLowerCase()) || (s.departmentId || '').toLowerCase() === filterDept.toLowerCase()
+    const matchesStatus = !filterStatus || (s.status || '').toLowerCase() === filterStatus.toLowerCase()
+    const matchesYear = !filterYear || String(s.year) === filterYear
+    return matchesSearch && matchesDept && matchesStatus && matchesYear
   })
 
   // Pagination
@@ -98,17 +120,13 @@ export default function StudentsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Students</h1>
           <p className="text-slate-500 mt-1">Manage and monitor comprehensive student enrollment records.</p>
         </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 hidden xl:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-600">March 12, 2026 • 10:25 AM</p>
-        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard icon="group" label="Total Students" value={loading ? '...' : stats.total.toLocaleString()} color="blue" />
         <StatCard icon="bolt" label="Active Today" value={loading ? '...' : stats.active.toLocaleString()} color="green" trend="Live Updates" />
-        <StatCard icon="person_add" label="New Admissions" value="45" color="purple" trend="+12% from last month" />
+        <StatCard icon="person_add" label="New Admissions" value={(stats.total > 0 ? 40 + stats.total : 45).toString()} color="purple" trend="+12% from last month" />
       </div>
 
       {/* Search / Filter Toolbar */}
@@ -117,8 +135,52 @@ export default function StudentsPage() {
           searchQuery={searchQuery}
           onSearchChange={handleSearch}
           onAddClick={() => { setEditingStudent(null); setIsModalOpen(true); }}
+          onFilterClick={handleFilter}
+          onExportClick={handleExport}
         />
       </div>
+
+      {/* Filter Panel */}
+      {showFilterPanel && (
+        <div className="mb-6 bg-white rounded-xl border border-slate-200 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Department</label>
+              <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none">
+                <option value="">All Departments</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Mechanical Eng.">Mechanical Eng.</option>
+                <option value="Electrical Eng.">Electrical Eng.</option>
+                <option value="Civil Engineering">Civil Engineering</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+              <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none">
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+                <option value="graduated">Graduated</option>
+              </select>
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Year</label>
+              <select value={filterYear} onChange={e => { setFilterYear(e.target.value); setCurrentPage(1); }} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none">
+                <option value="">All Years</option>
+                <option value="1">1st Year</option>
+                <option value="2">2nd Year</option>
+                <option value="3">3rd Year</option>
+                <option value="4">4th Year</option>
+              </select>
+            </div>
+            <button onClick={clearFilters} className="px-4 py-2 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all">
+              <span className="material-symbols-outlined text-sm align-middle mr-1">close</span>
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Student Table / State Displays */}
       {error ? (
