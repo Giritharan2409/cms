@@ -71,10 +71,16 @@ def upsert_timetable(class_id: str, data: dict):
     return deepcopy(payload)
 
 
-def list_placements(status: str | None = None, search: str | None = None):
+def list_placements(
+    status: str | None = None,
+    search: str | None = None,
+    person_id: str | None = None,
+):
     items = deepcopy(DEV_STORE["placements"])
     if status and status != "All":
         items = [item for item in items if item.get("status") == status]
+    if person_id:
+        items = [item for item in items if item.get("ownerId") == person_id]
     if search:
         needle = search.lower()
         items = [item for item in items if needle in item.get("name", "").lower() or needle in item.get("company", "").lower()]

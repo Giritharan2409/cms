@@ -13,16 +13,22 @@ router = APIRouter(prefix="/api/academics/placement", tags=["academics:placement
 
 
 @router.get("")
-async def list_placements(status: str | None = None, search: str | None = None):
+async def list_placements(
+    status: str | None = None,
+    search: str | None = None,
+    person_id: str | None = None,
+):
     try:
         db = get_db()
     except HTTPException as error:
         if error.status_code == 503:
-            return {"success": True, "data": list_dev_placements(status, search)}
+            return {"success": True, "data": list_dev_placements(status, search, person_id)}
         raise
     query = {}
     if status and status != "All":
         query["status"] = status
+    if person_id:
+        query["ownerId"] = person_id
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
