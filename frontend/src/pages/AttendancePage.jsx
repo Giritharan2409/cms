@@ -74,6 +74,123 @@ const FALLBACK_STAFF = [
   { name: 'Dr. Fatima Noor',     id: '#STF-2024-005', department: 'Operating Systems',       present: 14, total: 20 },
 ]
 
+const STAFF_MARK_HOURS = ['Hour 1', 'Hour 2', 'Hour 3', 'Hour 4', 'Hour 5', 'Hour 6', 'Hour 7', 'Hour 8']
+const MARK_ATTENDANCE_STORAGE_KEY = 'cms:attendance:hourly'
+const STUDENT_DAILY_LOOKBACK_DAYS = 15
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+const HOUR_SLOT_TIMINGS = {
+  'Hour 1': '09:00 AM - 09:50 AM',
+  'Hour 2': '09:50 AM - 10:40 AM',
+  'Hour 3': '10:55 AM - 11:45 AM',
+  'Hour 4': '11:45 AM - 12:35 PM',
+  'Hour 5': '01:20 PM - 02:10 PM',
+  'Hour 6': '02:10 PM - 03:00 PM',
+  'Hour 7': '03:10 PM - 04:00 PM',
+  'Hour 8': '04:00 PM - 04:50 PM',
+}
+
+function getTodayISODate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function shiftISODate(isoDate, daysToShift) {
+  const base = new Date(`${isoDate}T12:00:00`)
+  base.setDate(base.getDate() + daysToShift)
+  return base.toISOString().slice(0, 10)
+}
+
+function formatGridDateLabel(isoDate) {
+  const d = new Date(`${isoDate}T12:00:00`)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).formatToParts(d)
+
+  const get = (type) => parts.find((item) => item.type === type)?.value || ''
+  return `${get('weekday')}, ${get('day')} ${get('month')}, ${get('year')}`
+}
+
+function toNormalizedText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function toSemesterNumber(value) {
+  const match = String(value || '').match(/\d+/)
+  return match ? Number(match[0]) : null
+}
+
+function toSectionCode(value) {
+  const match = String(value || '').toUpperCase().match(/[A-Z]/)
+  return match ? match[0] : null
+}
+
+function weekdayCodeFromDate(isoDate) {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date(`${isoDate}T12:00:00`))
+}
+
+function findMatchingTimetableRecord(records, profile) {
+  if (!profile || !Array.isArray(records) || records.length === 0) return null
+
+  const wantedDept = toNormalizedText(profile.department)
+  const wantedSemester = toSemesterNumber(profile.semester)
+  const wantedSection = toSectionCode(profile.section)
+
+  const exact = records.find((record) => {
+    const dept = toNormalizedText(record?.dept)
+    const semester = toSemesterNumber(record?.semester)
+    const section = toSectionCode(record?.section)
+    return dept === wantedDept && semester === wantedSemester && section === wantedSection
+  })
+  if (exact) return exact
+
+  const semSection = records.find((record) => {
+    const semester = toSemesterNumber(record?.semester)
+    const section = toSectionCode(record?.section)
+    return semester === wantedSemester && section === wantedSection
+  })
+  if (semSection) return semSection
+
+  const sectionOnly = records.find((record) => toSectionCode(record?.section) === wantedSection)
+  return sectionOnly || null
+}
+
+function buildClassMeta(student) {
+  const department = String(student?.department || 'General')
+  const year = String(student?.year || 'Year')
+  const section = String(student?.section || 'A')
+  const classLabel = `${department} - ${year} - Sec ${section}`
+  const classId = `${department}__${year}__${section}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return { classId, classLabel }
+}
+
+function buildMarkRecordKey(classId, date, hour) {
+  return `${classId}::${date}::${hour}`
+}
+
+function readMarkAttendanceStorage() {
+  try {
+    const raw = localStorage.getItem(MARK_ATTENDANCE_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeMarkAttendanceStorage(payload) {
+  try {
+    localStorage.setItem(MARK_ATTENDANCE_STORAGE_KEY, JSON.stringify(payload))
+  } catch (err) {
+    console.error('Failed to persist hour-wise attendance:', err)
+  }
+}
+
 function normalizeAttendanceRecord(r) {
   return {
     id: r.personId || r.id || '',
@@ -180,8 +297,11 @@ export default function AttendancePage({ noLayout = false }) {
   const sessionUserId = session?.userId || ''
   const isAdmin       = role === 'admin'
   const isStudent     = role === 'student'
+  const isFaculty     = role === 'faculty'
 
   const [activeTab,               setActiveTab]               = useState('students')
+  const [studentViewTab,          setStudentViewTab]          = useState('my')
+  const [staffViewTab,            setStaffViewTab]            = useState('my')
   const [selectedStatuses,        setSelectedStatuses]        = useState([])
   const [selectedAttendanceRange, setSelectedAttendanceRange] = useState([])
   const [selectedCourses,         setSelectedCourses]         = useState([])
@@ -193,6 +313,17 @@ export default function AttendancePage({ noLayout = false }) {
   const [studentData,      setStudentData]      = useState(FALLBACK_STUDENTS)
   const [staffData,        setStaffData]        = useState(FALLBACK_STAFF)
   const [weeklyAttendance, setWeeklyAttendance] = useState(FALLBACK_WEEKLY)
+
+  const [classOptions,     setClassOptions]     = useState([])
+  const [classStudentsMap, setClassStudentsMap] = useState({})
+  const [selectedClassId,  setSelectedClassId]  = useState('')
+  const [attendanceDate,   setAttendanceDate]   = useState(getTodayISODate())
+  const [attendanceHour,   setAttendanceHour]   = useState(STAFF_MARK_HOURS[0])
+  const [markRows,         setMarkRows]         = useState([])
+  const [markNotice,       setMarkNotice]       = useState('')
+  const [studentDailyDate, setStudentDailyDate] = useState(getTodayISODate())
+  const [studentClassProfile, setStudentClassProfile] = useState(null)
+  const [studentTimetableRecord, setStudentTimetableRecord] = useState(null)
 
   useEffect(() => {
     async function fetchAttendance() {
@@ -219,6 +350,131 @@ export default function AttendancePage({ noLayout = false }) {
     }
     fetchAttendance()
   }, [])
+
+  useEffect(() => {
+    if (!isFaculty && !isStudent) return
+
+    let cancelled = false
+
+    async function fetchClassStudents() {
+      try {
+        const res = await fetch('/api/students')
+        const json = await res.json().catch(() => null)
+        const students = Array.isArray(json)
+          ? json
+          : (Array.isArray(json?.data) ? json.data : [])
+
+        const grouped = {}
+
+        students.forEach((student) => {
+          const { classId, classLabel } = buildClassMeta(student)
+          if (!grouped[classId]) grouped[classId] = { id: classId, label: classLabel, students: [] }
+
+          grouped[classId].students.push({
+            id: student.id || student.rollNumber || student._id || '',
+            rollNumber: student.rollNumber || student.id || '-',
+            name: student.name || 'Unnamed Student',
+          })
+        })
+
+        const groupedList = Object.values(grouped)
+          .map((item) => ({
+            ...item,
+            students: [...item.students].sort((a, b) => String(a.rollNumber).localeCompare(String(b.rollNumber))),
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label))
+
+        const nextOptions = groupedList.map(({ id, label }) => ({ id, label }))
+        const nextMap = groupedList.reduce((acc, item) => {
+          acc[item.id] = item.students
+          return acc
+        }, {})
+
+        if (cancelled) return
+
+        setClassOptions(nextOptions)
+        setClassStudentsMap(nextMap)
+        setSelectedClassId((prev) => {
+          if (isStudent) {
+            const myStudent = students.find((student) =>
+              normalizeId(student.id || student.rollNumber) === normalizeId(sessionUserId)
+            )
+            if (myStudent) {
+              setStudentClassProfile({
+                department: myStudent.department,
+                semester: myStudent.semester || myStudent.year,
+                section: myStudent.section,
+              })
+              return buildClassMeta(myStudent).classId
+            }
+            return prev || nextOptions[0]?.id || ''
+          }
+          if (prev && nextMap[prev]) return prev
+          return nextOptions[0]?.id || ''
+        })
+      } catch (err) {
+        console.error('Failed to fetch class students for attendance:', err)
+      }
+    }
+
+    fetchClassStudents()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isFaculty, isStudent, sessionUserId])
+
+  useEffect(() => {
+    if (!isStudent || !studentClassProfile) return
+
+    let cancelled = false
+
+    async function fetchStudentTimetable() {
+      try {
+        const res = await fetch('/api/academics/timetable')
+        const json = await res.json().catch(() => null)
+        const records = Array.isArray(json?.data) ? json.data : []
+        const matched = findMatchingTimetableRecord(records, studentClassProfile)
+        if (!cancelled) {
+          setStudentTimetableRecord(matched)
+        }
+      } catch (err) {
+        console.error('Failed to fetch timetable for attendance tooltip:', err)
+      }
+    }
+
+    fetchStudentTimetable()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isStudent, studentClassProfile])
+
+  useEffect(() => {
+    if (!isFaculty || staffViewTab !== 'mark') return
+
+    const studentsForClass = classStudentsMap[selectedClassId] || []
+    const baseRows = studentsForClass.map((student) => ({ ...student, status: 'Present' }))
+
+    const storage = readMarkAttendanceStorage()
+    const recordKey = buildMarkRecordKey(selectedClassId, attendanceDate, attendanceHour)
+    const savedEntries = Array.isArray(storage[recordKey]?.entries) ? storage[recordKey].entries : []
+
+    if (savedEntries.length > 0) {
+      const statusByStudent = savedEntries.reduce((acc, item) => {
+        if (item?.studentId) acc[item.studentId] = item.status
+        return acc
+      }, {})
+
+      setMarkRows(baseRows.map((student) => ({
+        ...student,
+        status: statusByStudent[student.id] === 'Absent' ? 'Absent' : 'Present',
+      })))
+      return
+    }
+
+    setMarkRows(baseRows)
+  }, [isFaculty, staffViewTab, classStudentsMap, selectedClassId, attendanceDate, attendanceHour])
 
   // Scope records: non-admin sees only their own row
   const scopedStudents = isAdmin
@@ -251,6 +507,114 @@ export default function AttendancePage({ noLayout = false }) {
     { id: 'attendance', label: 'Attendance %' },
     { id: 'course', label: currentTableType === 'staff' ? 'Department' : 'Course' },
   ]
+
+  const showStudentDailyView = isStudent && studentViewTab === 'daily'
+  const showStaffMarkingView = isFaculty && staffViewTab === 'mark'
+
+  const selectedClassLabel =
+    classOptions.find((option) => option.id === selectedClassId)?.label || 'Select class'
+
+  const presentCount = markRows.filter((row) => row.status === 'Present').length
+  const absentCount = markRows.filter((row) => row.status === 'Absent').length
+
+  const studentDailyGridRows = (() => {
+    if (!isStudent) return []
+
+    const storage = readMarkAttendanceStorage()
+    const currentStudentId = normalizeId(sessionUserId)
+    const statusMap = {}
+
+    Object.values(storage).forEach((record) => {
+      if (!record || !record.date || !record.hour || !Array.isArray(record.entries)) return
+
+      const matched = record.entries.find((entry) => {
+        const entryId = normalizeId(entry?.studentId || entry?.rollNumber)
+        return entryId === currentStudentId
+      })
+
+      if (!matched) return
+
+      const key = `${record.date}::${record.hour}`
+      const incomingStatus = matched.status === 'Absent' ? 'Absent' : 'Present'
+      const existing = statusMap[key]
+
+      // If multiple records exist for same date/hour, Absent takes precedence.
+      statusMap[key] = existing === 'Absent' || incomingStatus === 'Absent' ? 'Absent' : 'Present'
+    })
+
+    return Array.from({ length: STUDENT_DAILY_LOOKBACK_DAYS }, (_, index) => {
+      const date = shiftISODate(studentDailyDate, -index)
+      const hours = STAFF_MARK_HOURS.map((hour) => {
+        const status = statusMap[`${date}::${hour}`] || 'Not Marked'
+        return { hour, status }
+      })
+      return {
+        date,
+        label: formatGridDateLabel(date),
+        isToday: date === getTodayISODate(),
+        hours,
+      }
+    })
+  })()
+
+  function getTimetableSubjectForCell(dateIso, hourLabel) {
+    if (!studentTimetableRecord) return 'Subject not available'
+
+    const dayCode = weekdayCodeFromDate(dateIso)
+    const dayIndex = WEEK_DAYS.indexOf(dayCode)
+    if (dayIndex === -1) return 'No class scheduled'
+
+    const slotIndex = STAFF_MARK_HOURS.indexOf(hourLabel)
+    if (slotIndex === -1) return 'No class scheduled'
+
+    const slotEntry = studentTimetableRecord?.slots?.[slotIndex]?.[dayIndex]
+    if (!slotEntry || (!slotEntry.code && !slotEntry.name && !slotEntry.label)) return 'No class scheduled'
+
+    const code = String(slotEntry.code || '').trim()
+    const name = String(slotEntry.name || slotEntry.label || '').trim()
+
+    if (code && name) return `${code} - ${name}`
+    return code || name || 'No class scheduled'
+  }
+
+  function setStudentAttendanceStatus(studentId, status) {
+    setMarkRows((prev) =>
+      prev.map((row) =>
+        row.id === studentId
+          ? { ...row, status: status === 'Absent' ? 'Absent' : 'Present' }
+          : row
+      )
+    )
+    setMarkNotice('')
+  }
+
+  function saveMarkedAttendance() {
+    if (!selectedClassId || markRows.length === 0) {
+      setMarkNotice('No students available for the selected class.')
+      return
+    }
+
+    const recordKey = buildMarkRecordKey(selectedClassId, attendanceDate, attendanceHour)
+    const storage = readMarkAttendanceStorage()
+
+    storage[recordKey] = {
+      classId: selectedClassId,
+      classLabel: selectedClassLabel,
+      date: attendanceDate,
+      hour: attendanceHour,
+      markedBy: sessionUserId,
+      markedAt: new Date().toISOString(),
+      entries: markRows.map((row) => ({
+        studentId: row.id,
+        rollNumber: row.rollNumber,
+        name: row.name,
+        status: row.status,
+      })),
+    }
+
+    writeMarkAttendanceStorage(storage)
+    setMarkNotice(`Saved attendance for ${selectedClassLabel} on ${attendanceDate} (${attendanceHour}).`)
+  }
 
   function toggleFilterValue(value, setter) {
     setter((prev) =>
@@ -308,7 +672,6 @@ export default function AttendancePage({ noLayout = false }) {
         </div>
       )}
 
-      {/* ── 1. ATTENDANCE SUMMARY CARDS ─────────────────────────────────── */}
       {(() => {
         if (isStudent) {
           const my = scopedStudents[0]
@@ -387,36 +750,36 @@ export default function AttendancePage({ noLayout = false }) {
         )
       })()}
 
-      {/* ── 2. WEEKLY ATTENDANCE CHART ──────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
-        <p className="text-sm font-semibold text-slate-700 mb-4">Weekly Attendance Trend</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={weeklyAttendance} barCategoryGap="35%">
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis
-              dataKey="day"
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[70, 100]}
-              tick={{ fontSize: 12, fill: '#94a3b8' }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `${v}%`}
-            />
-            <Tooltip
-              formatter={(v) => [`${v}%`, 'Attendance']}
-              contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: 12 }}
-              cursor={{ fill: '#f8fafc' }}
-            />
-            <Bar dataKey="attendance" fill="#1162d4" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
+          <p className="text-sm font-semibold text-slate-700 mb-4">Weekly Attendance Trend</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weeklyAttendance} barCategoryGap="35%">
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 12, fill: '#94a3b8' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[70, 100]}
+                tick={{ fontSize: 12, fill: '#94a3b8' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${v}%`}
+              />
+              <Tooltip
+                formatter={(v) => [`${v}%`, 'Attendance']}
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: 12 }}
+                cursor={{ fill: '#f8fafc' }}
+              />
+              <Bar dataKey="attendance" fill="#1162d4" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      }
 
-      {/* ── 3. LOW ATTENDANCE ALERT ─────────────────────────────────────── */}
       {(() => {
         if (isStudent) {
           const my  = scopedStudents[0]
@@ -505,6 +868,44 @@ export default function AttendancePage({ noLayout = false }) {
               }`}
             >
               <span className="material-symbols-outlined text-base">badge</span>Staff
+            </button>
+          </div>
+        ) : isFaculty ? (
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+            <button
+              onClick={() => setStaffViewTab('my')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                staffViewTab === 'my' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">person</span>My Attendance
+            </button>
+            <button
+              onClick={() => setStaffViewTab('mark')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                staffViewTab === 'mark' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">checklist</span>Mark Attendance
+            </button>
+          </div>
+        ) : isStudent ? (
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+            <button
+              onClick={() => setStudentViewTab('my')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                studentViewTab === 'my' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">person</span>My Attendance
+            </button>
+            <button
+              onClick={() => setStudentViewTab('daily')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                studentViewTab === 'daily' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">calendar_month</span>Daily Attendance
             </button>
           </div>
         ) : (
@@ -650,7 +1051,191 @@ export default function AttendancePage({ noLayout = false }) {
         )}
       </div>
 
-      <AttendanceTable data={filteredData} type={currentTableType} isAdmin={isAdmin} />
+      {showStaffMarkingView ? (
+        <>
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Class</label>
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => { setSelectedClassId(e.target.value); setMarkNotice('') }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4]"
+                >
+                  {classOptions.length === 0 && <option value="">No classes available</option>}
+                  {classOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={attendanceDate}
+                  onChange={(e) => { setAttendanceDate(e.target.value); setMarkNotice('') }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Hour</label>
+                <select
+                  value={attendanceHour}
+                  onChange={(e) => { setAttendanceHour(e.target.value); setMarkNotice('') }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4]"
+                >
+                  {STAFF_MARK_HOURS.map((hour) => (
+                    <option key={hour} value={hour}>{hour}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Hour-wise Attendance</p>
+                <p className="text-xs text-slate-500">Default status is Present. Use cross icon only for absent students.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                  Present: {presentCount}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                  Absent: {absentCount}
+                </span>
+                <button
+                  onClick={saveMarkedAttendance}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all"
+                >
+                  <span className="material-symbols-outlined text-base">save</span>
+                  Save
+                </button>
+              </div>
+            </div>
+
+            {markNotice && (
+              <div className="px-5 py-2.5 border-b border-slate-100 bg-emerald-50 text-emerald-700 text-xs font-medium">
+                {markNotice}
+              </div>
+            )}
+
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <th className="px-6 py-4">Register Number</th>
+                  <th className="px-6 py-4">Student Name</th>
+                  <th className="px-6 py-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {markRows.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-10 text-center text-slate-400 text-sm">No students found for this class</td>
+                  </tr>
+                )}
+
+                {markRows.map((row) => (
+                  <tr key={row.id || row.rollNumber} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-slate-700 font-medium">{row.rollNumber}</td>
+                    <td className="px-6 py-4 text-sm text-slate-800 font-semibold">{row.name}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setStudentAttendanceStatus(row.id, 'Present')}
+                          className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors ${
+                            row.status === 'Present'
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-200'
+                          }`}
+                          title="Present"
+                        >
+                          <span className="material-symbols-outlined text-base">check</span>
+                        </button>
+                        <button
+                          onClick={() => setStudentAttendanceStatus(row.id, 'Absent')}
+                          className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors ${
+                            row.status === 'Absent'
+                              ? 'bg-red-50 border-red-200 text-red-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-red-200'
+                          }`}
+                          title="Absent"
+                        >
+                          <span className="material-symbols-outlined text-base">close</span>
+                        </button>
+                        <span className={`text-xs font-semibold ${row.status === 'Present' ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {row.status}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : showStudentDailyView ? (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Daily Hour-wise Attendance</p>
+              <p className="text-xs text-slate-500">Date-wise overview for Hour 1 to Hour 8.</p>
+            </div>
+            <input
+              type="date"
+              value={studentDailyDate}
+              onChange={(e) => setStudentDailyDate(e.target.value)}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4]"
+            />
+          </div>
+
+          <div className="overflow-auto max-h-[540px]">
+            <table className="min-w-[1120px] w-full text-center">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <th className="px-4 py-3 sticky top-0 bg-slate-50 z-10 min-w-[170px]">Date</th>
+                  {STAFF_MARK_HOURS.map((hour) => (
+                    <th key={hour} className="px-4 py-3 sticky top-0 bg-slate-50 z-10 min-w-[120px]">{hour}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {studentDailyGridRows.map((row) => (
+                  <tr key={row.date} className={row.isToday ? 'bg-[#1162d4]/5' : 'bg-white hover:bg-slate-50'}>
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">
+                      <div className="flex flex-col items-center gap-1">
+                        <span>{row.label}</span>
+                        {row.isToday && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#1162d4]/10 text-[#1162d4]">Today</span>
+                        )}
+                      </div>
+                    </td>
+                    {row.hours.map((cell) => (
+                      <td key={`${row.date}-${cell.hour}`} className="px-4 py-3 border-r border-slate-100">
+                        <span
+                          title={`${cell.hour}: ${getTimetableSubjectForCell(row.date, cell.hour)} (${cell.status})`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border cursor-help ${
+                          cell.status === 'Present'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : cell.status === 'Absent'
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                        >
+                          {cell.status}
+                        </span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <AttendanceTable data={filteredData} type={currentTableType} isAdmin={isAdmin} />
+      )}
     </>
   )
   return noLayout ? inner : <Layout title="Attendance">{inner}</Layout>
