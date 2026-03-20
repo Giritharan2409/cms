@@ -68,23 +68,6 @@ async def update_facility(facility_id: str, payload: FacilityRecord):
     return {"success": True, "data": serialize_doc(updated)}
 
 
-@router.delete("/{facility_id}")
-async def delete_facility(facility_id: str):
-    try:
-        db = get_db()
-    except HTTPException as error:
-        if error.status_code == 503:
-            deleted = delete_dev_facility(facility_id)
-            if not deleted:
-                raise HTTPException(status_code=404, detail="Facility not found")
-            return {"success": True, "message": "Facility deleted"}
-        raise
-    result = await db["academic_facilities"].delete_one({"_id": parse_object_id(facility_id)})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Facility not found")
-    return {"success": True, "message": "Facility deleted"}
-
-
 @router.get("/bookings")
 async def list_bookings(room: str | None = None):
     try:
@@ -115,8 +98,46 @@ async def create_booking(payload: FacilityBooking):
     if room.get("status") == "Maintenance":
         raise HTTPException(status_code=400, detail="Facility under maintenance")
 
-    result = await db["academic_facility_bookings"].insert_one(payload.model_dump())
+    result = await db["academic_facility_bookings"].insert_one(payload.model_dump(mode="json"))
     await db["academic_facilities"].update_one({"name": payload.room}, {"$set": {"status": "In Use"}})
 
     created = await db["academic_facility_bookings"].find_one({"_id": result.inserted_id})
     return {"success": True, "data": serialize_doc(created)}
+
+
+@router.put("/{facility_id}")
+async def update_facility(facility_id: str, payload: FacilityRecord):
+    try:
+        db = get_db()
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated = update_dev_facility(facility_id, payload.model_dump())
+            if not updated:
+                raise HTTPException(status_code=404, detail="Facility not found")
+            return {"success": True, "data": updated}
+        raise
+    updated = await db["academic_facilities"].find_one_and_update(
+        {"_id": parse_object_id(facility_id)},
+        {"$set": payload.model_dump()},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return {"success": True, "data": serialize_doc(updated)}
+
+
+@router.delete("/{facility_id}")
+async def delete_facility(facility_id: str):
+    try:
+        db = get_db()
+    except HTTPException as error:
+        if error.status_code == 503:
+            deleted = delete_dev_facility(facility_id)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Facility not found")
+            return {"success": True, "message": "Facility deleted"}
+        raise
+    result = await db["academic_facilities"].delete_one({"_id": parse_object_id(facility_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return {"success": True, "message": "Facility deleted"}
