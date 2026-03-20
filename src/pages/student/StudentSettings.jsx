@@ -120,7 +120,7 @@ export default function StudentSettings() {
   const [formData, setFormData] = useState(EMPTY_PROFILE);
   const [passwordData, setPasswordData] = useState(EMPTY_PASSWORD);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [requestHistory, setRequestHistory] = useState([]);
@@ -161,10 +161,10 @@ export default function StudentSettings() {
           email: data?.email || userId,
           role: 'Student',
         });
-        setError(false);
-      } catch {
+        setLoadError('');
+      } catch (requestError) {
         if (active) {
-          setError(true);
+          setLoadError(requestError?.message || 'Unknown error while loading student settings');
         }
       } finally {
         if (active) {
@@ -237,8 +237,8 @@ export default function StudentSettings() {
     }
   }
 
-  if (error) {
-    return <div className="settings-load-error">Unable to load settings. Please try again.</div>;
+  if (loadError) {
+    return <div className="settings-load-error">Unable to load settings. {loadError}</div>;
   }
 
   return (

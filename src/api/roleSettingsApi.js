@@ -1,6 +1,16 @@
 import { getUserSession } from '../auth/sessionController';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const DEBUG_REQUESTS = Boolean(import.meta.env.DEV);
+
+function logRequest(level, message, details) {
+  if (!DEBUG_REQUESTS) {
+    return;
+  }
+
+  const logger = console[level] || console.log;
+  logger(`[roleSettingsApi] ${message}`, details);
+}
 
 function getActorHeaders() {
   const session = getUserSession();
@@ -15,20 +25,56 @@ function getActorHeaders() {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...getActorHeaders(),
-      ...(options.headers || {}),
-    },
-    ...options,
+  const url = `${API_BASE_URL}${path}`;
+  const actorHeaders = getActorHeaders();
+
+  logRequest('info', 'Sending request', {
+    url,
+    method: options.method || 'GET',
+    actorUserId: actorHeaders['X-Actor-UserId'] || null,
+    actorRole: actorHeaders['X-Actor-Role'] || null,
   });
+
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...actorHeaders,
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch (networkError) {
+    logRequest('error', 'Network failure', {
+      url,
+      method: options.method || 'GET',
+      error: networkError?.message || 'Unknown network error',
+    });
+    throw new Error('Network error: unable to reach backend API');
+  }
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = payload?.detail || payload?.message || 'Request failed';
+    const detail = payload?.detail || payload?.message || 'Request failed';
+    const message = `${response.status}: ${detail}`;
+
+    logRequest('error', 'Request failed', {
+      url,
+      method: options.method || 'GET',
+      status: response.status,
+      detail,
+      payload,
+    });
+
     throw new Error(message);
   }
+
+  logRequest('info', 'Request succeeded', {
+    url,
+    method: options.method || 'GET',
+    status: response.status,
+  });
 
   return payload;
 }

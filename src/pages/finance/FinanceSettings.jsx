@@ -128,7 +128,7 @@ export default function FinanceSettings() {
   const [initialToggles, setInitialToggles] = useState(EMPTY_TOGGLES);
   const [passwordData, setPasswordData] = useState(EMPTY_PASSWORD);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingToggles, setSavingToggles] = useState(false);
@@ -180,10 +180,10 @@ export default function FinanceSettings() {
           ...EMPTY_TOGGLES,
           ...toggles,
         });
-        setError(false);
-      } catch {
+        setLoadError('');
+      } catch (requestError) {
         if (active) {
-          setError(true);
+          setLoadError(requestError?.message || 'Unknown error while loading finance settings');
         }
       } finally {
         if (active) {
@@ -275,8 +275,8 @@ export default function FinanceSettings() {
     }
   }
 
-  if (error) {
-    return <div className="settings-load-error">Unable to load settings. Please try again.</div>;
+  if (loadError) {
+    return <div className="settings-load-error">Unable to load settings. {loadError}</div>;
   }
 
   return (

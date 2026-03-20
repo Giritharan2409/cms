@@ -1,12 +1,15 @@
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlsplit
 
-load_dotenv()
+# Load .env from backend directory
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
 MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)

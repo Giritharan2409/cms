@@ -141,7 +141,7 @@ export default function AdminSettings() {
   const [initialAcademicData, setInitialAcademicData] = useState(EMPTY_ACADEMIC);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingSystem, setSavingSystem] = useState(false);
@@ -213,10 +213,10 @@ export default function AdminSettings() {
         setInitialSystemData(mergedSystem);
         setAcademicData(mergedAcademic);
         setInitialAcademicData(mergedAcademic);
-        setError(false);
-      } catch {
+        setLoadError('');
+      } catch (requestError) {
         if (active) {
-          setError(true);
+          setLoadError(requestError?.message || 'Unknown error while loading admin settings');
         }
       } finally {
         if (active) {
@@ -386,8 +386,8 @@ export default function AdminSettings() {
     }
   }
 
-  if (error) {
-    return <div className="settings-load-error">Unable to load settings. Please try again.</div>;
+  if (loadError) {
+    return <div className="settings-load-error">Unable to load settings. {loadError}</div>;
   }
 
   return (
