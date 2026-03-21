@@ -71,12 +71,12 @@ export default function PayrollPage({ noLayout = false }) {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetch(`${API_BASE}/staff`);
-            if (!res.ok) throw new Error('Failed to fetch staff');
+            const res = await fetch(`${API_BASE}/faculty`);
+            if (!res.ok) throw new Error('Failed to fetch faculty');
             const data = await res.json();
             setStaffList(data);
         } catch (err) {
-            console.error('Staff fetch error:', err.message);
+            console.error('Faculty fetch error:', err.message);
         }
     };
 
@@ -133,12 +133,12 @@ export default function PayrollPage({ noLayout = false }) {
         return staffList.filter(staff => {
             const name = staff.staffName || staff.name || '';
             const id = staff.staffId || staff.staff_id || staff.id || '';
-            const cat = staff.category || '';
-            const dept = staff.department || '';
+            const designation = staff.designation || staff.role || '';
+            const department = staff.departmentId || staff.department || '';
             const matchesSearch = name.toLowerCase().includes(step1SearchQuery.toLowerCase()) || id.toLowerCase().includes(step1SearchQuery.toLowerCase());
-            const matchesCategory = step1Category ? cat === step1Category : true;
-            const matchesDept = step1Department ? dept === step1Department : true;
-            return matchesSearch && matchesCategory && matchesDept;
+            const matchesDesignation = step1Category ? designation === step1Category : true;
+            const matchesDept = step1Department ? department === step1Department : true;
+            return matchesSearch && matchesDesignation && matchesDept;
         });
     }, [staffList, step1SearchQuery, step1Category, step1Department]);
 
@@ -446,7 +446,7 @@ export default function PayrollPage({ noLayout = false }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                             <tr style={{ background: '#f9fafb', color: '#6b7280', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                <th style={{ padding: '16px 20px', fontWeight: 600 }}>Staff Details</th>
+                                <th style={{ padding: '16px 20px', fontWeight: 600 }}>Faculty Details</th>
                                 <th style={{ padding: '16px 20px', fontWeight: 600 }}>Pay Period</th>
                                 <th style={{ padding: '16px 20px', fontWeight: 600 }}>Gross Pay</th>
                                 <th style={{ padding: '16px 20px', fontWeight: 600 }}>Net Pay</th>
@@ -643,49 +643,68 @@ export default function PayrollPage({ noLayout = false }) {
                                         <select
                                             value={step1Category}
                                             onChange={(e) => setStep1Category(e.target.value)}
-                                            style={{ width: 160, height: 40, borderRadius: 6, border: '1px solid #d1d5db', padding: '0 12px', fontSize: 14 }}
+                                            style={{ width: 200, height: 40, borderRadius: 6, border: '1px solid #d1d5db', padding: '0 12px', fontSize: 14 }}
                                         >
-                                            <option value="">All Categories</option>
-                                            <option value="Teaching Staff">Teaching Staff</option>
-                                            <option value="Non-Teaching Staff">Non-Teaching Staff</option>
-                                            <option value="Support Staff">Support Staff</option>
+                                            <option value="">Select Designation</option>
+                                            <option value="Professor">Professor</option>
+                                            <option value="Associate Professor">Associate Professor</option>
+                                            <option value="Assistant Professor">Assistant Professor</option>
+                                            <option value="Lecturer">Lecturer</option>
                                         </select>
                                         <select
                                             value={step1Department}
                                             onChange={(e) => setStep1Department(e.target.value)}
-                                            style={{ width: 160, height: 40, borderRadius: 6, border: '1px solid #d1d5db', padding: '0 12px', fontSize: 14 }}
+                                            style={{ width: 220, height: 40, borderRadius: 6, border: '1px solid #d1d5db', padding: '0 12px', fontSize: 14 }}
                                         >
-                                            <option value="">All Departments</option>
+                                            <option value="">Select Department</option>
                                             <option value="Computer Science">Computer Science</option>
-                                            <option value="Administration">Administration</option>
-                                            <option value="Library">Library</option>
-                                            <option value="Transport">Transport</option>
-                                            <option value="Maintenance">Maintenance</option>
+                                            <option value="Electrical Engineering">Electrical Engineering</option>
+                                            <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                            <option value="Information Technology">Information Technology</option>
                                         </select>
                                     </div>
 
                                     <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden', maxHeight: 200, overflowY: 'auto' }}>
-                                        {availableStaffForWizard.map((staff, i) => {
-                                            const isSelected = wizardData.staffId === staff.staffId;
+                                        {availableStaffForWizard.map((faculty, i) => {
+                                            const isSelected = wizardData.staffId === (faculty.employeeId || faculty.staffId || faculty.id);
                                             return (
                                                 <div
-                                                    key={staff.staffId}
-                                                    onClick={() => selectWizardStaff(staff)}
+                                                    key={faculty.employeeId || faculty.staffId || faculty.id}
+                                                    onClick={() => selectWizardStaff({
+                                                        staffId: faculty.employeeId || faculty.staffId || faculty.id || '',
+                                                        staffName: faculty.name || faculty.staffName || '',
+                                                        designation: faculty.designation || faculty.role || '',
+                                                        department: faculty.departmentId || faculty.department || '',
+                                                        category: faculty.category || '',
+                                                        email: faculty.email || '',
+                                                        phone: faculty.phone || ''
+                                                    })}
                                                     style={{
-                                                        padding: '12px 16px', borderBottom: i < availableStaffForWizard.length - 1 ? '1px solid #e5e7eb' : 'none',
-                                                        cursor: 'pointer', background: isSelected ? '#eff6ff' : '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                        padding: '16px',
+                                                        borderBottom: i < availableStaffForWizard.length - 1 ? '1px solid #e5e7eb' : 'none',
+                                                        cursor: 'pointer',
+                                                        background: isSelected ? '#eff6ff' : '#fff',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        transition: 'background 0.2s',
                                                     }}
                                                 >
                                                     <div>
-                                                        <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{staff.staffName}</div>
-                                                        <div style={{ fontSize: 12, color: '#6b7280' }}>{staff.staffId} • {staff.designation} • {staff.department}</div>
+                                                        <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 15 }}>{faculty.name || faculty.staffName}</div>
+                                                        <div style={{ fontSize: 13, color: '#6b7280', margin: '2px 0' }}>
+                                                            ID: {faculty.employeeId || faculty.staffId || faculty.id} • {faculty.designation || faculty.role || 'Faculty'} • {faculty.departmentId || faculty.department || '—'}
+                                                        </div>
+                                                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                                                            Email: {faculty.email || '—'} • Phone: {faculty.phone || '—'}
+                                                        </div>
                                                     </div>
                                                     {isSelected && <div style={{ color: '#2563eb', fontWeight: 600 }}>Selected</div>}
                                                 </div>
                                             );
                                         })}
                                         {availableStaffForWizard.length === 0 && (
-                                            <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>No staff found matching filters.</div>
+                                            <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: 14 }}>No faculty found matching filters.</div>
                                         )}
                                     </div>
                                 </div>
@@ -778,9 +797,9 @@ export default function PayrollPage({ noLayout = false }) {
                                     <h4 style={{ margin: '0 0 16px 0', fontSize: 16, color: '#374151', textAlign: 'center' }}>Step 3 – Review & Generate Payroll</h4>
 
                                     <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-                                        {/* Section 1 - Staff Details */}
+                                        {/* Section 1 - Faculty Details */}
                                         <div style={{ padding: 20, borderBottom: '1px solid #e5e7eb' }}>
-                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', tracking: 'wider', textTransform: 'uppercase', marginBottom: 12 }}>Staff Details</div>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#9ca3af', tracking: 'wider', textTransform: 'uppercase', marginBottom: 12 }}>Faculty Details</div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                                 <div><span style={{ color: '#6b7280', fontSize: 13 }}>Name:</span> <span style={{ fontWeight: 500, fontSize: 14 }}>{wizardData.staffName}</span></div>
                                                 <div><span style={{ color: '#6b7280', fontSize: 13 }}>ID:</span> <span style={{ fontWeight: 500, fontSize: 14 }}>{wizardData.staffId}</span></div>
