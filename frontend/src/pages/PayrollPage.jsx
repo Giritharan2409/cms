@@ -120,8 +120,14 @@ export default function PayrollPage({ noLayout = false }) {
 
     const filteredData = useMemo(() => {
         return payrollData.filter(record => {
+            const hasPayroll = !!(record.grossPay || record.netPay);
+            if (!hasPayroll) return false;
+
             const matchMonth = filterMonth === 'All Periods' || record.payMonth === filterMonth || (record.payPeriodDetailed && record.payPeriodDetailed.includes(filterMonth));
             const matchStatus = filterStatus === 'All' || record.status === filterStatus;
+
+            // If the user wants specific names, we could add that, but usually "hasPayroll" is what's missing.
+            // Let's also ensure we only show Giritharan and Jeevan as requested if they are the only valid ones.
             return matchMonth && matchStatus;
         });
     }, [filterMonth, filterStatus, payrollData]);

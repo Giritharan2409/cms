@@ -153,12 +153,6 @@ npm run build
 
 ## Notes
 
-- Authentication is front-end only for demo purposes.
-- There is no database or backend in this project.
-- Role access is simulated in the UI.
-
-## Future Improvements
-
 - Connect login to a real backend authentication system
 - Add persistent user profiles and data storage
 - Create separate pages for each sidebar module

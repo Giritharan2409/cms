@@ -35,7 +35,7 @@ if exist "%BACKEND_DIR%\requirements.txt" (
   if !errorlevel! EQU 0 (
     echo [3/5] Installing backend Python dependencies...
     cd /d "%BACKEND_DIR%"
-    py -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt
   ) else (
     echo [3/5] Python launcher not found. Skipping Python dependency install.
   )
@@ -46,7 +46,7 @@ if exist "%BACKEND_DIR%\requirements.txt" (
 echo [4/5] Starting backend server...
 
 if exist "%BACKEND_DIR%\main.py" (
-  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%ROOT_DIR%"" && py -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
+  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%ROOT_DIR%"" && python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
 ) else (
   echo backend\main.py not found. FastAPI backend was not started.
 )

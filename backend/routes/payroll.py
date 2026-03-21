@@ -9,6 +9,7 @@ from backend.db import get_db
 from backend.dev_store import DEV_STORE
 from backend.schemas.payroll import PayrollRecord, PayrollUpdate
 from backend.utils.mongo import parse_object_id, serialize_doc
+from backend.utils.invoice_utils import create_invoice_from_payroll
 
 router = APIRouter(prefix="/api/payroll", tags=["payroll"])
 
@@ -143,6 +144,10 @@ async def create_payroll(record: PayrollRecord):
 
     result = await db["payroll"].insert_one(data)
     created = await db["payroll"].find_one({"_id": result.inserted_id})
+    
+    # Automatically generate invoice
+    await create_invoice_from_payroll(db, str(result.inserted_id), created)
+    
     return normalize_payroll_document(created)
 
 
@@ -170,6 +175,8 @@ async def create_payroll_batch(records: List[PayrollRecord]):
 
     inserted = []
     async for record in db["payroll"].find({"_id": {"$in": result.inserted_ids}}):
+        # Automatically generate invoices
+        await create_invoice_from_payroll(db, str(record["_id"]), record)
         inserted.append(normalize_payroll_document(record))
 
     return inserted
