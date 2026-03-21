@@ -133,15 +133,18 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const handlePayment = () => {
-    if (!formData.paymentMethod) {
-      alert('Please select a payment method');
-      return;
-    }
+    // Open the payment modal to let user select payment method
     setShowPaymentDetails(true);
   };
 
   const handleCompletePayment = () => {
-    // Validate payment details based on payment method
+    // First validate that payment method is selected
+    if (!formData.paymentMethod) {
+      alert('Please select a payment method');
+      return;
+    }
+
+    // Then validate payment details based on payment method
     if (formData.paymentMethod === 'Credit Card' || formData.paymentMethod === 'Debit Card') {
       if (!paymentDetails.cardHolderName || !paymentDetails.cardNumber || !paymentDetails.expiryDate || !paymentDetails.cvv) {
         alert('Please fill all card details');
