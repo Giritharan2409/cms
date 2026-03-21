@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.db import lifespan
+from backend.routes.admin import router as admin_router
 from backend.routes.academics.attendance import router as attendance_router
 from backend.routes.academics.exams import router as exams_router
 from backend.routes.academics.facility import router as facility_router
@@ -24,13 +25,17 @@ from backend.routes.analytics import router as analytics_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.payroll import router as payroll_router
 from backend.routes.settings import router as settings_router
+from backend.routes.modules.settings.admin_settings import router as admin_settings_router
+from backend.routes.modules.settings.faculty_settings import router as faculty_settings_router
+from backend.routes.modules.settings.finance_settings import router as finance_settings_router
+from backend.routes.modules.settings.student_settings import router as student_settings_router
 from backend.routes.staff import router as staff_router
 from backend.routes.faculty import router as faculty_router
 from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
 from backend.routes.administration.invoices import router as invoices_router
-PORT = int(os.getenv("PORT", 5000))
+PORT = int(os.getenv("PORT", 8000))
 
 app = FastAPI(title="CMS API", lifespan=lifespan)
 
@@ -63,6 +68,11 @@ async def serve_frontend():
         "message": "Frontend build not found. Run `npm run build` to serve static UI from FastAPI, or run Vite dev server for frontend development."
     }
 
+
+@app.get("/api/test")
+async def api_test():
+    return {"message": "backend working"}
+
 app.include_router(staff_router)
 app.include_router(faculty_router)
 app.include_router(payroll_router)
@@ -74,6 +84,11 @@ app.include_router(placement_router)
 app.include_router(facility_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
+app.include_router(admin_router)
+app.include_router(faculty_settings_router, prefix="/api/settings/faculty", tags=["Faculty Settings"])
+app.include_router(finance_settings_router, prefix="/api/settings/finance", tags=["Finance Settings"])
+app.include_router(admin_settings_router, prefix="/api/settings/admin", tags=["Admin Settings"])
+app.include_router(student_settings_router, prefix="/api/student/settings", tags=["Student Settings"])
 app.include_router(students_router)
 app.include_router(admissions_router)
 app.include_router(fees_router)
@@ -90,4 +105,4 @@ async def serve_react_app(full_path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=5000)
+    uvicorn.run("main:app", host="127.0.0.1", port=PORT)

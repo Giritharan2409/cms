@@ -7,11 +7,12 @@ from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlsplit
 
-# Always load .env from the backend folder, independent of process CWD.
-load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
+# Load .env from backend directory
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
-# Use Atlas connection string
-MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb+srv://priyadharshini:Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
+MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)
 
 client: AsyncIOMotorClient | None = None
 db = None
@@ -30,6 +31,18 @@ def mask_mongodb_uri(uri: str | None) -> str:
         return "<configured>"
 
 
+def resolve_database_name(uri: str | None) -> str:
+    try:
+        parts = urlsplit(uri or "")
+        db_name = (parts.path or "").lstrip("/")
+        if db_name:
+            return db_name
+    except Exception:
+        pass
+
+    return "College_db"
+
+
 @asynccontextmanager
 async def lifespan(app):
     global client, db
@@ -40,11 +53,11 @@ async def lifespan(app):
         await client.admin.command("ping")
 
         try:
-            db = client["College_db"] if "mongodb.net" in str(MONGODB_URI) else client.get_database()
-            if db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
-                db = client["College_db"]
+            db = client.get_default_database()
+            if db.name == "test":
+                db = client[resolve_database_name(MONGODB_URI)]
         except Exception:
-            db = client["College_db"]
+            db = client[resolve_database_name(MONGODB_URI)]
 
 
 

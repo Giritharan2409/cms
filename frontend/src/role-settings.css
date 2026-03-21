@@ -1,0 +1,611 @@
+.role-settings-shell {
+  background: #eef3f9;
+}
+
+.role-settings-shell .sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e4ebf6;
+}
+
+.role-settings-shell .sidebar-logo {
+  padding: 16px 20px;
+}
+
+.role-settings-shell .logo-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.role-settings-shell .logo-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.portal-nav-list {
+  list-style: none;
+  padding: 0 10px;
+}
+
+.portal-sidebar-link {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.portal-sidebar-link .material-symbols-outlined {
+  font-size: 19px;
+}
+
+.portal-sidebar-link:hover {
+  color: #1f2937;
+  background: #f2f6fc;
+}
+
+.portal-sidebar-link.active {
+  background: #e8eefb;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.portal-logout-btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.portal-logout-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: #64748b;
+}
+
+.portal-logout-btn:hover {
+  color: #ef4444;
+  background: #fff1f2;
+}
+
+.portal-logout-btn:hover svg {
+  fill: #ef4444;
+}
+
+.role-settings-shell .main-content {
+  margin-left: 260px;
+  padding: 0;
+  background: #eef3f9;
+}
+
+.role-settings-shell .main-content.sidebar-hidden {
+  margin-left: 0;
+}
+
+.role-settings-topbar {
+  margin-bottom: 0;
+  min-height: 80px;
+  padding: 0 36px;
+  border-bottom: 1px solid #e4ebf6;
+  background: #ffffff;
+}
+
+.role-settings-topbar .topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-settings-topbar .topbar-left h2 {
+  color: #2563eb;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.portal-icon-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-icon-btn:hover {
+  background: #eff4fb;
+  color: #2563eb;
+}
+
+.portal-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.portal-user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.portal-user-meta span {
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.portal-user-meta small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.portal-user-initials {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #e8eefb;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.role-settings-content {
+  padding: 26px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: inherit;
+}
+
+.settings-mode-pill-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.role-settings-content .settings-role-pill {
+  border: 1px solid #bfd0ee;
+  background: #eaf2ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.settings-breadcrumb-text {
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.settings-page-title {
+  color: #1f2937;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.settings-panel {
+  border: 1px solid #d7e3f5;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.settings-panel h2 {
+  color: #1f2937;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.settings-panel-subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.settings-subcard {
+  border: 1px solid #d7e3f5;
+  border-radius: 14px;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.settings-subcard-title {
+  color: #1d4ed8;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.settings-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-col-span-2 {
+  grid-column: span 2;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-field label {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-field input,
+.settings-field textarea,
+.settings-field select {
+  width: 100%;
+  border: 1px solid #d6e2f3;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  background: #f6faff;
+  color: #1f2937;
+  font-size: 14px;
+  outline: none;
+}
+
+.settings-field textarea {
+  min-height: 84px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.settings-field input:focus,
+.settings-field textarea:focus,
+.settings-field select:focus {
+  border-color: #9cc0f9;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.settings-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-photo-avatar {
+  width: 74px;
+  height: 74px;
+  border-radius: 18px;
+  background: #e5eefb;
+  color: #1d4ed8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  overflow: hidden;
+  border: 1px solid #d6e2f3;
+}
+
+.settings-photo-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.settings-upload-btn {
+  border: 1px solid #d6e2f3;
+  background: #f7fafc;
+  color: #334155;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-upload-btn:hover {
+  background: #edf3fb;
+}
+
+.settings-file-name {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.settings-actions-left {
+  justify-content: flex-start;
+}
+
+.settings-btn {
+  border: none;
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.settings-btn-primary {
+  background: linear-gradient(90deg, #2563eb, #22b7d7);
+  color: #ffffff;
+}
+
+.settings-btn-primary:hover {
+  filter: brightness(0.98);
+}
+
+.settings-btn-muted {
+  background: #f3f7fc;
+  color: #334155;
+  border: 1px solid #d6e2f3;
+}
+
+.settings-btn-muted:hover {
+  background: #eaf1fb;
+}
+
+.settings-toggle-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.settings-toggle-item {
+  border: 1px solid #d7e3f5;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+}
+
+.settings-toggle-copy strong {
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.settings-toggle-copy p {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.settings-toggle {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  display: inline-block;
+}
+
+.settings-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+
+.settings-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s;
+}
+
+.settings-toggle input:checked + .settings-toggle-slider {
+  background: #5a8df3;
+}
+
+.settings-toggle input:checked + .settings-toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.settings-load-state {
+  border: 1px solid #d7e3f5;
+  background: #ffffff;
+  border-radius: 14px;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.settings-load-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.settings-request-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-request-item {
+  border: 1px solid #d7e3f5;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.settings-request-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.settings-request-title {
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.settings-request-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-request-status-pending {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.settings-request-status-approved {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.settings-request-status-rejected {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.settings-request-meta {
+  color: #475569;
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+
+.settings-request-reason {
+  color: #991b1b;
+  font-size: 13px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.settings-request-empty {
+  border: 1px dashed #d7e3f5;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #64748b;
+  font-size: 13px;
+  padding: 12px;
+}
+
+@media (max-width: 1200px) {
+  .settings-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-col-span-2 {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .role-settings-topbar {
+    padding: 0 16px;
+  }
+
+  .role-settings-content {
+    padding: 14px;
+  }
+
+  .settings-page-title {
+    font-size: 20px;
+  }
+
+  .settings-panel h2 {
+    font-size: 18px;
+  }
+
+  .settings-panel-subtitle {
+    font-size: 14px;
+  }
+
+  .portal-user-meta {
+    display: none;
+  }
+}

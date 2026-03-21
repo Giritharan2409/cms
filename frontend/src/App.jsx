@@ -10,6 +10,10 @@ import ExamsPage from './pages/ExamsPage';
 import PlacementPage from './pages/PlacementPage';
 import FacilityPage from './pages/FacilityPage';
 import SettingsPage from './pages/SettingsPage';
+import StudentSettings from './pages/student/StudentSettings';
+import FacultySettings from './pages/faculty/FacultySettings';
+import FinanceSettings from './pages/finance/FinanceSettings';
+import AdminSettings from './pages/admin/AdminSettings';
 import StudentsPage from './pages/StudentsPage';
 import StudentDetailPage from './pages/StudentDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -57,6 +61,38 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/settings"
+          element={
+            <ProtectedRoute>
+              <StudentSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/faculty/settings"
+          element={
+            <ProtectedRoute>
+              <FacultySettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/finance/settings"
+          element={
+            <ProtectedRoute>
+              <FinanceSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute>
+              <AdminSettings />
             </ProtectedRoute>
           }
         />

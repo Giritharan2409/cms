@@ -55,6 +55,9 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
   const menuGroups = roleMenuGroups[role] || []
 
   function getRoute(item) {
+    if (item === 'Settings') {
+      return `/${role}/settings`
+    }
     if (item === 'Fees') {
       return role === 'admin' ? '/admin-fees' : '/fees'
     }
@@ -102,6 +105,12 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
       if (Number.isFinite(value)) {
         navRef.current.scrollTop = value
       }
+    }
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('[AcademicSidebar] location.pathname:', location.pathname)
     }
   }, [location.pathname])
 
