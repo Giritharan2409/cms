@@ -21,6 +21,8 @@ import AdminInvoicePage from './pages/AdminInvoicePage';
 import FeesPage from './pages/FeesPage';
 import InvoicePage from './pages/InvoicePage';
 import ComingSoonPage from './pages/ComingSoonPage';
+import FacultyPage from './pages/FacultyPage';
+import FacultyProfilePage from './pages/FacultyProfilePage';
 
 export default function App() {
   const session = getUserSession();
@@ -67,7 +69,8 @@ export default function App() {
         />
         <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
         <Route path="/students/:id" element={<ProtectedRoute><StudentDetailPage /></ProtectedRoute>} />
-        <Route path="/faculty" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
+        <Route path="/faculty" element={<ProtectedRoute><FacultyPage /></ProtectedRoute>} />
+        <Route path="/faculty/:id" element={<ProtectedRoute><FacultyProfilePage /></ProtectedRoute>} />
         <Route path="/department" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/my-courses" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
