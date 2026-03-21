@@ -1,3 +1,4 @@
+from typing import Optional
 from copy import deepcopy
 from datetime import datetime
 from uuid import uuid4
@@ -75,9 +76,9 @@ def upsert_timetable(class_id: str, data: dict):
 
 
 def list_placements(
-    status: str | None = None,
-    search: str | None = None,
-    person_id: str | None = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    person_id: Optional[str] = None,
 ):
     items = deepcopy(DEV_STORE["placements"])
     if status and status != "All":
@@ -112,7 +113,7 @@ def delete_placement(placement_id: str):
     return True
 
 
-def list_facilities(status: str | None = None, search: str | None = None):
+def list_facilities(status: Optional[str] = None, search: Optional[str] = None):
     items = deepcopy(DEV_STORE["facilities"])
     if status and status != "All":
         items = [item for item in items if item.get("status") == status]
@@ -144,7 +145,7 @@ def delete_facility(facility_id: str):
     return True
 
 
-def list_bookings(room: str | None = None):
+def list_bookings(room: Optional[str] = None):
     items = deepcopy(DEV_STORE["facility_bookings"])
     if room:
         items = [item for item in items if item.get("room") == room]
@@ -157,7 +158,7 @@ def create_booking(data: dict):
     return deepcopy(item)
 
 
-def list_attendance(role: str | None = None, person_id: str | None = None):
+def list_attendance(role: Optional[str] = None, person_id: Optional[str] = None):
     items = deepcopy(DEV_STORE["attendance"])
     if role:
         items = [item for item in items if item.get("role") == role]
@@ -278,7 +279,7 @@ def list_weekly_attendance():
     return deepcopy(DEV_STORE["attendance_weekly"])
 
 
-def list_notifications(role: str, limit: int | None = None, search: str | None = None):
+def list_notifications(role: str, limit: Optional[int] = None, search: Optional[str] = None):
     items = [
         item for item in DEV_STORE["notifications"]
         if item.get("receiverRole") in {role, "ALL"} or item.get("senderRole") == role

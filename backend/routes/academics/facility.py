@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -41,7 +42,7 @@ def _is_time_overlap(start_a: str, end_a: str, start_b: str, end_b: str) -> bool
 
 
 @router.get("")
-async def list_facilities(status: str | None = None, search: str | None = None):
+async def list_facilities(status: Optional[str] = None, search: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -95,7 +96,7 @@ async def update_facility(facility_id: str, payload: FacilityRecord):
 
 
 @router.get("/bookings")
-async def list_bookings(room: str | None = None):
+async def list_bookings(room: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:

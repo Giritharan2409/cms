@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from bson import ObjectId
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -46,7 +47,7 @@ def parse_object_id(value: str) -> ObjectId:
         raise HTTPException(status_code=400, detail="Invalid ID format") from error
 
 
-def serialize_doc(document: dict | None) -> dict | None:
+def serialize_doc(document: Optional[dict]) -> Optional[dict]:
     if not document:
         return document
 

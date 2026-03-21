@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import uuid4
-
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/academics/attendance", tags=["academics:attendan
 
 
 @router.get("")
-async def list_attendance(role: str | None = None, person_id: str | None = None):
+async def list_attendance(role: Optional[str] = None, person_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -56,7 +56,7 @@ async def create_attendance(payload: AttendanceRecord):
 
 
 @router.get("/weekly")
-async def get_weekly_attendance(role: str | None = None):
+async def get_weekly_attendance(role: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:

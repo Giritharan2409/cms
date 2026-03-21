@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import date
 
 from pydantic import BaseModel, Field
@@ -13,7 +14,7 @@ class Student(BaseModel):
     email: str = ""
     phone: str = ""
     gender: str = ""
-    dob: date | None = None
+    dob: Optional[date] = None
     address: str = ""
     avatar: str = ""
     section: str = ""
@@ -22,4 +23,4 @@ class Student(BaseModel):
     fee_status: str = Field(default="pending", alias="feeStatus")
     guardian: str = ""
     guardian_phone: str = Field(default="", alias="guardianPhone")
-    enroll_date: date | None = Field(default=None, alias="enrollDate")
+    enroll_date: Optional[date] = Field(default=None, alias="enrollDate")
