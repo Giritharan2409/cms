@@ -62,7 +62,9 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
       return role === 'admin' ? '/admin-fees' : '/fees'
     }
     if (item === 'Invoices') {
-      return role === 'admin' ? '/admin-invoices' : '/invoices'
+      if (role === 'admin') return '/admin-invoices'
+      if (role === 'finance') return '/finance-invoices'
+      return '/invoices'
     }
     return routeMap[item] || '/dashboard'
   }

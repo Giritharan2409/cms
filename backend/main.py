@@ -30,6 +30,7 @@ from backend.routes.modules.settings.faculty_settings import router as faculty_s
 from backend.routes.modules.settings.finance_settings import router as finance_settings_router
 from backend.routes.modules.settings.student_settings import router as student_settings_router
 from backend.routes.staff import router as staff_router
+from backend.routes.faculty import router as faculty_router
 from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
@@ -73,6 +74,7 @@ async def api_test():
     return {"message": "backend working"}
 
 app.include_router(staff_router)
+app.include_router(faculty_router)
 app.include_router(payroll_router)
 app.include_router(analytics_router)
 app.include_router(exams_router)
