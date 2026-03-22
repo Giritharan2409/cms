@@ -1,38 +1,30 @@
 const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
 
-const configuredBase = trimTrailingSlash(
+const configuredBaseRaw = trimTrailingSlash(
   import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE
 );
 
+function normalizeHostBase(value) {
+  if (!value) return '';
+  return value.endsWith('/api') ? value.slice(0, -4) : value;
+}
+
 function resolveHostBase() {
-  if (!configuredBase) return '';
+  const configuredBase = normalizeHostBase(configuredBaseRaw);
+  if (configuredBase) return configuredBase;
 
   if (!import.meta.env.DEV && typeof window !== 'undefined') {
-    try {
-      const configuredOrigin = new URL(configuredBase).origin;
-      const currentOrigin = window.location.origin;
-
-      // In production static hosting, keep API same-origin and rely on /api rewrite.
-      if (configuredOrigin !== currentOrigin) {
-        console.warn(
-          `Ignoring cross-origin API base (${configuredBase}) in production. Using same-origin /api.`
-        );
-        return '';
-      }
-    } catch {
-      console.warn(
-        `Invalid API base value (${configuredBase}). Using same-origin /api.`
-      );
-      return '';
+    if (window.location.hostname === 'cms1-weof.onrender.com') {
+      return 'https://cms-x82g.onrender.com';
     }
   }
 
-  return configuredBase;
+  return '';
 }
 
 const hostBase = resolveHostBase();
 
-export const API_BASE = hostBase ? `${hostBase}/api` : '/api';
+export const API_BASE = hostBase ? `${trimTrailingSlash(hostBase)}/api` : '/api';
 
 export function buildApiUrl(path) {
   const normalizedPath = String(path || '').startsWith('/') ? path : `/${path}`;
