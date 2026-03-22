@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import PriorityBadge from './PriorityBadge';
 import './NotificationDropdown.css';
+import { buildApiUrl } from '../api/apiBase';
 
 export default function NotificationDropdown({ role = 'student', isOpen = false, onClose }) {
   const [notifications, setNotifications] = useState([]);
@@ -12,7 +13,8 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/notifications/${role}?limit=5`);
+        const response = await fetch(buildApiUrl(`/notifications/${role}?limit=5`));
+        if (!response.ok) throw new Error(`Failed to fetch notifications (${response.status})`);
         const data = await response.json();
         setNotifications(data.data || []);
         setLoading(false);
@@ -27,7 +29,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
 
   const handleMarkAsRead = async (notificationId) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+      await fetch(buildApiUrl(`/notifications/${notificationId}/read`), { method: 'PUT' });
       setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, status: 'read' } : n
       ));
@@ -38,7 +40,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
 
   const handleDelete = async (notificationId) => {
     try {
-      await fetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
+      await fetch(buildApiUrl(`/notifications/${notificationId}`), { method: 'DELETE' });
       setNotifications(notifications.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error('Error deleting notification:', error);

@@ -34,10 +34,25 @@ PORT = int(os.getenv("PORT", 5000))
 
 app = FastAPI(title="CMS API", lifespan=lifespan)
 
+
+def _parse_origins(value: str | None):
+    if not value:
+        return []
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
+configured_origins = _parse_origins(os.getenv("CORS_ORIGINS"))
+default_origins = [
+    "https://cms1-weof.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+allowed_origins = configured_origins or default_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

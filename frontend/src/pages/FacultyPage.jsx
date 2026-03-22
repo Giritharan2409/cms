@@ -8,8 +8,7 @@ import {
   MapPin, Award, CheckCircle, XCircle 
 } from 'lucide-react';
 import '../styles.css';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE } from '../api/apiBase';
 
 export default function FacultyPage() {
   const [facultyList, setFacultyList] = useState([]);
@@ -29,7 +28,7 @@ export default function FacultyPage() {
   const fetchFaculty = async () => {
     setLoading(true);
     try {
-      let url = `${API_BASE_URL}/faculty?`;
+      let url = `${API_BASE}/faculty?`;
       if (departmentFilter) url += `departmentId=${departmentFilter}&`;
       if (statusFilter) url += `employmentStatus=${statusFilter}&`;
       

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './CreateNotification.css';
+import { buildApiUrl } from '../api/apiBase';
 
 const ROLES = [
   { value: 'student', label: 'Student' },
@@ -52,7 +53,7 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
     setLoading(true);
 
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch(buildApiUrl('/notifications'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

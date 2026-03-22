@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { API_BASE } from '../api/apiBase';
 
 export default function AddStudentModal({ isOpen, onClose, onSuccess, editStudent }) {
   const [step, setStep] = useState(1);
@@ -160,8 +161,8 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
         // Prepare data for backend
         const studentId = editStudent ? (editStudent.rollNumber || editStudent.id) : formData.id;
         const url = editStudent 
-          ? `http://localhost:5000/api/students/${encodeURIComponent(studentId)}`
-          : 'http://localhost:5000/api/students';
+          ? `${API_BASE}/students/${encodeURIComponent(studentId)}`
+          : `${API_BASE}/students`;
         
         const method = editStudent ? 'PUT' : 'POST';
 

@@ -2,10 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Layout from '../components/Layout';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-    ? `${import.meta.env.VITE_API_BASE_URL}/api`
-    : '/api';
+import { API_BASE } from '../api/apiBase';
 
 // Icons
 function ViewIcon() {

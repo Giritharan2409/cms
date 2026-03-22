@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
-import { getStudentById } from '../data/studentData'
+import { buildApiUrl } from '../api/apiBase'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -42,20 +42,6 @@ const DEFAULT_BREAK_ITEMS = [
   { id: 'break-1', label: 'Break 11:00–11:15', afterPeriod: 3, tone: 'slate' },
   { id: 'break-2', label: 'Lunch 13:15–14:00', afterPeriod: 5, tone: 'amber' },
 ]
-const DEMO_STUDENT_CLASS_BY_ID = {
-  'STU-2024-1547': { department: 'Computer Science', semester: 4, section: 'A' },
-}
-
-// kept for backward compat with initialData builder below
-const C = {
-  blue:    { color: 'border-blue-500 bg-blue-50',    textColor: 'text-blue-700' },
-  emerald: { color: 'border-emerald-500 bg-emerald-50', textColor: 'text-emerald-700' },
-  orange:  { color: 'border-orange-500 bg-orange-50', textColor: 'text-orange-700' },
-  purple:  { color: 'border-purple-500 bg-purple-50', textColor: 'text-purple-700' },
-  indigo:  { color: 'border-indigo-500 bg-indigo-50', textColor: 'text-indigo-700' },
-  amber:   { color: 'border-amber-500 bg-amber-50',  textColor: 'text-amber-700' },
-  rose:    { color: 'border-rose-500 bg-rose-50',    textColor: 'text-rose-700' },
-}
 
 function withTheme(entry) {
   if (!entry || !entry.code) {
@@ -111,43 +97,6 @@ function normalizeTimetableRecord(record) {
     periodSlots: normalizedPeriodSlots,
     breakItems: normalizeBreakItems(record.breakItems),
   }
-}
-
-function mk(code, name, room, instructor, credits, type, theme) {
-  return { code, name, room, instructor, credits, type, theme, ...C[theme] }
-}
-
-// ── Initial timetables keyed by classId ──────────────────────────────────────
-const INITIAL_TIMETABLES = {
-  'CS-S4A': {
-    label: 'CS — Sem 4 (Sec A)',
-    dept: 'Computer Science',
-    semester: 'Semester 4',
-    section: 'Section A',
-    slots: [
-      [ mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null, mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo') ],
-      [ mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null ],
-      [ mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS403','Database Systems','Room 302','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald') ],
-      [ mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), { label:'Seminar Hour', code:'', name:'', room:'', instructor:'', credits:0, type:'', theme:'', color:'', textColor:'' }, mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue') ],
-      [ mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null, mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange') ],
-      [ mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber') ],
-      [ null, mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange') ],
-    ],
-  },
-  'CS-S4B': {
-    label: 'CS — Sem 4 (Sec B)',
-    dept: 'Computer Science',
-    semester: 'Semester 4',
-    section: 'Section B',
-    slots: Array(7).fill(null).map(() => Array(5).fill(null)),
-  },
-  'EC-S3A': {
-    label: 'EC — Sem 3 (Sec A)',
-    dept: 'Electronics',
-    semester: 'Semester 3',
-    section: 'Section A',
-    slots: Array(7).fill(null).map(() => Array(5).fill(null)),
-  },
 }
 
 // ── ClassCell ────────────────────────────────────────────────────────────────
@@ -386,8 +335,8 @@ export default function TimetablePage({ noLayout = false }) {
   const role    = session?.role || 'student'
   const canEdit = role === 'admin' || role === 'faculty'
 
-  const [timetables,   setTimetables]   = useState(INITIAL_TIMETABLES)
-  const [activeClass,  setActiveClass]  = useState('CS-S4A')
+  const [timetables,   setTimetables]   = useState({})
+  const [activeClass,  setActiveClass]  = useState('')
   const [editMode,     setEditMode]     = useState(false)
   const [editTarget,   setEditTarget]   = useState(null)   // { slotIdx, dayIdx }
   const [showNewClass, setShowNewClass] = useState(false)
@@ -458,7 +407,7 @@ export default function TimetablePage({ noLayout = false }) {
 
     async function loadStudentProfile() {
       try {
-        const response = await fetch(`/api/students/${encodeURIComponent(session.userId)}`)
+        const response = await fetch(buildApiUrl(`/students/${encodeURIComponent(session.userId)}`))
         if (response.ok) {
           const profile = await response.json()
           if (isMounted) {
@@ -470,13 +419,7 @@ export default function TimetablePage({ noLayout = false }) {
         console.error('Failed to fetch student profile for timetable:', error)
       }
 
-      const localProfile = getStudentById(session.userId)
-      if (localProfile) {
-        if (isMounted) setStudentProfile(localProfile)
-        return
-      }
-
-      if (isMounted) setStudentProfile(DEMO_STUDENT_CLASS_BY_ID[session.userId] || null)
+      if (isMounted) setStudentProfile(null)
     }
 
     loadStudentProfile()
@@ -500,7 +443,7 @@ export default function TimetablePage({ noLayout = false }) {
 
     async function fetchTimetables() {
       try {
-        const response = await fetch('/api/academics/timetable')
+        const response = await fetch(buildApiUrl('/academics/timetable'))
         const payload = await response.json().catch(() => null)
 
         if (!response.ok || !payload?.success || !Array.isArray(payload.data) || payload.data.length === 0) {
@@ -533,7 +476,7 @@ export default function TimetablePage({ noLayout = false }) {
   async function persistTimetable(classId, timetable) {
     try {
       setIsSyncing(true)
-      await fetch(`/api/academics/timetable/${encodeURIComponent(classId)}`, {
+      await fetch(buildApiUrl(`/academics/timetable/${encodeURIComponent(classId)}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

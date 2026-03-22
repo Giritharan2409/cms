@@ -83,6 +83,22 @@ export default function FacilityPage({ noLayout = false }) {
     })
   })
 
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const displayStatusByRoom = visibleFacilities.reduce((acc, facility) => {
+    const roomName = String(facility?.name || '')
+    const baseStatus = facility?.status || 'Available'
+
+    if (baseStatus === 'Maintenance') {
+      acc[roomName] = 'Maintenance'
+      return acc
+    }
+
+    const roomBookings = bookingsByRoom[roomName] || []
+    const hasBookingToday = roomBookings.some((booking) => String(booking?.date || '').slice(0, 10) === todayIso)
+    acc[roomName] = hasBookingToday ? 'In Use' : 'Available'
+    return acc
+  }, {})
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false)
@@ -170,9 +186,24 @@ export default function FacilityPage({ noLayout = false }) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
-          { icon: 'meeting_room', label: 'Available',   value: visibleFacilities.filter(f => f.status === 'Available').length, color: 'text-emerald-600 bg-emerald-100' },
-          { icon: 'groups',       label: 'In Use',      value: visibleFacilities.filter(f => f.status === 'In Use').length,    color: 'text-blue-600 bg-blue-100' },
-          { icon: 'build',        label: 'Maintenance', value: visibleFacilities.filter(f => f.status === 'Maintenance').length, color: 'text-red-600 bg-red-100' },
+          {
+            icon: 'meeting_room',
+            label: 'Available Today',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'Available').length,
+            color: 'text-emerald-600 bg-emerald-100',
+          },
+          {
+            icon: 'groups',
+            label: 'Booked Today',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'In Use').length,
+            color: 'text-blue-600 bg-blue-100',
+          },
+          {
+            icon: 'build',
+            label: 'Maintenance',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'Maintenance').length,
+            color: 'text-red-600 bg-red-100',
+          },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
             <div className={`p-3 rounded-xl ${s.color}`}>
@@ -274,13 +305,18 @@ export default function FacilityPage({ noLayout = false }) {
         )}
         {!loading && filtered.map((f, i) => (
           <div key={f.name} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col gap-3 animate-fadeIn" style={{ animationDelay: `${i * 50}ms` }}>
+            {(() => {
+              const displayStatus = displayStatusByRoom[f.name] || f.status || 'Available'
+              return (
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-bold text-slate-900">{f.name}</p>
                 <p className="text-xs text-slate-500">{f.type}</p>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle[f.status]}`}>{f.status}</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle[displayStatus]}`}>{displayStatus}</span>
             </div>
+              )
+            })()}
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span className="material-symbols-outlined text-sm text-slate-400">people</span>
               Capacity: <span className="font-semibold text-slate-700">{f.capacity}</span>

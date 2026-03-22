@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { API_BASE } from '../api/apiBase';
 
 export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facultyId }) {
   const [formData, setFormData] = useState({
@@ -31,7 +32,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
     setError(null);
     
     try {
-      const response = await fetch(`http://localhost:5000/api/faculty/${facultyId}/development`, {
+      const response = await fetch(`${API_BASE}/faculty/${facultyId}/development`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

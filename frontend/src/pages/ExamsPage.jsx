@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import MarksEntryModal from '../components/exam/MarksEntryModal'
 import HallTicket from '../components/exam/HallTicket'
 import ExamSessionModal from '../components/exam/ExamSessionModal'
-import TimetableDraftForm from '../components/exam/TimetableDraftForm'
+import TimetableScheduleWizard from '../components/exam/TimetableScheduleWizard'
 import InvigilatorAssignModal from '../components/exam/InvigilatorAssignModal'
 import RevaluationModal from '../components/exam/RevaluationModal'
 import ExamReportModal from '../components/exam/ExamReportModal'
@@ -52,7 +52,7 @@ export default function ExamsPage({ noLayout = false }) {
   const [showHallTicket, setShowHallTicket] = useState(false)
   const [hallTicketMode, setHallTicketMode] = useState('all')
   const [showExamSessionModal, setShowExamSessionModal] = useState(false)
-  const [showTimetableDraftForm, setShowTimetableDraftForm] = useState(false)
+  const [showScheduleWizard, setShowScheduleWizard] = useState(false)
   const [showInvigilatorModal, setShowInvigilatorModal] = useState(false)
   const [showRevaluationModal, setShowRevaluationModal] = useState(false)
   const [showExamReportModal, setShowExamReportModal] = useState(false)
@@ -318,19 +318,7 @@ export default function ExamsPage({ noLayout = false }) {
   const inner = (
     <>
       <div className="flex flex-col gap-4 mb-6">
-        <div>
-          <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(isAdmin || isFaculty) && (
-            <button 
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
-            >
-              <span className="material-symbols-outlined text-lg">calendar_add_on</span>
-              Schedule Exam
-            </button>
-          )}
           {isStudent && (
             <button 
               onClick={handleOpenAllHallTickets}
@@ -343,25 +331,18 @@ export default function ExamsPage({ noLayout = false }) {
           {isAdmin && (
             <>
               <button 
-                onClick={() => setShowExamSessionModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+                onClick={() => setShowScheduleWizard(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">calendar_month</span>
-                Manage Sessions
-              </button>
-              <button 
-                onClick={() => setShowTimetableDraftForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
-              >
-                <span className="material-symbols-outlined text-lg">draft</span>
-                Create Timetable
+                <span className="material-symbols-outlined text-lg">edit_calendar</span>
+                Create Schedule
               </button>
               <button 
                 onClick={() => setShowTimetableApprovalModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">approval</span>
-                Approve Timetables
+                <span className="material-symbols-outlined text-lg">verified_user</span>
+                Approve Schedules
               </button>
             </>
           )}
@@ -722,14 +703,13 @@ export default function ExamsPage({ noLayout = false }) {
         />
       )}
 
-      {showTimetableDraftForm && (
-        <TimetableDraftForm
-          onClose={() => setShowTimetableDraftForm(false)}
-          onSave={() => {
-            setShowTimetableDraftForm(false);
-          }}
-        />
-      )}
+      <TimetableScheduleWizard
+        isOpen={showScheduleWizard}
+        onClose={() => setShowScheduleWizard(false)}
+        onSave={() => {
+          setShowScheduleWizard(false);
+        }}
+      />
 
       {showInvigilatorModal && selectedExam && (
         <InvigilatorAssignModal

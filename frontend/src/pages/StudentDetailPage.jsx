@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
+import { API_BASE } from '../api/apiBase'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
@@ -526,7 +527,7 @@ export default function StudentDetailPage() {
     const fetchStudent = async () => {
       try {
         setLoading(true)
-        const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(id)}`)
+        const res = await fetch(`${API_BASE}/students/${encodeURIComponent(id)}`)
         if (!res.ok) {
           if (res.status === 404) throw new Error('Student not found')
           throw new Error('Failed to fetch student details')

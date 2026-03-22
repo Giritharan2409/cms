@@ -1,6 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : '/api';
+import { API_BASE } from './apiBase';
+export { buildApiUrl } from './apiBase';
 
 async function parseResponse(res, fallbackMessage) {
   const json = await res.json().catch(() => null);

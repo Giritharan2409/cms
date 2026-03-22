@@ -12,6 +12,7 @@ import {
   reviewOdRequestStatus,
   deleteOdRequestById,
 } from '../api/attendanceApi'
+import { buildApiUrl } from '../api/apiBase'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
@@ -446,7 +447,7 @@ export default function AttendancePage({ noLayout = false }) {
 
     async function fetchClassStudents() {
       try {
-        const res = await fetch('/api/students')
+        const res = await fetch(buildApiUrl('/students'))
         const json = await res.json().catch(() => null)
         const students = Array.isArray(json)
           ? json
@@ -519,7 +520,7 @@ export default function AttendancePage({ noLayout = false }) {
 
     async function fetchStudentTimetable() {
       try {
-        const res = await fetch('/api/academics/timetable')
+        const res = await fetch(buildApiUrl('/academics/timetable'))
         const json = await res.json().catch(() => null)
         const records = Array.isArray(json?.data) ? json.data : []
         const matched = findMatchingTimetableRecord(records, studentClassProfile)
@@ -1145,6 +1146,64 @@ export default function AttendancePage({ noLayout = false }) {
     return statusMatch && attendanceRangeMatch && courseMatch && searchMatch
   })
 
+  function csvCell(value) {
+    const text = String(value ?? '')
+    const escaped = text.replace(/"/g, '""')
+    return `"${escaped}"`
+  }
+
+  function exportAttendanceReport() {
+    if (!isAdmin) return
+
+    const reportType = currentTableType === 'staff' ? 'staff' : 'students'
+    const rows = filteredData.map((entry) => {
+      const pct = calcPct(entry.present, entry.total)
+      const statusValue = getRiskStatus(pct)
+      return [
+        entry.name,
+        entry.id,
+        currentTableType === 'staff' ? entry.department : entry.course,
+        entry.present,
+        entry.total,
+        `${pct}%`,
+        statusValue,
+      ]
+    })
+
+    const headers = [
+      'Name',
+      'ID',
+      currentTableType === 'staff' ? 'Department' : 'Course',
+      'Days Attended',
+      'Total Days',
+      'Attendance %',
+      'Status',
+    ]
+
+    const csvLines = [
+      ['Attendance Report', new Date().toLocaleString()].map(csvCell).join(','),
+      ['Report Type', reportType].map(csvCell).join(','),
+      ['Applied Search', searchQuery || 'None'].map(csvCell).join(','),
+      ['Status Filters', selectedStatuses.join(' | ') || 'All'].map(csvCell).join(','),
+      ['Attendance Filters', selectedAttendanceRange.join(' | ') || 'All'].map(csvCell).join(','),
+      ['Course/Department Filters', selectedCourses.join(' | ') || 'All'].map(csvCell).join(','),
+      '',
+      headers.map(csvCell).join(','),
+      ...rows.map((row) => row.map(csvCell).join(',')),
+    ]
+
+    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const dayStamp = new Date().toISOString().slice(0, 10)
+    link.href = url
+    link.download = `attendance-report-${reportType}-${dayStamp}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   useEffect(() => {
     setSelectedCourses((prev) => {
       const next = prev.filter((course) => courseOptions.includes(course))
@@ -1164,7 +1223,10 @@ export default function AttendancePage({ noLayout = false }) {
     <>
       {isAdmin && (
         <div className="flex justify-start mb-6">
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90">
+          <button
+            onClick={exportAttendanceReport}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90"
+          >
             <span className="material-symbols-outlined text-lg">download</span>Export Report
           </button>
         </div>

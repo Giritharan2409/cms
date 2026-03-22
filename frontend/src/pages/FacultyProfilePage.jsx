@@ -10,8 +10,7 @@ import {
   Mail, Phone, MapPin, Clock, Briefcase, Calendar
 } from 'lucide-react';
 import '../styles.css';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE } from '../api/apiBase';
 
 export default function FacultyProfilePage() {
   const { id } = useParams();
@@ -30,7 +29,7 @@ export default function FacultyProfilePage() {
 
   const fetchFacultyDetails = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/faculty/${id}`);
+      const response = await fetch(`${API_BASE}/faculty/${id}`);
       if (!response.ok) throw new Error('Failed to fetch faculty details');
       const data = await response.json();
       setFaculty(data);

@@ -1,6 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : '/api';
+import { API_BASE } from './apiBase';
 
 function getErrorMessage(json, fallback) {
   return json?.detail || json?.message || fallback;

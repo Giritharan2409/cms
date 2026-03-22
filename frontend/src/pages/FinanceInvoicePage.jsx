@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
+import { API_BASE } from '../api/apiBase';
 
 export default function FinanceInvoicePage() {
     const [invoices, setInvoices] = useState([]);
@@ -10,7 +11,7 @@ export default function FinanceInvoicePage() {
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:5000/api/invoices');
+            const response = await fetch(`${API_BASE}/invoices`);
             if (response.ok) {
                 const data = await response.json();
                 // Filter to only show payroll-linked invoices for this page
@@ -29,7 +30,7 @@ export default function FinanceInvoicePage() {
 
     const handleStatusUpdate = async (invoiceId, newStatus) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/invoices/${invoiceId}/status`, {
+            const response = await fetch(`${API_BASE}/invoices/${invoiceId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { getUserSession } from './auth/sessionController';
+import { getUserSession, hasActiveSession } from './auth/sessionController';
 import { AdmissionProvider } from './context/AdmissionContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardPage from './pages/DashboardPage';
@@ -27,6 +27,7 @@ import FacultyProfilePage from './pages/FacultyProfilePage';
 
 export default function App() {
   const session = getUserSession();
+  const activeSession = hasActiveSession();
 
   return (
     <AdmissionProvider>
@@ -34,7 +35,9 @@ export default function App() {
         <Route
           path="/"
           element={
-            session ? <Navigate to={`/dashboard?role=${encodeURIComponent(session.role)}`} replace /> : <LoginPage />
+            activeSession && session
+              ? <Navigate to={`/dashboard?role=${encodeURIComponent(session.role)}`} replace />
+              : <LoginPage />
           }
         />
         <Route
