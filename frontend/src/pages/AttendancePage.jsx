@@ -48,6 +48,60 @@ function getEligibilityStatus(pct) {
   return pct >= REQUIRED_PCT ? 'Eligible for Exams' : 'Low Attendance'
 }
 
+function getAttendanceCardTone(pct) {
+  if (pct >= 85) {
+    return {
+      card: 'bg-green-50 border-green-200',
+      icon: 'text-green-700 bg-green-100',
+      label: 'text-green-700',
+      value: 'text-green-900',
+    }
+  }
+  if (pct >= 75) {
+    return {
+      card: 'bg-amber-50 border-amber-200',
+      icon: 'text-amber-700 bg-amber-100',
+      label: 'text-amber-700',
+      value: 'text-amber-900',
+    }
+  }
+  return {
+    card: 'bg-red-50 border-red-200',
+    icon: 'text-red-700 bg-red-100',
+    label: 'text-red-700',
+    value: 'text-red-900',
+  }
+}
+
+function getClassesCanMissCardTone(canMiss, totalClasses) {
+  const ratio = totalClasses > 0 ? canMiss / totalClasses : 0
+
+  if (canMiss >= 6 || ratio >= 0.2) {
+    return {
+      card: 'bg-green-50 border-green-200',
+      icon: 'text-green-700 bg-green-100',
+      label: 'text-green-700',
+      value: 'text-green-900',
+    }
+  }
+
+  if (canMiss >= 3 || ratio >= 0.1) {
+    return {
+      card: 'bg-amber-50 border-amber-200',
+      icon: 'text-amber-700 bg-amber-100',
+      label: 'text-amber-700',
+      value: 'text-amber-900',
+    }
+  }
+
+  return {
+    card: 'bg-red-50 border-red-200',
+    icon: 'text-red-700 bg-red-100',
+    label: 'text-red-700',
+    value: 'text-red-900',
+  }
+}
+
 function classesNeeded(present, total) {
   return Math.max(0, Math.ceil((0.75 * total - present) / 0.25))
 }
@@ -212,7 +266,7 @@ function readLeaveDaysStorage() {
 
 function isWeekendDate(isoDate) {
   const day = new Date(`${isoDate}T12:00:00`).getDay()
-  return day === 0 || day === 6
+  return day === 0
 }
 
 function isLeaveDate(isoDate, configuredLeaveDateSet) {
@@ -358,8 +412,8 @@ export default function AttendancePage({ noLayout = false }) {
   const [odApplyFromDate, setOdApplyFromDate] = useState('')
   const [odApplyToDate, setOdApplyToDate] = useState('')
   const [odApplyReason, setOdApplyReason] = useState('')
-  const [odApplyType, setOdApplyType] = useState('specific')
-  const [odApplyHours, setOdApplyHours] = useState([STAFF_MARK_HOURS[0]])
+  const [odApplyType, setOdApplyType] = useState('')
+  const [odApplyHours, setOdApplyHours] = useState([])
   const [odProofFileData, setOdProofFileData] = useState('')
   const [odProofFileName, setOdProofFileName] = useState('')
   const [odNotice, setOdNotice] = useState('')
@@ -635,6 +689,7 @@ export default function AttendancePage({ noLayout = false }) {
   const showStudentOdApplyView = isStudent && studentViewTab === 'od'
   const showStaffMarkingView = isFaculty && staffViewTab === 'mark'
   const showFacultyOdManageView = isFaculty && staffViewTab === 'od'
+  const pendingFacultyOdCount = facultyOdRequests.filter((request) => String(request?.status || 'Pending') === 'Pending').length
 
   const studentLookupById = (() => {
     const lookup = {}
@@ -702,8 +757,16 @@ export default function AttendancePage({ noLayout = false }) {
       statusMap[key] = existing === 'Absent' || incomingStatus === 'Absent' ? 'Absent' : 'Present'
     })
 
-    return Array.from({ length: STUDENT_DAILY_LOOKBACK_DAYS }, (_, index) => {
-      const date = shiftISODate(studentDailyDate, -index)
+    const rows = []
+    let dayOffset = 0
+
+    while (rows.length < STUDENT_DAILY_LOOKBACK_DAYS) {
+      const date = shiftISODate(studentDailyDate, -dayOffset)
+      dayOffset += 1
+
+      // Sunday is excluded from the daily attendance view.
+      if (new Date(`${date}T12:00:00`).getDay() === 0) continue
+
       const hours = STAFF_MARK_HOURS.map((hour) => {
         const cellKey = `${date}::${hour}`
         const isApprovedOd = approvedOdKeySet.has(cellKey)
@@ -712,13 +775,16 @@ export default function AttendancePage({ noLayout = false }) {
         const status = isApprovedOd ? 'On Duty' : baseStatus
         return { hour, status }
       })
-      return {
+
+      rows.push({
         date,
         label: formatGridDateLabel(date),
         isToday: date === getTodayISODate(),
         hours,
-      }
-    })
+      })
+    }
+
+    return rows
   })()
 
   const approvedOdCountForSummary = (() => {
@@ -737,6 +803,30 @@ export default function AttendancePage({ noLayout = false }) {
       present: Math.min(my.total, my.present + approvedOdCountForSummary),
       total: my.total,
     }
+  })()
+
+  const selectedDailyRow = (() => {
+    if (!isStudent) return null
+    return studentDailyGridRows.find((row) => row.date === studentDailyDate) || studentDailyGridRows[0] || null
+  })()
+
+  const dailySummaryCounts = (() => {
+    if (!selectedDailyRow) return { present: 0, absent: 0, od: 0 }
+    const summary = { present: 0, absent: 0, od: 0 }
+    selectedDailyRow.hours.forEach((cell) => {
+      if (cell.status === 'Present') summary.present += 1
+      else if (cell.status === 'Absent') summary.absent += 1
+      else if (cell.status === 'On Duty') summary.od += 1
+    })
+    return summary
+  })()
+
+  const odSummaryCounts = (() => {
+    if (!isStudent) return { applied: 0, approved: 0, pending: 0 }
+    const applied = studentOdRequests.length
+    const approved = studentOdRequests.filter((request) => request?.status === 'Approved').length
+    const pending = studentOdRequests.filter((request) => request?.status === 'Pending').length
+    return { applied, approved, pending }
   })()
 
   function getTimetableSubjectForCell(dateIso, hourLabel) {
@@ -813,8 +903,8 @@ export default function AttendancePage({ noLayout = false }) {
     setOdApplyFromDate('')
     setOdApplyToDate('')
     setOdApplyReason('')
-    setOdApplyType('specific')
-    setOdApplyHours([STAFF_MARK_HOURS[0]])
+    setOdApplyType('')
+    setOdApplyHours([])
     setOdProofFileData('')
     setOdProofFileName('')
     setOdEditingRequestId('')
@@ -854,7 +944,7 @@ export default function AttendancePage({ noLayout = false }) {
     setOdApplyToDate(toDate)
     setOdApplyReason(request.reason || '')
     setOdApplyType(isFullDay ? 'full_day' : 'specific')
-    setOdApplyHours(requestHours.length > 0 ? requestHours : [STAFF_MARK_HOURS[0]])
+    setOdApplyHours(requestHours.length > 0 ? requestHours : [])
     setOdProofFileData(request.proofImageData || '')
     setOdProofFileName(request.proofImageName || '')
     setOdNotice('Editing pending OD request.')
@@ -917,6 +1007,10 @@ export default function AttendancePage({ noLayout = false }) {
     }
     if (odApplyFromDate > odApplyToDate) {
       setOdNotice('To date should be same as or after from date.')
+      return
+    }
+    if (!odApplyType) {
+      setOdNotice('Select OD type before submitting.')
       return
     }
     if (odApplyType === 'specific' && odApplyHours.length === 0) {
@@ -1082,33 +1176,104 @@ export default function AttendancePage({ noLayout = false }) {
           if (!my) return null
           const pct      = calcPct(myEffectiveAttendance.present, myEffectiveAttendance.total)
           const canMiss  = safeClasses(myEffectiveAttendance.present, myEffectiveAttendance.total)
+          const attendanceTone = getAttendanceCardTone(pct)
+          const canMissTone = getClassesCanMissCardTone(canMiss, myEffectiveAttendance.total)
+
+          if (showStudentDailyView) {
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 rounded-xl border border-green-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-green-700 bg-green-100">
+                    <span className="material-symbols-outlined">check_circle</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-green-700 font-medium">Present (Selected Date)</p>
+                    <p className="text-2xl font-bold text-green-900">{dailySummaryCounts.present}</p>
+                  </div>
+                </div>
+                <div className="bg-red-50 rounded-xl border border-red-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-red-700 bg-red-100">
+                    <span className="material-symbols-outlined">cancel</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-red-700 font-medium">Absent (Selected Date)</p>
+                    <p className="text-2xl font-bold text-red-900">{dailySummaryCounts.absent}</p>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-blue-700 bg-blue-100">
+                    <span className="material-symbols-outlined">event_available</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-blue-700 font-medium">OD (Selected Date)</p>
+                    <p className="text-2xl font-bold text-blue-900">{dailySummaryCounts.od}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          if (showStudentOdApplyView) {
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-blue-700 bg-blue-100">
+                    <span className="material-symbols-outlined">assignment</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-blue-700 font-medium">OD Applied</p>
+                    <p className="text-2xl font-bold text-blue-900">{odSummaryCounts.applied}</p>
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-xl border border-green-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-green-700 bg-green-100">
+                    <span className="material-symbols-outlined">verified</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-green-700 font-medium">OD Approved</p>
+                    <p className="text-2xl font-bold text-green-900">{odSummaryCounts.approved}</p>
+                  </div>
+                </div>
+                <div className="bg-amber-50 rounded-xl border border-amber-200 p-5 shadow-sm flex items-center gap-4">
+                  <div className="p-3 rounded-xl text-amber-700 bg-amber-100">
+                    <span className="material-symbols-outlined">hourglass_top</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-amber-700 font-medium">OD Pending</p>
+                    <p className="text-2xl font-bold text-amber-900">{odSummaryCounts.pending}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-                <div className="p-3 rounded-xl text-[#1162d4] bg-[#1162d4]/10">
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-5 shadow-sm flex items-center gap-4">
+                <div className="p-3 rounded-xl text-blue-700 bg-blue-100">
                   <span className="material-symbols-outlined">calendar_today</span>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-medium">Total Classes</p>
-                  <p className="text-2xl font-bold text-slate-900">{myEffectiveAttendance.total}</p>
+                  <p className="text-xs text-blue-700 font-medium">Total Classes</p>
+                  <p className="text-2xl font-bold text-blue-900">{myEffectiveAttendance.total}</p>
                 </div>
               </div>
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-                <div className="p-3 rounded-xl text-purple-600 bg-purple-100">
+              <div className={`rounded-xl border p-5 shadow-sm flex items-center gap-4 ${attendanceTone.card}`}>
+                <div className={`p-3 rounded-xl ${attendanceTone.icon}`}>
                   <span className="material-symbols-outlined">percent</span>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-medium">Attendance %</p>
-                  <p className="text-2xl font-bold text-slate-900">{pct}%</p>
+                  <p className={`text-xs font-medium ${attendanceTone.label}`}>Attendance %</p>
+                  <p className={`text-2xl font-bold ${attendanceTone.value}`}>{pct}%</p>
                 </div>
               </div>
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-                <div className="p-3 rounded-xl text-emerald-600 bg-emerald-100">
+              <div className={`rounded-xl border p-5 shadow-sm flex items-center gap-4 ${canMissTone.card}`}>
+                <div className={`p-3 rounded-xl ${canMissTone.icon}`}>
                   <span className="material-symbols-outlined">event_available</span>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-medium">Classes Can Miss</p>
-                  <p className="text-2xl font-bold text-slate-900">{canMiss}</p>
+                  <p className={`text-xs font-medium ${canMissTone.label}`}>Classes Can Miss</p>
+                  <p className={`text-2xl font-bold ${canMissTone.value}`}>{canMiss}</p>
                 </div>
               </div>
             </div>
@@ -1121,6 +1286,7 @@ export default function AttendancePage({ noLayout = false }) {
           : 0
         const below75     = allS.filter(s => calcPct(s.present, s.total) < 75).length
         const totalTaken  = allS.length > 0 ? allS[0].total : 0
+        const averageAttendanceTone = getAttendanceCardTone(avgPct)
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
@@ -1132,13 +1298,13 @@ export default function AttendancePage({ noLayout = false }) {
                 <p className="text-2xl font-bold text-slate-900">{totalTaken}</p>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
-              <div className="p-3 rounded-xl text-purple-600 bg-purple-100">
+            <div className={`rounded-xl border p-5 shadow-sm flex items-center gap-4 ${averageAttendanceTone.card}`}>
+              <div className={`p-3 rounded-xl ${averageAttendanceTone.icon}`}>
                 <span className="material-symbols-outlined">bar_chart</span>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">Average Attendance %</p>
-                <p className="text-2xl font-bold text-slate-900">{avgPct}%</p>
+                <p className={`text-xs font-medium ${averageAttendanceTone.label}`}>Average Attendance %</p>
+                <p className={`text-2xl font-bold ${averageAttendanceTone.value}`}>{avgPct}%</p>
               </div>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
@@ -1156,29 +1322,77 @@ export default function AttendancePage({ noLayout = false }) {
 
       {
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-6">
-          <p className="text-sm font-semibold text-slate-700 mb-4">Weekly Attendance Trend</p>
+          <p className="text-sm font-semibold text-slate-700 mb-4">
+            {isStudent
+              ? showStudentDailyView
+                ? 'Daily Status Summary'
+                : showStudentOdApplyView
+                  ? 'OD Request Summary'
+                  : 'Weekly Attendance Trend'
+              : 'Weekly Attendance Trend'}
+          </p>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={weeklyAttendance} barCategoryGap="35%">
+            <BarChart
+              data={
+                isStudent
+                  ? showStudentDailyView
+                    ? [{
+                        label: selectedDailyRow?.date || studentDailyDate,
+                        present: dailySummaryCounts.present,
+                        absent: dailySummaryCounts.absent,
+                        od: dailySummaryCounts.od,
+                      }]
+                    : showStudentOdApplyView
+                      ? [{
+                          label: 'OD Requests',
+                          applied: odSummaryCounts.applied,
+                          approved: odSummaryCounts.approved,
+                          pending: odSummaryCounts.pending,
+                        }]
+                      : weeklyAttendance
+                  : weeklyAttendance
+              }
+              barCategoryGap="35%"
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
-                dataKey="day"
+                dataKey={isStudent && (showStudentDailyView || showStudentOdApplyView) ? 'label' : 'day'}
                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                domain={[70, 100]}
+                domain={isStudent && (showStudentDailyView || showStudentOdApplyView) ? [0, 'dataMax + 1'] : [70, 100]}
                 tick={{ fontSize: 12, fill: '#94a3b8' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => `${v}%`}
+                tickFormatter={(v) => (isStudent && (showStudentDailyView || showStudentOdApplyView) ? `${v}` : `${v}%`)}
               />
               <Tooltip
-                formatter={(v) => [`${v}%`, 'Attendance']}
+                formatter={(v, name) => {
+                  if (isStudent && (showStudentDailyView || showStudentOdApplyView)) {
+                    return [String(v), String(name)]
+                  }
+                  return [`${v}%`, 'Attendance']
+                }}
                 contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: 12 }}
                 cursor={{ fill: '#f8fafc' }}
               />
-              <Bar dataKey="attendance" fill="#1162d4" radius={[6, 6, 0, 0]} />
+              {isStudent && showStudentDailyView ? (
+                <>
+                  <Bar dataKey="present" name="Present" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="absent" name="Absent" fill="#dc2626" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="od" name="On Duty" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                </>
+              ) : isStudent && showStudentOdApplyView ? (
+                <>
+                  <Bar dataKey="applied" name="OD Applied" fill="#2563eb" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="approved" name="OD Approved" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="pending" name="OD Pending" fill="#d97706" radius={[6, 6, 0, 0]} />
+                </>
+              ) : (
+                <Bar dataKey="attendance" name="Attendance" fill="#1162d4" radius={[6, 6, 0, 0]} />
+              )}
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1298,7 +1512,13 @@ export default function AttendancePage({ noLayout = false }) {
                 staffViewTab === 'od' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <span className="material-symbols-outlined text-base">approval</span>OD Requests
+              <span className="material-symbols-outlined text-base">approval</span>
+              <span>OD Requests</span>
+              {pendingFacultyOdCount > 0 && (
+                <span className="inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-bold leading-none text-white">
+                  {pendingFacultyOdCount}
+                </span>
+              )}
             </button>
           </div>
         ) : isStudent ? (
@@ -1519,7 +1739,7 @@ export default function AttendancePage({ noLayout = false }) {
                 <p className="text-xs text-slate-500">Default status is Present. Use cross icon only for absent students.</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
                   Present: {presentCount}
                 </span>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
@@ -1566,8 +1786,8 @@ export default function AttendancePage({ noLayout = false }) {
                           onClick={() => setStudentAttendanceStatus(row.id, 'Present')}
                           className={`w-9 h-9 inline-flex items-center justify-center rounded-lg border transition-colors ${
                             row.status === 'Present'
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                              : 'bg-white border-slate-200 text-slate-400 hover:border-emerald-200'
+                              ? 'bg-green-50 border-green-200 text-green-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:border-green-200'
                           }`}
                           title="Present"
                         >
@@ -1584,7 +1804,7 @@ export default function AttendancePage({ noLayout = false }) {
                         >
                           <span className="material-symbols-outlined text-base">close</span>
                         </button>
-                        <span className={`text-xs font-semibold ${row.status === 'Present' ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <span className={`text-xs font-semibold ${row.status === 'Present' ? 'text-green-600' : 'text-red-600'}`}>
                           {row.status}
                         </span>
                       </div>
@@ -1713,8 +1933,8 @@ export default function AttendancePage({ noLayout = false }) {
           </div>
         </div>
       ) : showStudentDailyView ? (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+        <div className="bg-white rounded-[10px] border border-[#e5e7eb] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#e5e7eb] bg-slate-50 flex items-center justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-slate-700">Daily Hour-wise Attendance</p>
               <p className="text-xs text-slate-500">Date-wise overview for Hour 1 to Hour 8.</p>
@@ -1727,20 +1947,25 @@ export default function AttendancePage({ noLayout = false }) {
             />
           </div>
 
-          <div className="overflow-auto max-h-[540px]">
-            <table className="min-w-[1120px] w-full text-center">
+          <div className="overflow-auto max-h-[540px] bg-[#f3f8ff]">
+            <table className="min-w-[1120px] w-full text-center bg-[#f3f8ff]">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-4 py-3 sticky top-0 bg-slate-50 z-10 min-w-[170px]">Date</th>
+                <tr className="bg-[#1e3a5f] text-white text-xs font-semibold uppercase tracking-wider border-b border-[#2f4f73]">
+                  <th className="px-4 py-3 sticky top-0 bg-[#1e3a5f] z-10 min-w-[170px]">Date</th>
                   {STAFF_MARK_HOURS.map((hour) => (
-                    <th key={hour} className="px-4 py-3 sticky top-0 bg-slate-50 z-10 min-w-[120px]">{hour}</th>
+                    <th key={hour} className="px-4 py-3 sticky top-0 bg-[#1e3a5f] z-10 min-w-[120px]">{hour}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
-                {studentDailyGridRows.map((row) => (
-                  <tr key={row.date} className={row.isToday ? 'bg-[#1162d4]/5' : 'bg-white hover:bg-slate-50'}>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">
+              <tbody className="divide-y divide-[#e5e7eb]">
+                {studentDailyGridRows.map((row, rowIndex) => (
+                  <tr
+                    key={row.date}
+                    className={`cursor-pointer transition-colors duration-200 ${
+                      rowIndex % 2 === 0 ? 'bg-[#f7fbff]' : 'bg-[#edf4ff]'
+                    } hover:bg-[#e3eeff]`}
+                  >
+                    <td className="px-4 py-3 text-sm font-semibold text-[#334155]">
                       <div className="flex flex-col items-center gap-1">
                         <span>{row.label}</span>
                         {row.isToday && (
@@ -1749,19 +1974,28 @@ export default function AttendancePage({ noLayout = false }) {
                       </div>
                     </td>
                     {row.hours.map((cell) => (
-                      <td key={`${row.date}-${cell.hour}`} className="px-4 py-3 border-r border-slate-100">
+                      <td key={`${row.date}-${cell.hour}`} className="px-4 py-3">
                         <span
                           title={`${cell.hour}: ${getTimetableSubjectForCell(row.date, cell.hour)} (${cell.status})`}
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border cursor-help ${
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border cursor-help ${
                           cell.status === 'Present'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-[#dcfce7] text-[#166534] border-[#bbf7d0]'
                             : cell.status === 'On Duty'
-                              ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              ? 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]'
                             : cell.status === 'Absent'
-                              ? 'bg-red-50 text-red-700 border-red-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                              ? 'bg-[#fee2e2] text-[#991b1b] border-[#fecaca]'
+                              : 'bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0]'
                         }`}
                         >
+                          <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                            cell.status === 'Present'
+                              ? 'bg-[#16a34a]'
+                              : cell.status === 'On Duty'
+                                ? 'bg-[#0284c7]'
+                                : cell.status === 'Absent'
+                                  ? 'bg-[#dc2626]'
+                                  : 'bg-[#64748b]'
+                          }`} />
                           {cell.status}
                         </span>
                       </td>
@@ -1883,9 +2117,13 @@ export default function AttendancePage({ noLayout = false }) {
                   })}
                 </div>
               </div>
-            ) : (
+            ) : odApplyType === 'full_day' ? (
               <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm font-medium text-sky-700">
                 Full Day OD selected. Request will be applied for Hour 1 to Hour 8.
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-600">
+                Select an OD type to continue.
               </div>
             )}
 
