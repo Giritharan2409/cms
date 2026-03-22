@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getNotificationsByStudent, 
+  listNotifications,
   markNotificationRead, 
   markAllNotificationsRead 
-} from '../../data/examData';
+} from '../../api/examsApi';
 
 export default function NotificationPanel({ studentId, isOpen, onClose }) {
   const [notifications, setNotifications] = useState([]);
@@ -15,20 +15,34 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
     }
   }, [isOpen, studentId]);
 
-  const loadNotifications = () => {
-    const notifs = getNotificationsByStudent(studentId);
-    setNotifications(notifs);
-    setUnreadCount(notifs.filter(n => !n.read).length);
+  const loadNotifications = async () => {
+    try {
+      const notifs = await listNotifications({ studentId });
+      setNotifications(notifs);
+      setUnreadCount(notifs.filter((n) => !n.read).length);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+      setNotifications([]);
+      setUnreadCount(0);
+    }
   };
 
-  const handleMarkRead = (notificationId) => {
-    markNotificationRead(notificationId);
-    loadNotifications();
+  const handleMarkRead = async (notificationId) => {
+    try {
+      await markNotificationRead(notificationId);
+      loadNotifications();
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+    }
   };
 
-  const handleMarkAllRead = () => {
-    markAllNotificationsRead(studentId);
-    loadNotifications();
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead(studentId);
+      loadNotifications();
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
   };
 
   const getNotificationIcon = (type) => {

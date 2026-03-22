@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getRegistrationsByExam, getMarksByExam, addOrUpdateMarks, calculateGrade } from '../../data/examData';
+import { listRegistrations, listMarks, upsertMark, calculateGrade } from '../../api/examsApi';
 
 export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }) {
   const [students, setStudents] = useState([]);
@@ -12,17 +12,26 @@ export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }
     }
   }, [isOpen, exam]);
 
-  const loadStudentsAndMarks = () => {
-    const registrations = getRegistrationsByExam(exam.id);
-    const existingMarks = getMarksByExam(exam.id);
-    
-    const marksMap = {};
-    existingMarks.forEach(m => {
-      marksMap[m.studentId] = { marks: m.marks, grade: m.grade };
-    });
-    
-    setStudents(registrations);
-    setMarksData(marksMap);
+  const loadStudentsAndMarks = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const [registrations, existingMarks] = await Promise.all([
+        listRegistrations({ examId }),
+        listMarks({ examId }),
+      ]);
+
+      const marksMap = {};
+      existingMarks.forEach((m) => {
+        marksMap[m.studentId] = { marks: m.marks, grade: m.grade };
+      });
+
+      setStudents(registrations);
+      setMarksData(marksMap);
+    } catch (err) {
+      console.error('Failed to load marks entry data:', err);
+      setStudents([]);
+      setMarksData({});
+    }
   };
 
   const handleMarksChange = (studentId, value) => {
@@ -35,20 +44,31 @@ export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    
-    // Save all marks
-    Object.keys(marksData).forEach(studentId => {
-      const { marks, grade } = marksData[studentId];
-      if (marks !== undefined && marks !== null && marks !== '') {
-        addOrUpdateMarks(exam.id, studentId, marks, grade, currentUserId);
-      }
-    });
-    
-    setSaving(false);
-    alert('Marks saved successfully!');
-    onClose();
+
+    try {
+      const examId = exam._id || exam.id;
+      const rows = Object.entries(marksData).filter(([, value]) => value?.marks !== undefined && value?.marks !== null && value?.marks !== '');
+      await Promise.all(
+        rows.map(([studentId, value]) =>
+          upsertMark({
+            examId,
+            studentId,
+            marks: value.marks,
+            grade: value.grade,
+            maxMarks: exam.maxMarks,
+            enteredBy: currentUserId || '',
+          })
+        )
+      );
+      alert('Marks saved successfully!');
+      onClose();
+    } catch (err) {
+      alert(err?.message || 'Failed to save marks');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;

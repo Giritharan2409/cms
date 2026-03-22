@@ -15,11 +15,14 @@ import InternalMarksModal from '../components/exam/InternalMarksModal'
 import TimetableApprovalModal from '../components/exam/TimetableApprovalModal'
 import NotificationPanel from '../components/exam/NotificationPanel'
 import {
-  initializeExamData,
-  getAllExams,
-  getRegistrationsByStudent,
-  registerForExam,
-} from '../data/examData'
+  listExams,
+  createExam,
+  updateExamById,
+  deleteExamById,
+  listRegistrations,
+  registerExam,
+  listMarks,
+} from '../api/examsApi'
 import { getStudentById } from '../data/studentData'
 
 export default function ExamsPage({ noLayout = false }) {
@@ -59,50 +62,45 @@ export default function ExamsPage({ noLayout = false }) {
   const [showTimetableApprovalModal, setShowTimetableApprovalModal] = useState(false)
   const [showNotificationPanel, setShowNotificationPanel] = useState(false)
   const [selectedExam, setSelectedExam] = useState(null)
+  const [studentRegistrations, setStudentRegistrations] = useState([])
   
-  // Initialize exam data on mount
-  useEffect(() => {
-    initializeExamData()
-  }, [])
-
   // Handle exam registration
-  const handleRegister = (examId) => {
+  const handleRegister = async (examId) => {
     if (!session?.userId) {
       alert('Please sign in to register for exams.')
       return
     }
 
-    const result = registerForExam(
-      examId,
-      session.userId,
-      studentRecordForHallTicket?.name || session.userId
-    )
-
-    if (!result.success) {
-      alert(result.message || 'Registration failed.')
-      return
+    try {
+      await registerExam({
+        examId,
+        studentId: session.userId,
+        studentName: studentRecordForHallTicket?.name || session.userId,
+      })
+      await fetchExams()
+      alert('Successfully registered for the exam!')
+    } catch (err) {
+      alert(err?.message || 'Registration failed.')
     }
+  }
 
-    setExams(exams.map(exam =>
-      (exam._id || exam.id) === examId ? { ...exam, registered: true } : exam
-    ))
-    alert('Successfully registered for the exam!')
+  const getRegisteredExams = () => {
+    const registeredIds = new Set(studentRegistrations.map((reg) => reg.examId))
+    return exams.filter((exam) => registeredIds.has(exam._id || exam.id))
   }
 
   // Handle opening unified hall ticket
   const handleOpenAllHallTickets = () => {
-    // Get all registered exams
-    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
-    const registeredIds = new Set(registrations.map(reg => reg.examId))
-    const registeredExams = exams.filter(exam => registeredIds.has(exam._id || exam.id))
+    const registeredExams = getRegisteredExams()
     if (registeredExams.length === 0) {
-      alert('No exams registered yet.');
-      return;
+      alert('No exams registered yet.')
+      return
     }
+
     // Open hall ticket with one consolidated subject list for this student
-    setSelectedExam(registeredExams[0]);
-    setHallTicketMode('all');
-    setShowHallTicket(true);
+    setSelectedExam(registeredExams[0])
+    setHallTicketMode('all')
+    setShowHallTicket(true)
   }
 
   const buildHallTicketSubjects = ({ mode, exam } = {}) => {
@@ -117,9 +115,7 @@ export default function ExamsPage({ noLayout = false }) {
       return [mapExam(exam)]
     }
 
-    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
-    const registeredIds = new Set(registrations.map((reg) => reg.examId))
-    const registeredExams = exams.filter((item) => registeredIds.has(item._id || item.id))
+    const registeredExams = getRegisteredExams()
     return registeredExams.map(mapExam)
   }
 
@@ -128,33 +124,40 @@ export default function ExamsPage({ noLayout = false }) {
     fetchExams()
   }, [])
 
-  const applyRegistrations = (examList) => {
-    if (!session?.userId) return examList
-    const registrations = getRegistrationsByStudent(session.userId)
-    if (!registrations.length) return examList
-    const registeredIds = new Set(registrations.map((reg) => reg.examId))
-    return examList.map((exam) => ({
-      ...exam,
-      registered: registeredIds.has(exam._id || exam.id),
-    }))
-  }
-
   const fetchExams = async () => {
-    const localSampleExams = getAllExams()
-
     try {
-      const res = await fetch('/api/exams')
-      const raw = await res.text()
-      const json = raw ? JSON.parse(raw) : null
-
-      if (res.ok && json?.success && Array.isArray(json.data) && json.data.length > 0) {
-        setExams(applyRegistrations(json.data))
-      } else {
-        setExams(applyRegistrations(localSampleExams))
+      const examList = await listExams()
+      if (!isStudent || !session?.userId) {
+        setExams(examList)
+        return
       }
+
+      const [registrations, marks] = await Promise.all([
+        listRegistrations({ studentId: session.userId }),
+        listMarks({ studentId: session.userId }),
+      ])
+
+      setStudentRegistrations(registrations)
+      const registeredIds = new Set(registrations.map((reg) => reg.examId))
+      const marksByExam = marks.reduce((acc, item) => {
+        if (!acc[item.examId]) acc[item.examId] = item
+        return acc
+      }, {})
+
+      const merged = examList.map((exam) => {
+        const examId = exam._id || exam.id
+        const mark = marksByExam[examId]
+        return {
+          ...exam,
+          registered: registeredIds.has(examId),
+          marks: mark?.marks,
+          grade: mark?.grade,
+        }
+      })
+      setExams(merged)
     } catch (err) {
       console.error('Failed to fetch exams:', err)
-      setExams(applyRegistrations(localSampleExams))
+      setExams([])
     } finally {
       setLoading(false)
     }
@@ -231,27 +234,11 @@ export default function ExamsPage({ noLayout = false }) {
     
     try {
       if (editingExam) {
-        const res = await fetch(`/api/exams/${editingExam._id || editingExam.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        const json = await res.json()
-        if (json.success) {
-          const editingId = editingExam._id || editingExam.id
-          setExams(exams.map(exam => (exam._id || exam.id) === editingId ? json.data : exam))
-        }
+        await updateExamById(editingExam._id || editingExam.id, payload)
       } else {
-        const res = await fetch('/api/exams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        const json = await res.json()
-        if (json.success) {
-          setExams([...exams, json.data])
-        }
+        await createExam(payload)
       }
+      await fetchExams()
     } catch (err) {
       console.error('Failed to save exam:', err)
     }
@@ -262,11 +249,8 @@ export default function ExamsPage({ noLayout = false }) {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this exam?')) {
       try {
-        const res = await fetch(`/api/exams/${id}`, { method: 'DELETE' })
-        const json = await res.json()
-        if (json.success) {
-          setExams(exams.filter(exam => (exam._id || exam.id) !== id))
-        }
+        await deleteExamById(id)
+        await fetchExams()
       } catch (err) {
         console.error('Failed to delete exam:', err)
       }

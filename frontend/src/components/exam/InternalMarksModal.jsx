@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getRegistrationsByExam, 
-  getInternalMarksByExam, 
-  addOrUpdateInternalMarks 
-} from '../../data/examData';
+  listRegistrations,
+  listInternalMarks,
+  upsertInternalMark,
+} from '../../api/examsApi';
 import { getUserSession } from '../../auth/sessionController';
 
 export default function InternalMarksModal({ exam, onClose, onSave }) {
@@ -13,17 +13,35 @@ export default function InternalMarksModal({ exam, onClose, onSave }) {
   const session = getUserSession();
 
   useEffect(() => {
-    const regs = getRegistrationsByExam(exam.id);
-    setRegistrations(regs);
+    let cancelled = false;
 
-    // Load existing internal marks
-    const existingMarks = getInternalMarksByExam(exam.id);
-    const marksObj = {};
-    existingMarks.forEach(m => {
-      marksObj[m.studentId] = m.internalMarks;
-    });
-    setMarksData(marksObj);
-  }, [exam.id]);
+    async function loadData() {
+      try {
+        const examId = exam._id || exam.id;
+        const [regs, existingMarks] = await Promise.all([
+          listRegistrations({ examId }),
+          listInternalMarks({ examId }),
+        ]);
+        if (cancelled) return;
+
+        setRegistrations(regs);
+
+        const marksObj = {};
+        existingMarks.forEach((m) => {
+          marksObj[m.studentId] = m.internalMarks;
+        });
+        setMarksData(marksObj);
+      } catch (err) {
+        console.error('Failed to load internal marks:', err);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [exam._id, exam.id]);
 
   const handleMarksChange = (studentId, value) => {
     const numValue = parseFloat(value);
@@ -35,16 +53,26 @@ export default function InternalMarksModal({ exam, onClose, onSave }) {
     }
   };
 
-  const handleSave = () => {
-    let count = 0;
-    Object.entries(marksData).forEach(([studentId, marks]) => {
-      if (marks !== '' && marks !== undefined) {
-        addOrUpdateInternalMarks(exam.id, studentId, marks, maxInternal, session.username);
-        count++;
-      }
-    });
-    alert(`Internal marks saved for ${count} students`);
-    onSave();
+  const handleSave = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const rows = Object.entries(marksData).filter(([, marks]) => marks !== '' && marks !== undefined);
+      await Promise.all(
+        rows.map(([studentId, marks]) =>
+          upsertInternalMark({
+            examId,
+            studentId,
+            internalMarks: marks,
+            maxInternal,
+            enteredBy: session?.userId || session?.username || '',
+          })
+        )
+      );
+      alert(`Internal marks saved for ${rows.length} students`);
+      onSave();
+    } catch (err) {
+      alert(err?.message || 'Failed to save internal marks');
+    }
   };
 
   const getMarksColor = (marks) => {

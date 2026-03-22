@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
 import {
+  fetchAttendanceSummary,
+  fetchAttendanceWeekly,
+  fetchAttendanceMarkings,
+  saveAttendanceMarking,
+  fetchOdRequests,
+  createOdRequest,
+  updateOdRequest,
+  reviewOdRequestStatus,
+  deleteOdRequestById,
+} from '../api/attendanceApi'
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
 
@@ -75,8 +86,6 @@ const FALLBACK_STAFF = [
 ]
 
 const STAFF_MARK_HOURS = ['Hour 1', 'Hour 2', 'Hour 3', 'Hour 4', 'Hour 5', 'Hour 6', 'Hour 7', 'Hour 8']
-const MARK_ATTENDANCE_STORAGE_KEY = 'cms:attendance:hourly'
-const STUDENT_OD_STORAGE_KEY = 'cms:attendance:student-od-requests'
 const LEAVE_DAYS_STORAGE_KEY = 'cms:academic:leave-days'
 const STUDENT_DAILY_LOOKBACK_DAYS = 15
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -186,46 +195,8 @@ function buildClassMeta(student) {
   return { classId, classLabel }
 }
 
-function buildMarkRecordKey(classId, date, hour) {
-  return `${classId}::${date}::${hour}`
-}
-
-function readMarkAttendanceStorage() {
-  try {
-    const raw = localStorage.getItem(MARK_ATTENDANCE_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function writeMarkAttendanceStorage(payload) {
-  try {
-    localStorage.setItem(MARK_ATTENDANCE_STORAGE_KEY, JSON.stringify(payload))
-  } catch (err) {
-    console.error('Failed to persist hour-wise attendance:', err)
-  }
-}
-
-function readStudentOdStorage() {
-  try {
-    const raw = localStorage.getItem(STUDENT_OD_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function writeStudentOdStorage(payload) {
-  try {
-    localStorage.setItem(STUDENT_OD_STORAGE_KEY, JSON.stringify(payload))
-  } catch (err) {
-    console.error('Failed to persist student OD requests:', err)
-  }
+function getOdRequestId(request) {
+  return String(request?.requestId || request?.id || '')
 }
 
 function readLeaveDaysStorage() {
@@ -380,6 +351,7 @@ export default function AttendancePage({ noLayout = false }) {
   const [markRows,         setMarkRows]         = useState([])
   const [markNotice,       setMarkNotice]       = useState('')
   const [studentDailyDate, setStudentDailyDate] = useState(getTodayISODate())
+  const [studentMarkings, setStudentMarkings] = useState([])
   const [studentClassProfile, setStudentClassProfile] = useState(null)
   const [studentTimetableRecord, setStudentTimetableRecord] = useState(null)
   const [studentOdRequests, setStudentOdRequests] = useState([])
@@ -392,26 +364,20 @@ export default function AttendancePage({ noLayout = false }) {
   const [odProofFileName, setOdProofFileName] = useState('')
   const [odNotice, setOdNotice] = useState('')
   const [odEditingRequestId, setOdEditingRequestId] = useState('')
+  const [facultyOdRequests, setFacultyOdRequests] = useState([])
+  const [facultyOdNotice, setFacultyOdNotice] = useState('')
 
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        const [stuRes, staffRes, weekRes] = await Promise.all([
-          fetch('/api/academics/attendance?role=student'),
-          fetch('/api/academics/attendance?role=staff'),
-          fetch('/api/academics/attendance/weekly'),
+        const [students, staff, weekly] = await Promise.all([
+          fetchAttendanceSummary('student'),
+          fetchAttendanceSummary('staff'),
+          fetchAttendanceWeekly(),
         ])
-        const [stuJson, staffJson, weekJson] = await Promise.all([
-          stuRes.json().catch(() => null),
-          staffRes.json().catch(() => null),
-          weekRes.json().catch(() => null),
-        ])
-        if (stuJson?.success && stuJson.data.length > 0)
-          setStudentData(stuJson.data.map(normalizeAttendanceRecord))
-        if (staffJson?.success && staffJson.data.length > 0)
-          setStaffData(staffJson.data.map(normalizeAttendanceRecord))
-        if (weekJson?.success && weekJson.data.length > 0)
-          setWeeklyAttendance(weekJson.data)
+        if (students.length > 0) setStudentData(students.map(normalizeAttendanceRecord))
+        if (staff.length > 0) setStaffData(staff.map(normalizeAttendanceRecord))
+        if (weekly.length > 0) setWeeklyAttendance(weekly)
       } catch (err) {
         console.error('Failed to fetch attendance data:', err)
       }
@@ -518,12 +484,64 @@ export default function AttendancePage({ noLayout = false }) {
     }
   }, [isStudent, studentClassProfile])
 
+  async function refreshStudentOdRequests() {
+    if (!isStudent) return
+    try {
+      const scoped = await fetchOdRequests({ studentId: sessionUserId })
+      const sorted = scoped
+        .slice()
+        .sort((a, b) => String(b?.createdAt || '').localeCompare(String(a?.createdAt || '')))
+      setStudentOdRequests(sorted)
+    } catch (err) {
+      console.error('Failed to load student OD requests:', err)
+      setOdNotice(err?.message || 'Failed to load OD requests.')
+    }
+  }
+
+  async function refreshFacultyOdRequests(notice = '') {
+    if (!isFaculty) return
+    try {
+      const allRequests = await fetchOdRequests()
+      const sorted = allRequests
+        .slice()
+        .sort((a, b) => String(b?.createdAt || '').localeCompare(String(a?.createdAt || '')))
+      setFacultyOdRequests(sorted)
+      if (notice) setFacultyOdNotice(notice)
+    } catch (err) {
+      console.error('Failed to load faculty OD requests:', err)
+      setFacultyOdNotice(err?.message || 'Failed to load OD requests.')
+    }
+  }
+
+  useEffect(() => {
+    if (!isStudent) return
+    refreshStudentOdRequests()
+  }, [isStudent, sessionUserId])
+
+  useEffect(() => {
+    if (!isFaculty) return
+    refreshFacultyOdRequests()
+  }, [isFaculty])
+
   useEffect(() => {
     if (!isStudent) return
 
-    const allRequests = readStudentOdStorage()
-    const scoped = allRequests.filter((request) => normalizeId(request?.studentId) === normalizeId(sessionUserId))
-    setStudentOdRequests(scoped)
+    let cancelled = false
+
+    async function fetchStudentMarkings() {
+      try {
+        const rows = await fetchAttendanceMarkings({ studentId: sessionUserId })
+        if (!cancelled) setStudentMarkings(rows)
+      } catch (err) {
+        console.error('Failed to load student attendance markings:', err)
+      }
+    }
+
+    fetchStudentMarkings()
+
+    return () => {
+      cancelled = true
+    }
   }, [isStudent, sessionUserId])
 
   useEffect(() => {
@@ -532,24 +550,53 @@ export default function AttendancePage({ noLayout = false }) {
     const studentsForClass = classStudentsMap[selectedClassId] || []
     const baseRows = studentsForClass.map((student) => ({ ...student, status: 'Present' }))
 
-    const storage = readMarkAttendanceStorage()
-    const recordKey = buildMarkRecordKey(selectedClassId, attendanceDate, attendanceHour)
-    const savedEntries = Array.isArray(storage[recordKey]?.entries) ? storage[recordKey].entries : []
-
-    if (savedEntries.length > 0) {
-      const statusByStudent = savedEntries.reduce((acc, item) => {
-        if (item?.studentId) acc[item.studentId] = item.status
-        return acc
-      }, {})
-
-      setMarkRows(baseRows.map((student) => ({
-        ...student,
-        status: statusByStudent[student.id] === 'Absent' ? 'Absent' : 'Present',
-      })))
+    if (!selectedClassId || !attendanceDate || !attendanceHour) {
+      setMarkRows(baseRows)
       return
     }
 
-    setMarkRows(baseRows)
+    let cancelled = false
+
+    async function fetchMarkedRows() {
+      try {
+        const records = await fetchAttendanceMarkings({
+          classId: selectedClassId,
+          date: attendanceDate,
+          hour: attendanceHour,
+        })
+        const latest = Array.isArray(records) && records.length > 0 ? records[0] : null
+        const savedEntries = Array.isArray(latest?.entries) ? latest.entries : []
+
+        if (savedEntries.length === 0) {
+          if (!cancelled) setMarkRows(baseRows)
+          return
+        }
+
+        const statusByStudent = savedEntries.reduce((acc, item) => {
+          if (item?.studentId) acc[item.studentId] = item.status
+          return acc
+        }, {})
+
+        if (!cancelled) {
+          setMarkRows(baseRows.map((student) => ({
+            ...student,
+            status: statusByStudent[student.id] === 'Absent' ? 'Absent' : 'Present',
+          })))
+        }
+      } catch (err) {
+        console.error('Failed to load marked attendance rows:', err)
+        if (!cancelled) {
+          setMarkRows(baseRows)
+          setMarkNotice(err?.message || 'Failed to load attendance record.')
+        }
+      }
+    }
+
+    fetchMarkedRows()
+
+    return () => {
+      cancelled = true
+    }
   }, [isFaculty, staffViewTab, classStudentsMap, selectedClassId, attendanceDate, attendanceHour])
 
   // Scope records: non-admin sees only their own row
@@ -587,6 +634,25 @@ export default function AttendancePage({ noLayout = false }) {
   const showStudentDailyView = isStudent && studentViewTab === 'daily'
   const showStudentOdApplyView = isStudent && studentViewTab === 'od'
   const showStaffMarkingView = isFaculty && staffViewTab === 'mark'
+  const showFacultyOdManageView = isFaculty && staffViewTab === 'od'
+
+  const studentLookupById = (() => {
+    const lookup = {}
+    Object.values(classStudentsMap).forEach((students) => {
+      if (!Array.isArray(students)) return
+      students.forEach((student) => {
+        const key = normalizeId(student?.id || student?.rollNumber)
+        if (!key) return
+        if (!lookup[key]) {
+          lookup[key] = {
+            name: student?.name || 'Student',
+            rollNumber: student?.rollNumber || student?.id || '-',
+          }
+        }
+      })
+    })
+    return lookup
+  })()
 
   const selectedClassLabel =
     classOptions.find((option) => option.id === selectedClassId)?.label || 'Select class'
@@ -615,11 +681,10 @@ export default function AttendancePage({ noLayout = false }) {
   const studentDailyGridRows = (() => {
     if (!isStudent) return []
 
-    const storage = readMarkAttendanceStorage()
     const currentStudentId = normalizeId(sessionUserId)
     const statusMap = {}
 
-    Object.values(storage).forEach((record) => {
+    studentMarkings.forEach((record) => {
       if (!record || !record.date || !record.hour || !Array.isArray(record.entries)) return
 
       const matched = record.entries.find((entry) => {
@@ -705,32 +770,32 @@ export default function AttendancePage({ noLayout = false }) {
     setMarkNotice('')
   }
 
-  function saveMarkedAttendance() {
+  async function saveMarkedAttendance() {
     if (!selectedClassId || markRows.length === 0) {
       setMarkNotice('No students available for the selected class.')
       return
     }
 
-    const recordKey = buildMarkRecordKey(selectedClassId, attendanceDate, attendanceHour)
-    const storage = readMarkAttendanceStorage()
-
-    storage[recordKey] = {
-      classId: selectedClassId,
-      classLabel: selectedClassLabel,
-      date: attendanceDate,
-      hour: attendanceHour,
-      markedBy: sessionUserId,
-      markedAt: new Date().toISOString(),
-      entries: markRows.map((row) => ({
-        studentId: row.id,
-        rollNumber: row.rollNumber,
-        name: row.name,
-        status: row.status,
-      })),
+    try {
+      await saveAttendanceMarking({
+        classId: selectedClassId,
+        classLabel: selectedClassLabel,
+        date: attendanceDate,
+        hour: attendanceHour,
+        markedBy: sessionUserId,
+        markedAt: new Date().toISOString(),
+        entries: markRows.map((row) => ({
+          studentId: row.id,
+          rollNumber: row.rollNumber,
+          name: row.name,
+          status: row.status,
+        })),
+      })
+      setMarkNotice(`Saved attendance for ${selectedClassLabel} on ${attendanceDate} (${attendanceHour}).`)
+    } catch (err) {
+      console.error('Failed to save attendance marking:', err)
+      setMarkNotice(err?.message || 'Failed to save attendance.')
     }
-
-    writeMarkAttendanceStorage(storage)
-    setMarkNotice(`Saved attendance for ${selectedClassLabel} on ${attendanceDate} (${attendanceHour}).`)
   }
 
   function toggleOdHour(hour) {
@@ -758,9 +823,22 @@ export default function AttendancePage({ noLayout = false }) {
     }
   }
 
-  function persistAndSyncStudentOd(nextRequests) {
-    writeStudentOdStorage(nextRequests)
-    setStudentOdRequests(nextRequests.filter((request) => normalizeId(request?.studentId) === normalizeId(sessionUserId)))
+  async function setFacultyOdStatus(request, status) {
+    if (!request) return
+    const normalizedStatus = status === 'Approved' ? 'Approved' : 'Rejected'
+    const requestId = getOdRequestId(request)
+    if (!requestId) return
+
+    try {
+      await reviewOdRequestStatus(requestId, {
+        status: normalizedStatus,
+        reviewedBy: sessionUserId,
+      })
+      await refreshFacultyOdRequests(`OD request ${normalizedStatus.toLowerCase()} successfully.`)
+    } catch (err) {
+      console.error('Failed to review OD request:', err)
+      setFacultyOdNotice(err?.message || 'Failed to update OD request status.')
+    }
   }
 
   function startOdEdit(request) {
@@ -769,8 +847,9 @@ export default function AttendancePage({ noLayout = false }) {
     const isFullDay = requestHours.length === STAFF_MARK_HOURS.length && STAFF_MARK_HOURS.every((hour) => requestHours.includes(hour))
     const fromDate = request.fromDate || request.date || ''
     const toDate = request.toDate || request.date || ''
+    const requestId = getOdRequestId(request)
 
-    setOdEditingRequestId(request.id)
+    setOdEditingRequestId(requestId)
     setOdApplyFromDate(fromDate)
     setOdApplyToDate(toDate)
     setOdApplyReason(request.reason || '')
@@ -781,16 +860,23 @@ export default function AttendancePage({ noLayout = false }) {
     setOdNotice('Editing pending OD request.')
   }
 
-  function deleteOdRequest(request) {
+  async function deleteOdRequest(request) {
     if (!request || request.status === 'Approved') return
-    const allRequests = readStudentOdStorage()
-    const next = allRequests.filter((item) => item?.id !== request.id)
-    persistAndSyncStudentOd(next)
+    const requestId = getOdRequestId(request)
+    if (!requestId) return
 
-    if (odEditingRequestId === request.id) {
-      resetOdForm()
+    try {
+      await deleteOdRequestById(requestId)
+      await refreshStudentOdRequests()
+
+      if (odEditingRequestId === requestId) {
+        resetOdForm()
+      }
+      setOdNotice('Pending OD request deleted.')
+    } catch (err) {
+      console.error('Failed to delete OD request:', err)
+      setOdNotice(err?.message || 'Failed to delete OD request.')
     }
-    setOdNotice('Pending OD request deleted.')
   }
 
   function handleOdProofChange(event) {
@@ -823,7 +909,7 @@ export default function AttendancePage({ noLayout = false }) {
     reader.readAsDataURL(file)
   }
 
-  function submitOdRequest() {
+  async function submitOdRequest() {
     const trimmedReason = odApplyReason.trim()
     if (!odApplyFromDate || !odApplyToDate) {
       setOdNotice('Select OD from date and to date.')
@@ -846,7 +932,7 @@ export default function AttendancePage({ noLayout = false }) {
       return
     }
 
-    const allRequests = readStudentOdStorage()
+    const allRequests = studentOdRequests
     const selectedDates = listISODateRange(odApplyFromDate, odApplyToDate)
     if (selectedDates.length === 0) {
       setOdNotice('Invalid OD date range. Select valid from/to dates.')
@@ -868,7 +954,7 @@ export default function AttendancePage({ noLayout = false }) {
 
     const hasDuplicateHour = allRequests.some((request) => {
       if (normalizeId(request?.studentId) !== normalizeId(sessionUserId)) return false
-      if (request?.id === odEditingRequestId) return false
+      if (getOdRequestId(request) === odEditingRequestId) return false
       const requestFromDate = request?.fromDate || request?.date
       const requestToDate = request?.toDate || request?.date
       const requestDates = listISODateRange(requestFromDate, requestToDate)
@@ -884,46 +970,54 @@ export default function AttendancePage({ noLayout = false }) {
     }
 
     if (odEditingRequestId) {
-      const next = allRequests.map((request) => {
-        if (request?.id !== odEditingRequestId) return request
-        if (request?.status === 'Approved') return request
-        return {
-          ...request,
-          date: odApplyFromDate,
+      const existing = allRequests.find((item) => getOdRequestId(item) === odEditingRequestId)
+      if (existing?.status === 'Approved') {
+        setOdNotice('Approved OD request cannot be edited.')
+        return
+      }
+
+      try {
+        await updateOdRequest(odEditingRequestId, {
+          studentId: sessionUserId,
           fromDate: odApplyFromDate,
           toDate: odApplyToDate,
           hours: sortedHours,
           reason: trimmedReason,
           proofImageData: odProofFileData,
           proofImageName: odProofFileName,
-          updatedAt: new Date().toISOString(),
-        }
-      })
-      persistAndSyncStudentOd(next)
-      resetOdForm()
-      setOdNotice('Pending OD request updated successfully.')
+          status: existing?.status || 'Pending',
+          createdAt: existing?.createdAt,
+          reviewedBy: existing?.reviewedBy,
+          reviewedAt: existing?.reviewedAt,
+        })
+        await refreshStudentOdRequests()
+        resetOdForm()
+        setOdNotice('Pending OD request updated successfully.')
+      } catch (err) {
+        console.error('Failed to update OD request:', err)
+        setOdNotice(err?.message || 'Failed to update OD request.')
+      }
       return
     }
 
-    const requestId = `od-${Date.now()}`
-    const nextRequest = {
-      id: requestId,
-      studentId: sessionUserId,
-      date: odApplyFromDate,
-      fromDate: odApplyFromDate,
-      toDate: odApplyToDate,
-      hours: sortedHours,
-      reason: trimmedReason,
-      proofImageData: odProofFileData,
-      proofImageName: odProofFileName,
-      status: 'Pending',
-      createdAt: new Date().toISOString(),
+    try {
+      await createOdRequest({
+        studentId: sessionUserId,
+        fromDate: odApplyFromDate,
+        toDate: odApplyToDate,
+        hours: sortedHours,
+        reason: trimmedReason,
+        proofImageData: odProofFileData,
+        proofImageName: odProofFileName,
+        status: 'Pending',
+      })
+      await refreshStudentOdRequests()
+      resetOdForm()
+      setOdNotice('OD submitted successfully. You can edit or delete it until faculty approval.')
+    } catch (err) {
+      console.error('Failed to submit OD request:', err)
+      setOdNotice(err?.message || 'Failed to submit OD request.')
     }
-
-    const next = [nextRequest, ...allRequests]
-    persistAndSyncStudentOd(next)
-    resetOdForm()
-    setOdNotice('OD submitted successfully. You can edit or delete it until faculty approval.')
   }
 
   function toggleFilterValue(value, setter) {
@@ -1197,6 +1291,14 @@ export default function AttendancePage({ noLayout = false }) {
               }`}
             >
               <span className="material-symbols-outlined text-base">checklist</span>Mark Attendance
+            </button>
+            <button
+              onClick={() => { setStaffViewTab('od'); setFacultyOdNotice(''); refreshFacultyOdRequests() }}
+              className={`flex items-center gap-2 px-5 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
+                staffViewTab === 'od' ? 'bg-white text-[#1162d4] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">approval</span>OD Requests
             </button>
           </div>
         ) : isStudent ? (
@@ -1493,6 +1595,123 @@ export default function AttendancePage({ noLayout = false }) {
             </table>
           </div>
         </>
+      ) : showFacultyOdManageView ? (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Student OD Requests</p>
+              <p className="text-xs text-slate-500">Faculty can approve or reject pending OD requests.</p>
+            </div>
+            <button
+              onClick={() => refreshFacultyOdRequests('Request list refreshed.')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50"
+            >
+              <span className="material-symbols-outlined text-base">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          {facultyOdNotice && (
+            <div className="px-5 py-2.5 border-b border-slate-100 bg-emerald-50 text-emerald-700 text-xs font-medium">
+              {facultyOdNotice}
+            </div>
+          )}
+
+          <div className="overflow-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                  <th className="px-6 py-4">Student</th>
+                  <th className="px-6 py-4">Date Range</th>
+                  <th className="px-6 py-4">Hours</th>
+                  <th className="px-6 py-4">Reason</th>
+                  <th className="px-6 py-4">Proof</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {facultyOdRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-400 text-sm">No OD requests found</td>
+                  </tr>
+                )}
+
+                {facultyOdRequests.map((request) => {
+                  const studentKey = normalizeId(request?.studentId)
+                  const lookup = studentLookupById[studentKey]
+                  const displayName = lookup?.name || request?.studentId || 'Unknown Student'
+                  const displayRoll = lookup?.rollNumber || request?.studentId || '-'
+                  const fromDate = request?.fromDate || request?.date || '-'
+                  const toDate = request?.toDate || request?.date || '-'
+                  const dateLabel = fromDate === toDate ? fromDate : `${fromDate} to ${toDate}`
+                  const hoursLabel = Array.isArray(request?.hours) && request.hours.length > 0
+                    ? request.hours.join(', ')
+                    : '-'
+                  const status = request?.status || 'Pending'
+
+                  return (
+                    <tr key={getOdRequestId(request) || `${request?.studentId}-${request?.createdAt || ''}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 text-sm text-slate-700">
+                        <p className="font-semibold text-slate-800">{displayName}</p>
+                        <p className="text-xs text-slate-500">{displayRoll}</p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-700 font-medium">{dateLabel}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{hoursLabel}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{request?.reason || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {request?.proofImageData ? (
+                          <a
+                            href={request.proofImageData}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[#1162d4] font-semibold hover:underline"
+                          >
+                            <span className="material-symbols-outlined text-sm">image</span>
+                            View
+                          </a>
+                        ) : '-'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          status === 'Approved'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : status === 'Rejected'
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {status === 'Pending' ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setFacultyOdStatus(request, 'Approved')}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <span className="material-symbols-outlined text-sm">check</span>
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => setFacultyOdStatus(request, 'Rejected')}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                            >
+                              <span className="material-symbols-outlined text-sm">close</span>
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-400">Already reviewed</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : showStudentDailyView ? (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
@@ -1721,7 +1940,7 @@ export default function AttendancePage({ noLayout = false }) {
                   )}
 
                   {studentOdRequests.map((request) => (
-                    <tr key={request.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={getOdRequestId(request) || `${request?.studentId}-${request?.createdAt || ''}`} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 text-sm text-slate-700 font-medium">
                         {(() => {
                           const fromDate = request.fromDate || request.date || '-'

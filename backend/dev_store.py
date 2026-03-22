@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import datetime
 from uuid import uuid4
 
 
@@ -13,6 +14,7 @@ DEV_STORE = {
     "facilities": [],
     "facility_bookings": [],
     "attendance": [],
+    "attendance_markings": {},
     "attendance_weekly": [
         {"day": "Mon", "attendance": 92},
         {"day": "Tue", "attendance": 88},
@@ -22,6 +24,7 @@ DEV_STORE = {
     ],
     "notifications": [],
     "students": [],
+    "od_requests": [],
 }
 
 
@@ -167,6 +170,108 @@ def create_attendance(data: dict):
     item = {"id": _make_id("attendance"), **deepcopy(data)}
     DEV_STORE["attendance"].append(item)
     return deepcopy(item)
+
+
+def _marking_key(class_id: str, date: str, hour: str):
+    return f"{class_id}::{date}::{hour}"
+
+
+def list_attendance_markings(
+    class_id: str | None = None,
+    date: str | None = None,
+    hour: str | None = None,
+    student_id: str | None = None,
+):
+    items = deepcopy(list(DEV_STORE["attendance_markings"].values()))
+    if class_id:
+        items = [item for item in items if item.get("classId") == class_id]
+    if date:
+        items = [item for item in items if item.get("date") == date]
+    if hour:
+        items = [item for item in items if item.get("hour") == hour]
+    if student_id:
+        items = [
+            item for item in items
+            if any(str(entry.get("studentId")) == str(student_id) for entry in item.get("entries", []))
+        ]
+    return items
+
+
+def upsert_attendance_marking(data: dict):
+    payload = deepcopy(data)
+    key = _marking_key(payload.get("classId", ""), payload.get("date", ""), payload.get("hour", ""))
+    existing = DEV_STORE["attendance_markings"].get(key)
+    payload["id"] = existing.get("id") if existing else _make_id("marking")
+    DEV_STORE["attendance_markings"][key] = payload
+    return deepcopy(payload)
+
+
+def list_od_requests(student_id: str | None = None, status: str | None = None):
+    items = deepcopy(DEV_STORE["od_requests"])
+    if student_id:
+        items = [item for item in items if item.get("studentId") == student_id]
+    if status and status != "All":
+        items = [item for item in items if item.get("status") == status]
+    return items
+
+
+def create_od_request(data: dict):
+    payload = deepcopy(data)
+    request_id = payload.get("requestId") or _make_id("od")
+    payload["requestId"] = request_id
+    payload["id"] = request_id
+    if not payload.get("createdAt"):
+        payload["createdAt"] = datetime.utcnow().isoformat()
+    DEV_STORE["od_requests"].append(payload)
+    return deepcopy(payload)
+
+
+def update_od_request(request_id: str, data: dict):
+    item = next(
+        (
+            entry for entry in DEV_STORE["od_requests"]
+            if entry.get("requestId") == request_id or entry.get("id") == request_id
+        ),
+        None,
+    )
+    if not item:
+        return None
+    item.update(deepcopy(data))
+    item["requestId"] = item.get("requestId") or request_id
+    item["id"] = item.get("id") or item["requestId"]
+    item["updatedAt"] = datetime.utcnow().isoformat()
+    return deepcopy(item)
+
+
+def update_od_request_status(request_id: str, status: str, reviewed_by: str | None = None):
+    item = next(
+        (
+            entry for entry in DEV_STORE["od_requests"]
+            if entry.get("requestId") == request_id or entry.get("id") == request_id
+        ),
+        None,
+    )
+    if not item:
+        return None
+    item["status"] = status
+    item["reviewedBy"] = reviewed_by or item.get("reviewedBy")
+    item["reviewedAt"] = datetime.utcnow().isoformat()
+    item["updatedAt"] = datetime.utcnow().isoformat()
+    return deepcopy(item)
+
+
+def delete_od_request(request_id: str):
+    index = next(
+        (
+            i for i, item in enumerate(DEV_STORE["od_requests"])
+            if item.get("requestId") == request_id or item.get("id") == request_id
+        ),
+        None,
+    )
+    if index is None:
+        return False
+    del DEV_STORE["od_requests"][index]
+    return True
 
 
 def list_weekly_attendance():

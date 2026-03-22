@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getAllExamHalls, 
-  getRegistrationsByExam, 
-  getSeatByExamAndStudent, 
-  assignSeat,
-  autoAssignSeats 
-} from '../../data/examData';
+  listExamHalls,
+  listRegistrations,
+  listSeatAssignments,
+  upsertSeatAssignment,
+  autoAssignSeats,
+} from '../../api/examsApi';
 
 export default function SeatAssignmentModal({ exam, onClose, onSave }) {
   const [registrations, setRegistrations] = useState([]);
@@ -14,36 +14,55 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
   const [selectedHall, setSelectedHall] = useState(exam.room || '');
 
   useEffect(() => {
-    const regs = getRegistrationsByExam(exam.id);
-    setRegistrations(regs);
-    setHalls(getAllExamHalls());
+    let cancelled = false;
 
-    // Load existing seat assignments
-    const existing = {};
-    regs.forEach(reg => {
-      const seat = getSeatByExamAndStudent(exam.id, reg.studentId);
-      if (seat) {
-        existing[reg.studentId] = seat.seatNumber;
+    async function loadData() {
+      try {
+        const examId = exam._id || exam.id;
+        const [regs, hallRows, seatRows] = await Promise.all([
+          listRegistrations({ examId }),
+          listExamHalls(),
+          listSeatAssignments({ examId }),
+        ]);
+        if (cancelled) return;
+
+        setRegistrations(regs);
+        setHalls(hallRows);
+
+        const existing = {};
+        seatRows.forEach((seat) => {
+          if (seat?.studentId && seat?.seatNumber) {
+            existing[seat.studentId] = seat.seatNumber;
+          }
+        });
+        setAssignments(existing);
+      } catch (err) {
+        console.error('Failed to load seat assignment data:', err);
       }
-    });
-    setAssignments(existing);
-  }, [exam.id]);
+    }
 
-  const handleAutoAssign = () => {
-    const result = autoAssignSeats(exam.id);
-    if (result.success) {
-      // Reload assignments
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [exam._id, exam.id]);
+
+  const handleAutoAssign = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const result = await autoAssignSeats({ examId, hallName: selectedHall });
+      const seatRows = await listSeatAssignments({ examId });
       const updated = {};
-      registrations.forEach(reg => {
-        const seat = getSeatByExamAndStudent(exam.id, reg.studentId);
-        if (seat) {
-          updated[reg.studentId] = seat.seatNumber;
+      seatRows.forEach((seat) => {
+        if (seat?.studentId && seat?.seatNumber) {
+          updated[seat.studentId] = seat.seatNumber;
         }
       });
       setAssignments(updated);
-      alert(`Successfully assigned ${result.assigned} seats`);
-    } else {
-      alert(result.message || 'Auto-assignment failed');
+      alert(`Successfully assigned ${result?.assigned || 0} seats`);
+    } catch (err) {
+      alert(err?.message || 'Auto-assignment failed');
     }
   };
 
@@ -54,14 +73,24 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
     }));
   };
 
-  const handleSave = () => {
-    // Save all assignments
-    Object.entries(assignments).forEach(([studentId, seatNumber]) => {
-      if (seatNumber) {
-        assignSeat(exam.id, studentId, seatNumber, selectedHall);
-      }
-    });
-    onSave();
+  const handleSave = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const rows = Object.entries(assignments).filter(([, seatNumber]) => Boolean(seatNumber));
+      await Promise.all(
+        rows.map(([studentId, seatNumber]) =>
+          upsertSeatAssignment({
+            examId,
+            studentId,
+            seatNumber,
+            hallName: selectedHall,
+          })
+        )
+      );
+      onSave();
+    } catch (err) {
+      alert(err?.message || 'Failed to save seat assignments');
+    }
   };
 
   return (

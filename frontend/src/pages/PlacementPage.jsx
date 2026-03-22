@@ -12,6 +12,8 @@ export default function PlacementPage({ noLayout = false }) {
   const role = session?.role || 'student'
   const userId = session?.userId || null
   const isAdmin = role === 'admin'
+  const isFaculty = role === 'faculty'
+  const isStudent = role === 'student'
 
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,22 +23,34 @@ export default function PlacementPage({ noLayout = false }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
+  const [apiNotice, setApiNotice] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
   const filterRef = useRef(null)
 
-  // Fetch placements on mount and when filters change
-  useEffect(() => {
-    async function loadPlacements() {
-      setLoading(true)
+  async function loadPlacements({ silent = false } = {}) {
+    if (!silent) setLoading(true)
+    setApiNotice('')
+    try {
       const data = await fetchPlacements({
         status: statusFilter,
         search: searchQuery,
-        personId: !isAdmin ? userId : undefined, // Only filter by personId for students
+        personId: isStudent ? userId : undefined,
       })
       setEntries(data)
-      setLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch placements:', error)
+      setEntries([])
+      setApiNotice('Failed to load placement records from backend API.')
+    } finally {
+      if (!silent) setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  // Fetch placements on mount and when filters change
+  useEffect(() => {
     loadPlacements()
-  }, [statusFilter, searchQuery, isAdmin, userId])
+  }, [statusFilter, searchQuery, isStudent, userId])
 
   // Handle click outside filter dropdown
   useEffect(() => {
@@ -48,7 +62,7 @@ export default function PlacementPage({ noLayout = false }) {
   }, [])
 
   useEffect(() => {
-    if (isAdmin || !userId) return
+    if (!isStudent || !userId) return
     let isActive = true
 
     async function loadStudent() {
@@ -65,9 +79,7 @@ export default function PlacementPage({ noLayout = false }) {
     return () => {
       isActive = false
     }
-  }, [isAdmin, userId])
-
-  const filteredEntries = entries
+  }, [isStudent, userId])
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -75,6 +87,8 @@ export default function PlacementPage({ noLayout = false }) {
 
   async function handleSubmit(e) {
     if (e) e.preventDefault()
+    if (isFaculty) return
+    setApiNotice('')
     try {
       const submitData = { ...form };
       if (!isAdmin && userId) {
@@ -85,9 +99,10 @@ export default function PlacementPage({ noLayout = false }) {
       setEntries(prev => [newEntry, ...prev])
       setForm(emptyForm)
       setShowModal(false)
+      setApiNotice('Placement record saved to backend successfully.')
     } catch (error) {
       console.error('Failed to create placement:', error)
-      // Optionally show error toast here
+      setApiNotice('Failed to save placement to backend API.')
     }
   }
 
@@ -125,6 +140,11 @@ export default function PlacementPage({ noLayout = false }) {
     </button>
   );
 
+  const visibleEntries = isFaculty
+    ? entries.filter((entry) => Boolean(entry?.ownerId))
+    : entries
+  const showStudentColumn = isAdmin || isFaculty
+
   const inner = (
     <>
       {isAdmin && (
@@ -133,7 +153,7 @@ export default function PlacementPage({ noLayout = false }) {
         </div>
       )}
       
-      {!isAdmin && entries.length > 0 && (
+      {isStudent && entries.length > 0 && (
         <div className="mb-6">
           {addButton}
         </div>
@@ -148,12 +168,12 @@ export default function PlacementPage({ noLayout = false }) {
               { icon: 'attach_money',label: 'Avg. Package',       value: avgPackage,                                              color: 'text-emerald-600 bg-emerald-100' },
             ]
           : [
-              { icon: 'emoji_events', label: 'Placements',        value: entries.length,                                           color: 'text-[#1162d4] bg-[#1162d4]/10' },
-              { icon: 'assignment_turned_in', label: 'Selected',   value: entries.filter(e => e.status === 'Selected').length,    color: 'text-emerald-600 bg-emerald-100' },
-              { icon: 'schedule',     label: 'In Process',        value: entries.filter(e => e.status === 'Process').length,     color: 'text-orange-600 bg-orange-100' },
+              { icon: 'emoji_events', label: 'Placements',        value: visibleEntries.length,                                   color: 'text-[#1162d4] bg-[#1162d4]/10' },
+              { icon: 'assignment_turned_in', label: 'Selected',   value: visibleEntries.filter(e => e.status === 'Selected').length,    color: 'text-emerald-600 bg-emerald-100' },
+              { icon: 'schedule',     label: 'In Process',        value: visibleEntries.filter(e => e.status === 'Process').length,     color: 'text-orange-600 bg-orange-100' },
             ])
-        .map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+        .map((s, idx) => (
+          <div key={`${s.label}-${idx}`} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
             <div className={`p-3 rounded-xl ${s.color}`}>
               <span className="material-symbols-outlined">{s.icon}</span>
             </div>
@@ -167,6 +187,17 @@ export default function PlacementPage({ noLayout = false }) {
 
       {/* Search & Filter */}
       <div className="flex items-center justify-end gap-3 mb-6">
+        <button
+          onClick={() => {
+            setRefreshing(true)
+            loadPlacements({ silent: true })
+          }}
+          disabled={loading || refreshing}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border bg-white text-slate-600 border-slate-200 hover:border-slate-300 shadow-sm disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-lg">refresh</span>
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
           <input
@@ -213,12 +244,22 @@ export default function PlacementPage({ noLayout = false }) {
         </div>
       </div>
 
+      {apiNotice && (
+        <div className={`mb-4 px-4 py-2.5 rounded-lg text-xs font-semibold border ${
+          apiNotice.toLowerCase().includes('failed')
+            ? 'bg-red-50 text-red-700 border-red-200'
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          {apiNotice}
+        </div>
+      )}
+
       {/* Placement Table */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-              {isAdmin && <th className="px-6 py-4">Student</th>}
+              {showStudentColumn && <th className="px-6 py-4">Student</th>}
               <th className="px-6 py-4">Company</th>
               <th className="px-6 py-4">Role</th>
               <th className="px-6 py-4">Package</th>
@@ -229,30 +270,30 @@ export default function PlacementPage({ noLayout = false }) {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="px-6 py-10 text-center text-slate-400 text-sm">Loading...</td>
+                <td colSpan={showStudentColumn ? 6 : 5} className="px-6 py-10 text-center text-slate-400 text-sm">Loading...</td>
               </tr>
             )}
-            {!loading && filteredEntries.length === 0 && (
+            {!loading && visibleEntries.length === 0 && (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5}>
+                <td colSpan={showStudentColumn ? 6 : 5}>
                   <div className="px-6 py-10 flex flex-col items-center justify-center text-center">
-                    {!isAdmin && (
+                    {isStudent && (
                       <>
                         <span className="material-symbols-outlined text-5xl text-slate-300 mb-3">work_outline</span>
                         <p className="text-slate-500 font-medium mb-4">No placements yet</p>
                         {addButton}
                       </>
                     )}
-                    {isAdmin && (
+                    {(isAdmin || isFaculty) && (
                       <p className="text-slate-400 text-sm">No records found</p>
                     )}
                   </div>
                 </td>
               </tr>
             )}
-            {!loading && filteredEntries.map((p, i) => (
+            {!loading && visibleEntries.map((p, i) => (
               <tr key={i} className="hover:bg-slate-50 transition-colors">
-                {isAdmin && <td className="px-6 py-4 text-sm font-semibold text-slate-900">{p.name}</td>}
+                {showStudentColumn && <td className="px-6 py-4 text-sm font-semibold text-slate-900">{p.name || p.ownerId || '-'}</td>}
                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">{p.company}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{p.role}</td>
                 <td className="px-6 py-4 text-sm font-bold text-slate-900">{p.package}</td>
