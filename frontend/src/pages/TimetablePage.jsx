@@ -364,6 +364,10 @@ export default function TimetablePage({ noLayout = false }) {
   const [showNewClass, setShowNewClass] = useState(false)
   const [isSyncing,    setIsSyncing]    = useState(false)
   const [studentProfile, setStudentProfile] = useState(null)
+  const [periodSlots, setPeriodSlots] = useState(TIME_SLOTS)
+  const [breakLabel, setBreakLabel] = useState('Break 11:00–11:15')
+  const [lunchLabel, setLunchLabel] = useState('Lunch 13:15–14:00')
+  const [showPeriodEditor, setShowPeriodEditor] = useState(false)
 
   const toNormalizedText = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const toSemesterNumber = (value) => {
@@ -582,9 +586,22 @@ export default function TimetablePage({ noLayout = false }) {
         <p className="text-slate-500">
           {current ? `${current.dept} — ${current.semester} (${current.section})` : 'No timetable found'}
         </p>
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap">
           {isSyncing && (
             <span className="text-xs font-medium text-slate-500">Syncing changes...</span>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setShowPeriodEditor(prev => !prev)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
+                showPeriodEditor
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-[#1162d4] hover:text-[#1162d4]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">schedule</span>
+              {showPeriodEditor ? 'Hide Periods' : 'Edit Periods'}
+            </button>
           )}
           {canEdit && (
             <button
@@ -602,6 +619,54 @@ export default function TimetablePage({ noLayout = false }) {
         </div>
       </div>
 
+      {showPeriodEditor && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Period Intervals</p>
+              <p className="text-xs text-slate-500 mt-1">Edit the time range for each period.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {periodSlots.map((slot, idx) => (
+                <label key={idx} className="text-xs font-semibold text-slate-600">
+                  Period {idx + 1}
+                  <input
+                    type="text"
+                    value={slot}
+                    onChange={(e) => {
+                      const next = [...periodSlots]
+                      next[idx] = e.target.value
+                      setPeriodSlots(next)
+                    }}
+                    className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="text-xs font-semibold text-slate-600">
+                Break Label
+                <input
+                  type="text"
+                  value={breakLabel}
+                  onChange={(e) => setBreakLabel(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Lunch Label
+                <input
+                  type="text"
+                  value={lunchLabel}
+                  onChange={(e) => setLunchLabel(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editMode && (
         <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-5 text-sm text-amber-700">
           <span className="material-symbols-outlined text-amber-500">info</span>
@@ -618,69 +683,88 @@ export default function TimetablePage({ noLayout = false }) {
             <div className="bg-slate-50 border-r border-slate-200" />
             {[0,1,2].map(si => (
               <div key={si} className={headerCell}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
+                {periodSlots[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
               </div>
             ))}
-            <div className="bg-slate-100/80 border-r border-slate-200 flex flex-col items-center justify-center py-2 gap-0.5">
-              <span className="text-base leading-none">☕</span>
-              <span className="text-[8px] font-semibold text-slate-400 uppercase tracking-wide text-center leading-tight">Break</span>
-            </div>
+            <div className="bg-slate-100/80 border-r border-slate-200" />
             {[3,4].map(si => (
               <div key={si} className={headerCell}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
+                {periodSlots[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
               </div>
             ))}
-            <div className="bg-amber-50 border-r border-slate-200 flex flex-col items-center justify-center py-2 gap-0.5">
-              <span className="text-base leading-none">🍽</span>
-              <span className="text-[8px] font-semibold text-amber-400 uppercase tracking-wide text-center leading-tight">Lunch</span>
-            </div>
+            <div className="bg-amber-50 border-r border-slate-200" />
             {[5,6].map(si => (
               <div key={si} className={`${headerCell} ${si===6?'border-r-0':''}`}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
+                {periodSlots[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
               </div>
             ))}
           </div>
 
           {/* Days */}
-          {DAYS.map((day, di) => (
-            <div key={di} className="grid border-b border-slate-100 last:border-b-0 min-h-[80px]" style={{ gridTemplateColumns: tpl }}>
-              <div className="px-1 py-2 text-sm font-bold text-slate-700 border-r border-slate-200 flex items-center justify-center bg-slate-50">
-                {day}
-              </div>
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-0 grid z-10" style={{ gridTemplateColumns: tpl }}>
+              <div />
               {[0,1,2].map(si => (
-                <div key={si} className="p-1.5 border-r border-slate-100">
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
+                <div key={`break-pad-${si}`} />
               ))}
-              <div className="bg-slate-100/50 border-r border-slate-100" />
+              <div className="flex items-center justify-center">
+                <span className="text-[12px] font-semibold text-slate-600 tracking-[0.25em] [writing-mode:vertical-rl] rotate-180">
+                  {breakLabel}
+                </span>
+              </div>
               {[3,4].map(si => (
-                <div key={si} className="p-1.5 border-r border-slate-100">
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
+                <div key={`lunch-pad-${si}`} />
               ))}
-              <div className="bg-amber-50/50 border-r border-slate-100" />
+              <div className="flex items-center justify-center">
+                <span className="text-[12px] font-semibold text-amber-700 tracking-[0.25em] [writing-mode:vertical-rl] rotate-180">
+                  {lunchLabel}
+                </span>
+              </div>
               {[5,6].map(si => (
-                <div key={si} className={`p-1.5 border-r border-slate-100 ${si===6?'border-r-0':''}`}>
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
+                <div key={`end-pad-${si}`} />
               ))}
             </div>
-          ))}
+
+            {DAYS.map((day, di) => (
+              <div key={di} className="grid border-b border-slate-100 last:border-b-0 min-h-[80px]" style={{ gridTemplateColumns: tpl }}>
+                <div className="px-1 py-2 text-sm font-bold text-slate-700 border-r border-slate-200 flex items-center justify-center bg-slate-50">
+                  {day}
+                </div>
+                {[0,1,2].map(si => (
+                  <div key={si} className="p-1.5 border-r border-slate-100">
+                    <ClassCell
+                      cls={current.slots[si]?.[di]}
+                      canEdit={editMode}
+                      onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
+                      onClear={() => handleClearCell(si, di)}
+                    />
+                  </div>
+                ))}
+                  <div className="bg-slate-100/50 border-r border-slate-100" />
+                {[3,4].map(si => (
+                  <div key={si} className="p-1.5 border-r border-slate-100">
+                    <ClassCell
+                      cls={current.slots[si]?.[di]}
+                      canEdit={editMode}
+                      onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
+                      onClear={() => handleClearCell(si, di)}
+                    />
+                  </div>
+                ))}
+                <div className="bg-amber-50/50 border-r border-slate-100" />
+                {[5,6].map(si => (
+                  <div key={si} className={`p-1.5 border-r border-slate-100 ${si===6?'border-r-0':''}`}>
+                    <ClassCell
+                      cls={current.slots[si]?.[di]}
+                      canEdit={editMode}
+                      onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
+                      onClear={() => handleClearCell(si, di)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       ) : (

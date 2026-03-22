@@ -1,146 +1,134 @@
 # MIT Connect
 
-MIT Connect is a multi-role college portal UI built with React, Vite, CSS, and React Router.
+Stack: React (Vite), FastAPI, MongoDB
 
-The project represents a campus management system for Movi Institute of Technology, with a branded split-screen login page and role-based dashboards for students, admin, faculty, and finance teams.
+![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB) ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=FFD62E) ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
 
-## Features
+MIT Connect is a full-stack college portal with a React (Vite) frontend and a FastAPI backend. It models a campus management system for Movi Institute of Technology, with role-based dashboards for students, admin, faculty, and finance teams.
 
-- Multi-role login interface for `Student`, `Admin`, `Faculty`, and `Finance`
-- Split-screen login page with MIT Connect branding
-- Role-based dashboard content after login
-- Role-specific sidebar menus
-- Blue and cyan themed UI across login and dashboard screens
-- Responsive layout for desktop and mobile screens
-- React component-based architecture
-- Route-based navigation using React Router
-- Demo authentication using front-end state and `localStorage`
+## Key Features
 
-## Roles Included
-
-- Student
-- Admin
-- Faculty
-- Finance
-
-Each role has:
-
-- Separate login credentials
-- Different dashboard heading and quick stats
-- Different tasks and alerts
-- Different sidebar items based on permissions
+- Multi-role login interface for Student, Admin, Faculty, and Finance
+- Role-based dashboards with role-specific navigation
+- Responsive UI built with React and Vite
+- FastAPI backend with MongoDB integration
+- Fee assignment and invoice generation pipeline
+- Real-time UI synchronization via CustomEvent
 
 ## Demo Login Credentials
 
-Use the following demo credentials on the login page:
-
 | Role | User ID | Password |
 |------|---------|----------|
-| Student | `STU-2024-1547` | `student123` |
-| Admin | `ADM-0001` | `admin123` |
-| Faculty | `FAC-204` | `faculty123` |
-| Finance | `FIN-880` | `finance123` |
+| Student | STU-2024-1547 | student123 |
+| Admin | ADM-0001 | admin123 |
+| Faculty | FAC-204 | faculty123 |
+| Finance | FIN-880 | finance123 |
 
 ## Project Structure
 
 ```text
-cms/
-├── index.html
-├── package.json
+target_cms/
+├── backend/                 # FastAPI app
+├── frontend/                # Vite React app
+├── render.yaml              # Render deploy definition
 └── README.md
-	src/
-	├── App.jsx
-	├── main.jsx
-	├── styles.css
-	├── data/
-	│   └── roleConfig.js
-	└── pages/
-		├── DashboardPage.jsx
-		└── LoginPage.jsx
 ```
 
-## Pages
+## Setup (Local)
 
-### `src/pages/LoginPage.jsx`
+### Prerequisites
 
-- Split layout inspired by a modern ERP login screen
-- Left panel shows MIT Connect branding and platform highlights
-- Right panel contains role switcher and login form
-- Stores role and user ID in `localStorage`
-- Redirects authenticated users to `/dashboard`
+- Python 3.10+
+- Node.js 18+
+- MongoDB connection string
 
-### `src/pages/DashboardPage.jsx`
+### Backend (FastAPI)
 
-- Displays role-specific dashboard content
-- Reads current role from query string or `localStorage`
-- Builds sidebar items dynamically based on selected role
-- Shows overview cards, access sections, tasks, and alerts
+1. Go to the backend folder:
 
-### `src/styles.css`
+```bash
+cd backend
+```
 
-- Contains all shared styling for login and dashboard pages
-- Includes responsive layout behavior
-- Defines MIT Connect brand colors and gradients
+2. Create a virtual environment and install dependencies:
 
-### `src/data/roleConfig.js`
+```bash
+python -m venv .venv
+.venv\\Scripts\\activate
+pip install -r requirements.txt
+```
 
-- Stores demo users and role-specific dashboard data
-- Stores role-wise sidebar menu configuration
-- Centralizes role validation logic
+3. Set the environment variable:
 
-## Sidebar Access By Role
+```bash
+set MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/<db>
+```
 
-### Student
+4. Start the API server:
 
-- Overview: Dashboard, My Courses, Department
-- Academics: Exams, Timetable, Attendance, Placement, Facility
-- Administration: Fees, Invoices
-- Intelligence: Notifications, Settings
+```bash
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
 
-### Admin
+### Frontend (Vite)
 
-- Overview: Dashboard, Students, Faculty, Department
-- Administration: Admission, Fees, Payroll, Invoices
-- Intelligence: Analytics, Notifications, Settings
-- Academics: Exams, Timetable, Attendance, Placement, Facility
+1. Go to the frontend folder:
 
-### Faculty
+```bash
+cd frontend
+```
 
-- Overview: Dashboard, Students, Department
-- Academics: Exams, Timetable, Attendance, Placement
-- Intelligence: Analytics, Notifications, Settings
-
-### Finance
-
-- Overview: Dashboard, Department
-- Administration: Fees, Payroll, Invoices
-- Intelligence: Analytics, Notifications, Settings
-
-## How To Run
-
-This is a Vite React project.
-
-1. Open the project folder in VS Code.
-2. Install dependencies:
+2. Install dependencies and start the dev server:
 
 ```bash
 npm install
-```
-
-3. Start the development server:
-
-```bash
 npm run dev
 ```
 
-4. Open the local Vite URL shown in the terminal.
-5. Choose a role and sign in with one of the demo credentials.
+3. Open the local Vite URL printed in the terminal.
 
-To create a production build:
+## Configuration
 
-```bash
-npm run build
+Environment variables required by the backend:
+
+- MONGODB_URI: MongoDB connection string
+
+## Deploy on Render
+
+Deployment is defined in [render.yaml](render.yaml).
+
+- Backend service uses backend/ with pip install -r requirements.txt and uvicorn start command.
+- Frontend is a static site built from frontend/ using npm run build.
+
+Set MONGODB_URI in Render for the backend service.
+
+## Architecture and Flow
+
+### High-Level
+
 ```
+[React UI] -> [FastAPI] -> [MongoDB]
+```
+
+### Invoice and Fee Pipeline (Core Flow)
+
+1. Admin assigns fees to approved students.
+2. Admin generates invoice for a fee assignment.
+3. Student pays the fee (90 percent success simulation in UI).
+4. Fee assignment status updates to paid.
+5. Matching invoice updates to Paid.
+6. Admin dashboard updates in real-time via custom events.
+
+### Event Sync (Frontend)
+
+- feeAssignmentUpdated keeps student fee list synchronized.
+- invoiceUpdated refreshes invoice lists and dashboard stats.
+
+## Invoice Pipeline Details
+
+The detailed invoice pipeline implementation is documented in:
+
+- [INVOICE_PIPELINE_IMPLEMENTATION.md](INVOICE_PIPELINE_IMPLEMENTATION.md)
 
 ## Technologies Used
 
@@ -150,6 +138,8 @@ npm run build
 - CSS3
 - JavaScript (ES Modules)
 - Google Fonts (`Inter`)
+- FastAPI
+- MongoDB
 
 ## Notes
 
