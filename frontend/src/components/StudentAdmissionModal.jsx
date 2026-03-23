@@ -14,7 +14,7 @@ const steps = [
 ];
 
 export default function StudentAdmissionModal({ isOpen, onClose }) {
-  const { addStudentApp } = useAdmission();
+  // No longer destructuring addStudentApp since data is saved via /admissions/create
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1: Personal
@@ -227,9 +227,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       
       console.log('Admission saved to MongoDB:', result);
 
-      // Also add to local state for immediate UI update
-      addStudentApp(studentData);
-
+      // ✅ Data is already saved via /admissions/create
+      // Do NOT call addStudentApp() again - it would create a duplicate entry!
+      
       // Reset form
       setFormData({
         name: '',

@@ -13,7 +13,7 @@ const steps = [
 ];
 
 export default function FacultyAdmissionModal({ isOpen, onClose }) {
-  const { addFacultyApp } = useAdmission();
+  // No longer destructuring addFacultyApp since data is saved via /faculty/admission/submit
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -203,6 +203,11 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
     try {
       console.log('Submitting faculty data:', facultyData);
       
+      // Validate required fields
+      if (!facultyData.fullName || !facultyData.email || !facultyData.phone) {
+        throw new Error('Please fill in all required fields: Full Name, Email, and Phone');
+      }
+      
       // Save to backend MongoDB - Faculty Admissions endpoint
       const response = await fetch(`${API_BASE}/faculty/admission/submit`, {
         method: 'POST',
@@ -215,19 +220,23 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
       console.log('Response status:', response.status);
       
       if (!response.ok) {
+        let errorMessage = `HTTP Error ${response.status}`;
         try {
           const errorData = await response.json();
-          throw new Error(errorData.detail || `HTTP ${response.status}: Failed to save admission`);
-        } catch (parseError) {
-          throw new Error(`Failed to submit faculty admission: ${response.statusText}`);
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use statusText
+          errorMessage = response.statusText || errorMessage;
         }
+        throw new Error(errorMessage);
       }
 
       const responseData = await response.json();
       console.log('Faculty admission saved:', responseData);
       
-      // Also save to localStorage for context (backup)
-      addFacultyApp(facultyData);
+      // ✅ Data is already saved via /faculty/admission/submit
+      // Do NOT call addFacultyApp() again - it would create a duplicate entry!
+      // The admission modal will close and faculty list will auto-refresh from context
       
       // Reset form
       setFormData({
@@ -250,7 +259,7 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
       setPaymentDone(false);
       setCurrentStep(1);
       
-      alert(`✓ Faculty admission submitted successfully!\nApplication ID: ${responseData.id}`);
+      alert(`✓ Faculty admission submitted successfully!\nApplication ID: ${responseData.id || responseData._id || 'Generated'}`);
       onClose();
     } catch (err) {
       console.error('Error submitting faculty admission:', err);

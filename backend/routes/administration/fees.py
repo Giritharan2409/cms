@@ -8,6 +8,26 @@ from backend.utils.fee_calculator import calculate_fee
 router = APIRouter(prefix="/fees", tags=["Fees"])
 
 
+@router.get("/all")
+async def get_all_fee_assignments():
+    """Get all fee assignments"""
+    db = get_db()
+    fees_collection = db["fees_structure"]
+    
+    assignments = await fees_collection.find({}).to_list(None)
+    
+    return {
+        "assignments": [
+            {
+                **{k: v for k, v in item.items() if k != "_id"},
+                "id": str(item.get("_id", ""))
+            }
+            for item in assignments
+        ],
+        "count": len(assignments)
+    }
+
+
 @router.post("/assign")
 async def assign_fee(data: AssignFee):
 

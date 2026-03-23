@@ -111,10 +111,9 @@ app.include_router(facility_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
 app.include_router(students_router)
-app.include_router(admissions_router)
 app.include_router(admissions_router, prefix="/api")
-app.include_router(fees_router)
-app.include_router(invoices_router)
+app.include_router(fees_router, prefix="/api")
+app.include_router(invoices_router, prefix="/api")
 
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
