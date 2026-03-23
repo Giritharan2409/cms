@@ -396,7 +396,8 @@ export default function AttendancePage({ noLayout = false }) {
 
   const [studentData,      setStudentData]      = useState(FALLBACK_STUDENTS)
   const [staffData,        setStaffData]        = useState(FALLBACK_STAFF)
-  const [weeklyAttendance, setWeeklyAttendance] = useState(FALLBACK_WEEKLY)
+  const [studentWeeklyAttendance, setStudentWeeklyAttendance] = useState(FALLBACK_WEEKLY)
+  const [staffWeeklyAttendance, setStaffWeeklyAttendance] = useState(FALLBACK_WEEKLY)
 
   const [classOptions,     setClassOptions]     = useState([])
   const [classStudentsMap, setClassStudentsMap] = useState({})
@@ -425,14 +426,16 @@ export default function AttendancePage({ noLayout = false }) {
   useEffect(() => {
     async function fetchAttendance() {
       try {
-        const [students, staff, weekly] = await Promise.all([
+        const [students, staff, weeklyStudents, weeklyStaff] = await Promise.all([
           fetchAttendanceSummary('student'),
           fetchAttendanceSummary('staff'),
-          fetchAttendanceWeekly(),
+          fetchAttendanceWeekly('student'),
+          fetchAttendanceWeekly('staff'),
         ])
         if (students.length > 0) setStudentData(students.map(normalizeAttendanceRecord))
         if (staff.length > 0) setStaffData(staff.map(normalizeAttendanceRecord))
-        if (weekly.length > 0) setWeeklyAttendance(weekly)
+        if (weeklyStudents.length > 0) setStudentWeeklyAttendance(weeklyStudents)
+        if (weeklyStaff.length > 0) setStaffWeeklyAttendance(weeklyStaff)
       } catch (err) {
         console.error('Failed to fetch attendance data:', err)
       }
@@ -1146,6 +1149,18 @@ export default function AttendancePage({ noLayout = false }) {
     return statusMatch && attendanceRangeMatch && courseMatch && searchMatch
   })
 
+  const summaryData = isAdmin
+    ? (activeTab === 'students' ? scopedStudents : scopedStaff)
+    : scopedStaff
+  const summaryLabel = isAdmin
+    ? (activeTab === 'students' ? 'Students' : 'Staff')
+    : 'Staff'
+  const selectedWeeklyAttendance = isStudent
+    ? studentWeeklyAttendance
+    : (isAdmin
+      ? (activeTab === 'students' ? studentWeeklyAttendance : staffWeeklyAttendance)
+      : staffWeeklyAttendance)
+
   function csvCell(value) {
     const text = String(value ?? '')
     const escaped = text.replace(/"/g, '""')
@@ -1342,22 +1357,22 @@ export default function AttendancePage({ noLayout = false }) {
           )
         }
         // Faculty / Admin view
-        const allS        = studentData
-        const avgPct      = allS.length
-          ? Number((allS.reduce((acc, s) => acc + calcPct(s.present, s.total), 0) / allS.length).toFixed(1))
+        const avgPct      = summaryData.length
+          ? Number((summaryData.reduce((acc, s) => acc + calcPct(s.present, s.total), 0) / summaryData.length).toFixed(1))
           : 0
-        const below75     = allS.filter(s => calcPct(s.present, s.total) < 75).length
-        const totalTaken  = allS.length > 0 ? allS[0].total : 0
+        const below75     = summaryData.filter(s => calcPct(s.present, s.total) < 75).length
+        const totalPeople = summaryData.length
+        const isStudentSummary = summaryLabel === 'Students'
         const averageAttendanceTone = getAttendanceCardTone(avgPct)
         return (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
               <div className="p-3 rounded-xl text-[#1162d4] bg-[#1162d4]/10">
-                <span className="material-symbols-outlined">school</span>
+                <span className="material-symbols-outlined">{isStudentSummary ? 'school' : 'badge'}</span>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">Total Classes Taken</p>
-                <p className="text-2xl font-bold text-slate-900">{totalTaken}</p>
+                <p className="text-xs text-slate-500 font-medium">{isStudentSummary ? 'Total Students' : 'Total Staff'}</p>
+                <p className="text-2xl font-bold text-slate-900">{totalPeople}</p>
               </div>
             </div>
             <div className={`rounded-xl border p-5 shadow-sm flex items-center gap-4 ${averageAttendanceTone.card}`}>
@@ -1374,7 +1389,7 @@ export default function AttendancePage({ noLayout = false }) {
                 <span className="material-symbols-outlined">warning</span>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">Students Below 75%</p>
+                <p className="text-xs text-slate-500 font-medium">{summaryLabel} Below 75%</p>
                 <p className="text-2xl font-bold text-slate-900">{below75}</p>
               </div>
             </div>
@@ -1411,8 +1426,8 @@ export default function AttendancePage({ noLayout = false }) {
                           approved: odSummaryCounts.approved,
                           pending: odSummaryCounts.pending,
                         }]
-                      : weeklyAttendance
-                  : weeklyAttendance
+                      : selectedWeeklyAttendance
+                  : selectedWeeklyAttendance
               }
               barCategoryGap="35%"
             >
@@ -1480,17 +1495,18 @@ export default function AttendancePage({ noLayout = false }) {
             </div>
           )
         }
+        if (isAdmin) return null
         // Faculty / Admin view
-        const lowStudents = studentData.filter(s => calcPct(s.present, s.total) < 75)
-        if (lowStudents.length === 0) return null
+        const lowAttendanceRows = summaryData.filter(s => calcPct(s.present, s.total) < 75)
+        if (lowAttendanceRows.length === 0) return null
         return (
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-orange-500">warning</span>
-              <p className="text-sm font-semibold text-orange-700">Students Below 75%</p>
+              <p className="text-sm font-semibold text-orange-700">{summaryLabel} Below 75%</p>
             </div>
             <ul className="space-y-1">
-              {lowStudents.map((s) => (
+              {lowAttendanceRows.map((s) => (
                 <li key={s.id} className="flex items-center gap-2 text-sm text-orange-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" />
                   {s.name} ({calcPct(s.present, s.total)}%)

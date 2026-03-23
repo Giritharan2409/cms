@@ -791,13 +791,28 @@ async def create_faculty(faculty: Faculty):
 
 @router.post("/admission/submit")
 async def submit_faculty_admission(faculty_data: dict = Body(...)):
-    """Submit faculty admission from modal form"""
-    collection = await get_faculty_collection()
-    
-    # Allow duplicate submissions (no uniqueness check)
-    result = await collection.insert_one(faculty_data)
-    
-    created_doc = await collection.find_one({"_id": result.inserted_id})
+    """Submit faculty admission from modal form.
+
+    This endpoint writes into faculty_admissions because the Admission page
+    reads from /api/admissions/faculty (faculty_admissions collection).
+    """
+    db = get_db()
+    admissions_collection = db["faculty_admissions"]
+
+    timestamp = int(datetime.utcnow().timestamp() * 1000)
+    admission_id = faculty_data.get("id") or faculty_data.get("admission_id") or f"FAC-{timestamp}"
+
+    payload = {
+        **faculty_data,
+        "id": admission_id,
+        "admission_id": admission_id,
+        "status": faculty_data.get("status") or "Pending",
+        "created_at": faculty_data.get("created_at") or datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+
+    result = await admissions_collection.insert_one(payload)
+    created_doc = await admissions_collection.find_one({"_id": result.inserted_id})
     return serialize_doc(created_doc)
 
 

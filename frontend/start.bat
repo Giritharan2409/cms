@@ -1,17 +1,18 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set "ROOT_DIR=%~dp0"
-set "BACKEND_DIR=%ROOT_DIR%backend"
+set "FRONTEND_DIR=%~dp0"
+for %%I in ("%FRONTEND_DIR%..") do set "PROJECT_DIR=%%~fI\"
+set "BACKEND_DIR=%PROJECT_DIR%backend"
 
 echo =============================================
 echo MIT Connect startup script
 echo =============================================
 echo.
 
-cd /d "%ROOT_DIR%"
+cd /d "%FRONTEND_DIR%"
 if errorlevel 1 (
-  echo Failed to switch to root directory.
+  echo Failed to switch to frontend directory.
   exit /b 1
 )
 
@@ -39,12 +40,12 @@ if exist "%BACKEND_DIR%\requirements.txt" (
 echo [4/4] Starting backend and frontend servers...
 
 if exist "%BACKEND_DIR%\main.py" (
-  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%ROOT_DIR%"" && py -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
+  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%PROJECT_DIR%"" && py -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
 ) else (
   echo backend\main.py not found. FastAPI backend was not started.
 )
 
-start "MIT Connect Frontend" cmd /k "cd /d ""%ROOT_DIR%"" && npm run dev"
+start "MIT Connect Frontend" cmd /k "cd /d ""%FRONTEND_DIR%"" && npm run dev"
 
 echo.
 echo Both services were started in separate terminal windows.

@@ -18,8 +18,11 @@ export async function fetchAttendanceSummary(role) {
   return Array.isArray(json.data) ? json.data : [];
 }
 
-export async function fetchAttendanceWeekly() {
-  const res = await fetch(`${API_BASE}/academics/attendance/weekly`);
+export async function fetchAttendanceWeekly(role) {
+  const params = new URLSearchParams();
+  if (role) params.append('role', role);
+  const query = params.toString();
+  const res = await fetch(`${API_BASE}/academics/attendance/weekly${query ? `?${query}` : ''}`);
   const json = await parseResponse(res, 'Failed to load weekly attendance');
   return Array.isArray(json.data) ? json.data : [];
 }

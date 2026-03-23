@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useAdmission } from '../context/AdmissionContext';
 import { API_BASE } from '../api/apiBase';
 
 const steps = [
@@ -14,7 +13,6 @@ const steps = [
 ];
 
 export default function StudentAdmissionModal({ isOpen, onClose }) {
-  const { addStudentApp } = useAdmission();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1: Personal
@@ -226,9 +224,6 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       }
       
       console.log('Admission saved to MongoDB:', result);
-
-      // Also add to local state for immediate UI update
-      addStudentApp(studentData);
 
       // Reset form
       setFormData({
