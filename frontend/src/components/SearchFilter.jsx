@@ -1,11 +1,11 @@
-export default function SearchFilter({ searchQuery, onSearchChange, onAddClick }) {
+export default function SearchFilter({ searchQuery, onSearchChange, onAddClick, addButtonLabel = 'Add Student', placeholder = 'Search students by name, ID, or department...' }) {
   return (
     <div className="flex flex-col lg:flex-row items-center gap-4 mb-8">
       <div className="relative flex-1 group w-full lg:w-auto">
         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1162d4] text-[20px] transition-colors">search</span>
         <input
           type="text"
-          placeholder="Search students by name, ID, or department..."
+          placeholder={placeholder}
           className="w-full bg-white border border-slate-200 rounded-lg pl-11 pr-5 py-2.5 text-sm focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none transition-all placeholder:text-slate-400 shadow-sm"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
@@ -27,7 +27,7 @@ export default function SearchFilter({ searchQuery, onSearchChange, onAddClick }
           className="flex items-center justify-center gap-2 h-10 px-6 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 active:scale-[0.98] transition-all shadow-sm flex-1 lg:flex-none whitespace-nowrap"
         >
           <span className="material-symbols-outlined text-lg">add</span>
-          <span>Add Student</span>
+          <span>{addButtonLabel}</span>
         </button>
       </div>
     </div>

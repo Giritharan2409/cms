@@ -23,9 +23,18 @@ from backend.routes.academics.timetable import router as timetable_router
 from backend.routes.analytics import router as analytics_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.payroll import router as payroll_router
+from backend.routes.payroll_and_development import router as payroll_dev_router
 from backend.routes.settings import router as settings_router
 from backend.routes.staff import router as staff_router
 from backend.routes.faculty import router as faculty_router
+from backend.routes.faculty_management import router as faculty_mgmt_router
+from backend.routes.faculty_360_feedback import router as faculty_feedback_router
+from backend.routes.faculty_skills import router as faculty_skills_router
+from backend.routes.faculty_mentorship import router as faculty_mentorship_router
+from backend.routes.faculty_research import router as faculty_research_router
+from backend.routes.faculty_compliance import router as faculty_compliance_router
+from backend.routes.faculty_okr import router as faculty_okr_router
+from backend.routes.faculty_publications import router as faculty_publications_router
 from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
@@ -80,7 +89,16 @@ async def serve_frontend():
 
 app.include_router(staff_router)
 app.include_router(faculty_router)
+app.include_router(faculty_mgmt_router)
+app.include_router(faculty_feedback_router)
+app.include_router(faculty_skills_router)
+app.include_router(faculty_mentorship_router)
+app.include_router(faculty_research_router)
+app.include_router(faculty_compliance_router)
+app.include_router(faculty_okr_router)
+app.include_router(faculty_publications_router)
 app.include_router(payroll_router)
+app.include_router(payroll_dev_router)
 app.include_router(analytics_router)
 app.include_router(exams_router)
 app.include_router(timetable_router)

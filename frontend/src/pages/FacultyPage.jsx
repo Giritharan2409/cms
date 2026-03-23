@@ -2,242 +2,289 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
+import FacultyTable from '../components/FacultyTable';
+import SearchFilter from '../components/SearchFilter';
 import AddEditFacultyModal from '../components/AddEditFacultyModal';
-import { 
-  Users, UserPlus, Filter, Search, BookOpen, Clock, 
-  MapPin, Award, CheckCircle, XCircle 
-} from 'lucide-react';
 import '../styles.css';
-import { API_BASE } from '../api/apiBase';
+
+const API_BASE_URL = '/api';
 
 export default function FacultyPage() {
   const [facultyList, setFacultyList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [departmentFilter, setDepartmentFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editFaculty, setEditFaculty] = useState(null);
+  const [editingFaculty, setEditingFaculty] = useState(null);
   
+  const ITEMS_PER_PAGE = 8;
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchFaculty();
-  }, [departmentFilter, statusFilter]);
+  }, []);
 
   const fetchFaculty = async () => {
     setLoading(true);
     try {
-      let url = `${API_BASE}/faculty?`;
-      if (departmentFilter) url += `departmentId=${departmentFilter}&`;
-      if (statusFilter) url += `employmentStatus=${statusFilter}&`;
-      
-      const response = await fetch(url);
+      const response = await fetch(`${API_BASE_URL}/faculty`);
+      if (!response.ok) throw new Error('Failed to fetch faculty');
       const data = await response.json();
       setFacultyList(data);
-    } catch (error) {
-      console.error('Error fetching faculty mapping:', error);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching faculty:', err);
+      setError(err.message);
+      setFacultyList([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredFaculty = facultyList.filter(f => 
-    f.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    f.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
+  const seedFacultyData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/faculty/seed/data`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        alert(`${data.message}`);
+        await fetchFaculty();
+      } else {
+        alert('Failed to seed faculty data');
+      }
+    } catch (err) {
+      console.error('Error seeding data:', err);
+      alert('Error seeding data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter faculty based on search query
+  const filteredFaculty = facultyList.filter(faculty =>
+    faculty.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    faculty.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    faculty.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Pagination
+  const totalPages = Math.ceil(filteredFaculty.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedFaculty = filteredFaculty.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
+
+  const handleAddFaculty = () => {
+    setEditingFaculty(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditFaculty = (faculty) => {
+    setEditingFaculty(faculty);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteFaculty = async (faculty) => {
+    if (!window.confirm(`Are you sure you want to delete ${faculty.name}?`)) return;
+    
+    try {
+      const facultyId = faculty._id || faculty.id || faculty.employeeId;
+      const response = await fetch(`${API_BASE_URL}/faculty/${facultyId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        setFacultyList(facultyList.filter(f => f._id !== faculty._id && f.employeeId !== faculty.employeeId));
+        alert('Faculty member deleted successfully');
+      } else {
+        alert('Failed to delete faculty member');
+      }
+    } catch (err) {
+      console.error('Error deleting faculty:', err);
+      alert('Error deleting faculty member');
+    }
+  };
+
+  const handleCloseFaculty = async () => {
+    setIsModalOpen(false);
+    setEditingFaculty(null);
+    await fetchFaculty();
+  };
+
+  const handleModalSuccess = async () => {
+    setIsModalOpen(false);
+    setEditingFaculty(null);
+    await fetchFaculty();
+  };
+
+  // Calculate stats
+  const activeFaculty = facultyList.filter(f => f.employment_status === 'Active').length;
+  const onLeave = facultyList.filter(f => f.employment_status === 'On-Leave').length;
 
   return (
     <Layout title="Faculty Directory">
-      <div className="page-container">
-        <div className="page-header" style={{ marginBottom: '2rem' }}>
-          <div>
-            <h1 className="page-title">Faculty Management</h1>
-            <p className="page-subtitle">Manage faculty profiles, course mappings, and performance</p>
-          </div>
-          <div className="page-actions">
-            <button 
-              className="btn btn-primary" 
-              onClick={() => { setEditFaculty(null); setIsModalOpen(true); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}
-            >
-              <UserPlus size={18} />
-              Add Faculty
-            </button>
-          </div>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div className="flex-1">
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Faculty Management</h1>
+          <p className="text-slate-600 font-medium">Manage faculty profiles, course mappings, and performance metrics</p>
         </div>
+      </div>
 
-      <div className="stats-grid" style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+      {/* Statistics Cards Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard 
           icon="group" 
-          title="Total Faculty" 
-          value={facultyList.length} 
-          trend="+2" 
-          trendUp={true} 
-          color="blue" 
+          label="Total Faculty" 
+          value={facultyList.length}
+          color="blue"
         />
         <StatCard 
-          icon="workspace_premium" 
-          title="Active Members" 
-          value={facultyList.filter(f => f.employment_status === 'Active').length} 
-          trend="0" 
-          trendUp={true} 
-          color="green" 
+          icon="task_alt" 
+          label="Active Members" 
+          value={activeFaculty}
+          trend={`${onLeave} on leave`}
+          color="green"
         />
         <StatCard 
           icon="domain" 
-          title="Departments" 
-          value={new Set(facultyList.map(f => f.departmentId)).size} 
-          trend="Stable" 
-          trendUp={true} 
-          color="purple" 
+          label="Departments" 
+          value={new Set(facultyList.map(f => f.department_id)).size}
+          color="purple"
         />
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h2 className="card-title">Faculty Directory</h2>
-          </div>
-          
-          <div className="filters-group" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            <div className="search-bar" style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-color)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', gridColumn: 'span 1' }}>
-              <Search size={18} style={{ color: 'var(--text-tertiary)', marginRight: '0.75rem', flexShrink: 0 }} />
-              <input 
-                type="text" 
-                placeholder="Search by name or ID..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-primary)', width: '100%', fontSize: '0.95rem' }}
-              />
-            </div>
-            
-            <select 
-              className="select-input" 
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.95rem', cursor: 'pointer' }}
-            >
-              <option value="">All Departments</option>
-              <option value="Computer Science">Computer Science</option>
-              <option value="Electrical Engineering">Electrical Engineering</option>
-              <option value="Mechanical Engineering">Mechanical Engineering</option>
-            </select>
-            
-            <select 
-               className="select-input"
-               value={statusFilter}
-               onChange={(e) => setStatusFilter(e.target.value)}
-               style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--surface-color)', color: 'var(--text-primary)', fontSize: '0.95rem', cursor: 'pointer' }}
-            >
-              <option value="">All Statuses</option>
-              <option value="Active">Active</option>
-              <option value="On-Leave">On Leave</option>
-              <option value="Terminated">Terminated</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: 'var(--surface-color)', borderBottom: '2px solid var(--border-color)' }}>
-                <th style={{ width: '10%', padding: '1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Faculty ID</th>
-                <th style={{ width: '22%', padding: '1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Name</th>
-                <th style={{ width: '18%', padding: '1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Designation</th>
-                <th style={{ width: '15%', padding: '1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Department</th>
-                <th style={{ width: '18%', padding: '1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Email</th>
-                <th style={{ width: '10%', padding: '1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Status</th>
-                <th style={{ width: '7%', padding: '1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Loading Faculty Data...</td></tr>
-              ) : filteredFaculty.length > 0 ? (
-                filteredFaculty.map((faculty, index) => (
-                  <tr key={faculty._id} style={{ 
-                    borderBottom: '1px solid var(--border-color)', 
-                    backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
-                    transition: 'background-color 0.2s ease'
-                  }} 
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'}
-                  >
-                    <td style={{ padding: '1rem', color: 'var(--primary)', fontWeight: 600, fontSize: '0.9rem', textAlign: 'left' }}>
-                      {faculty.employeeId}
-                    </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.9rem', textAlign: 'left' }}>
-                      {faculty.name}
-                    </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem', textAlign: 'left' }}>
-                      {faculty.designation || 'Faculty Member'}
-                    </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-primary)', fontSize: '0.9rem', textAlign: 'left' }}>
-                      {faculty.departmentId}
-                    </td>
-                    <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'left', wordBreak: 'break-word' }}>
-                      {faculty.email || 'N/A'}
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
-                      <span style={{ 
-                        display: 'inline-block', 
-                        padding: '0.4rem 0.8rem', 
-                        borderRadius: 'var(--radius-md)', 
-                        fontSize: '0.8rem', 
-                        fontWeight: 600,
-                        backgroundColor: faculty.employment_status === 'Active' ? '#d1fae5' : 
-                                       faculty.employment_status === 'On-Leave' ? '#fef3c7' : '#fee2e2',
-                        color: faculty.employment_status === 'Active' ? '#065f46' : 
-                               faculty.employment_status === 'On-Leave' ? '#92400e' : '#7f1d1d',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {faculty.employment_status || 'Active'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
-                      <button 
-                        onClick={() => navigate(`/faculty/${faculty.employeeId}`)}
-                        style={{ 
-                          padding: '0.5rem 1rem', 
-                          fontSize: '0.85rem', 
-                          fontWeight: 500,
-                          backgroundColor: 'var(--primary)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: 'var(--radius-md)',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          whiteSpace: 'nowrap'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="7" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                    No faculty members found matching your criteria.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Search and Filter Toolbar */}
+      <div className="mb-6">
+        <SearchFilter 
+          searchQuery={searchQuery}
+          onSearchChange={handleSearch}
+          onAddClick={handleAddFaculty}
+          placeholder="Search faculty by name, ID, or email..."
+          addButtonLabel="Add Faculty"
+        />
       </div>
 
-      <AddEditFacultyModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchFaculty}
-        editMode={!!editFaculty}
-        initialData={editFaculty}
-      />
-    </div>
+      {/* Faculty Table Section */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="w-full h-96 flex flex-col items-center justify-center gap-4 animate-pulse">
+              <div className="w-12 h-12 bg-slate-100 rounded-full" />
+              <div className="w-48 h-4 bg-slate-100 rounded" />
+              <div className="w-32 h-3 bg-slate-50 rounded" />
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8">
+            <div className="flex items-start gap-4">
+              <span className="material-symbols-outlined text-red-500 text-5xl">cloud_off</span>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-red-900 mb-1">Connection Error</h3>
+                <p className="text-red-700 mb-6">{error}</p>
+                <button 
+                  onClick={fetchFaculty}
+                  className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all shadow-sm"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : paginatedFaculty.length > 0 ? (
+          <>
+            <FacultyTable 
+              faculty={paginatedFaculty}
+              onEdit={handleEditFaculty}
+              onDelete={handleDeleteFaculty}
+            />
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 px-6 py-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <button 
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  title="Previous Page"
+                >
+                  <span className="material-symbols-outlined inline">chevron_left</span>
+                </button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-10 h-10 rounded-lg text-sm font-bold transition-all ${
+                        page === currentPage 
+                          ? 'bg-[#1162d4] text-white shadow-md' 
+                          : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  title="Next Page"
+                >
+                  <span className="material-symbols-outlined inline">chevron_right</span>
+                </button>
+                
+                <div className="ml-4 px-4 py-2 bg-slate-50 rounded-lg text-sm font-semibold text-slate-600">
+                  Page {currentPage} of {totalPages}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-10 py-24 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                  <span className="material-symbols-outlined text-4xl text-slate-400">group_off</span>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-slate-900 mb-1">No faculty members found</p>
+                  <p className="text-slate-500 text-sm mb-6">
+                    {searchQuery ? 'Try adjusting your filters or search terms' : 'Get started by adding new faculty members'}
+                  </p>
+                </div>
+                {!searchQuery && (
+                  <button 
+                    onClick={seedFacultyData}
+                    className="flex items-center gap-2 px-6 py-3 bg-[#1162d4] text-white rounded-xl font-bold hover:bg-[#0d4fa8] transition-all shadow-md hover:shadow-lg"
+                  >
+                    <span className="material-symbols-outlined">download</span>
+                    Load Demo Data
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Faculty Modal */}
+      {isModalOpen && (
+        <AddEditFacultyModal 
+          isOpen={isModalOpen}
+          onClose={handleCloseFaculty}
+          onSuccess={handleModalSuccess}
+          editMode={!!editingFaculty}
+          initialData={editingFaculty}
+        />
+      )}
     </Layout>
   );
 }

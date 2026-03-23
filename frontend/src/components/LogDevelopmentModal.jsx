@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { API_BASE } from '../api/apiBase';
 
 export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facultyId }) {
   const [formData, setFormData] = useState({
@@ -32,7 +31,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
     setError(null);
     
     try {
-      const response = await fetch(`${API_BASE}/faculty/${facultyId}/development`, {
+      const response = await fetch(`/api/faculty/${facultyId}/development`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -55,7 +54,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Log Development Activity</h2>

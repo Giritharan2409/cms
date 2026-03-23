@@ -35,6 +35,8 @@ class Faculty(BaseModel):
     join_date: Optional[str] = None
     employment_status: str = "Active"  # Active, On-Leave, Terminated
     publications: List[Publication] = []
+    contract_end_date: Optional[str] = None
+    compliance_status: str = "Compliant"  # Compliant, Non-Compliant, Pending Review
     
     # Basic Payroll integration fields (can be expanded later)
     basic_salary: Optional[float] = Field(None, alias="basicSalary")

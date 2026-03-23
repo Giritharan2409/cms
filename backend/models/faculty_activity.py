@@ -29,3 +29,24 @@ class ProfessionalDevelopment(BaseModel):
     description: Optional[str] = None
     status: str = "Completed" # Planned, In-Progress, Completed
     credits_earned: Optional[float] = None
+
+class FacultyMentorship(BaseModel):
+    mentor_id: str = Field(alias="mentorId")
+    mentee_id: str = Field(alias="menteeId")
+    start_date: str
+    end_date: Optional[str] = None
+    goals: Optional[str] = None
+    status: str = "Active"  # Active, Completed, Cancelled
+    created_date: datetime = Field(default_factory=datetime.utcnow)
+
+class ResearchProject(BaseModel):
+    title: str
+    description: Optional[str] = None
+    lead_faculty_id: str = Field(alias="leadFacultyId")
+    collaborator_ids: List[str] = Field(default_factory=list, alias="collaboratorIds")
+    funding_amount: Optional[float] = Field(None, alias="fundingAmount")
+    funding_source: Optional[str] = None
+    status: str = "Ongoing"  # Proposed, Ongoing, Completed, OnHold
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    created_date: datetime = Field(default_factory=datetime.utcnow)
