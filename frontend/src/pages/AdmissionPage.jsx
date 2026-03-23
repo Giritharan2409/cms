@@ -32,7 +32,18 @@ export default function AdmissionPage() {
 
   const filteredApps = useMemo(() => {
     const apps = activeTab === 'students' ? studentApps : facultyApps;
-    return apps.filter((app) =>
+    return apps.map(app => {
+      // Map backend faculty fields to frontend expected fields
+      if (activeTab === 'faculty') {
+        return {
+          ...app,
+          role: app.designation || app.role,
+          experience: app.yearsOfExperience,
+          highestQualification: app.qualification,
+        };
+      }
+      return app;
+    }).filter((app) =>
       app.name?.toLowerCase().includes(searchName.toLowerCase()) ||
       app.fullName?.toLowerCase().includes(searchName.toLowerCase())
     );

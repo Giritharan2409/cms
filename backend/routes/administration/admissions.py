@@ -265,12 +265,104 @@ async def get_student_admissions():
     return data
 
 
+@router.get("/students/approved-for-fees")
+async def get_approved_students_for_fees():
+    """Get only APPROVED students with valid ID fields - ready for fee assignment.
+    STRICT validation: Only returns students that can be found with exact ID match."""
+    admissions_collection = _admissions_collection()
+    data: list[dict[str, Any]] = []
+
+    # Query: only approved students
+    query = {
+        "$and": [
+            {"$or": [{"role": "student"}, {"type": "student"}]},
+            {"status": "Approved"}
+        ]
+    }
+    
+    async for item in admissions_collection.find(query).sort("created_at", -1):
+        serialized = _serialize_admission(item)
+        student_id = serialized.get("id")
+        
+        # STRICT VALIDATION: Verify using EXACT field match (not $or queries)
+        # This prevents false positives from corrupted records
+        if student_id:
+            # Try exact match on 'id' field first (most reliable)
+            exact_match = await admissions_collection.find_one({"id": student_id})
+            
+            if exact_match:
+                # Double-check this is the same student (compare MongoDB IDs)
+                if str(exact_match.get("_id")) == str(item.get("_id")):
+                    data.append(serialized)
+
+    return {"approved_students": data, "count": len(data)}
+
+
+@router.delete("/purge-invalid-approved")
+async def purge_invalid_approved():
+    """Admin endpoint: Remove approved students with invalid/non-existent IDs."""
+    admissions_collection = _admissions_collection()
+    removed_count = 0
+    to_delete = []
+
+    # Find all approved students
+    query = {
+        "$and": [
+            {"$or": [{"role": "student"}, {"type": "student"}]},
+            {"status": "Approved"}
+        ]
+    }
+    
+    async for item in admissions_collection.find(query):
+        student_id = item.get("id") or item.get("admission_id")
+        
+        if not student_id:
+            # No ID field at all - mark for deletion
+            to_delete.append(item.get("_id"))
+        else:
+            # ID exists, verify it can be found
+            exact_match = await admissions_collection.find_one({"id": student_id})
+            
+            # If ID doesn't match exactly, it's corrupted - delete
+            if not exact_match or str(exact_match.get("_id")) != str(item.get("_id")):
+                to_delete.append(item.get("_id"))
+
+    # Delete invalid records
+    if to_delete:
+        result = await admissions_collection.delete_many({"_id": {"$in": to_delete}})
+        removed_count = result.deleted_count
+        print(f"[PURGE] Removed {removed_count} invalid approved students")
+
+    return {
+        "message": f"Purged {removed_count} invalid records",
+        "removed_count": removed_count
+    }
+
+
 @router.put("/approve/{admission_id}")
 async def approve_admission(admission_id: str):
     admissions_collection = _admissions_collection()
+    
+    # First, fetch the admission to check if it has an ID
+    admission = await admissions_collection.find_one(_build_lookup_query(admission_id))
+    if not admission:
+        raise HTTPException(status_code=404, detail="Admission not found")
+    
+    # Ensure the admission has an ID field (for fee assignment lookup)
+    update_data = {
+        "status": "Approved",
+        "updated_at": _utc_now_iso()
+    }
+    
+    # If no ID field exists, generate one
+    if not admission.get("id") and not admission.get("admission_id"):
+        new_id = f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+        update_data["id"] = new_id
+        update_data["admission_id"] = new_id
+    
     result = await admissions_collection.update_one(
         _build_lookup_query(admission_id),
-        {"$set": {"status": "Approved", "updated_at": _utc_now_iso()}},
+        {"$set": update_data},
     )
 
     if result.matched_count == 0:
@@ -302,3 +394,123 @@ async def delete_admission(admission_id: str):
         raise HTTPException(status_code=404, detail="Admission not found")
 
     return {"message": "Admission deleted successfully", "id": admission_id}
+
+
+# -----------------
+# Faculty Admissions Routes
+# -----------------
+
+def _faculty_admissions_collection():
+    return get_db()["faculty_admissions"]
+
+
+async def _get_faculty_collection():
+    db = get_db()
+    return db["faculty"]
+
+
+def _serialize_faculty_admission(item: dict[str, Any]) -> dict[str, Any]:
+    """Serialize faculty admission document"""
+    serialized = dict(item)
+    serialized["_id"] = str(serialized["_id"])
+    
+    if not serialized.get("id"):
+        serialized["id"] = serialized.get("admission_id") or serialized["_id"]
+    if not serialized.get("admission_id"):
+        serialized["admission_id"] = serialized["id"]
+    
+    return serialized
+
+
+def _build_faculty_lookup_query(faculty_admission_id: str) -> dict[str, Any]:
+    """Build query for finding faculty admission by multiple fields"""
+    lookup: list[dict[str, Any]] = [
+        {"id": faculty_admission_id},
+        {"admission_id": faculty_admission_id},
+    ]
+    if ObjectId.is_valid(faculty_admission_id):
+        lookup.append({"_id": ObjectId(faculty_admission_id)})
+    return {"$or": lookup}
+
+
+@router.get("/faculty")
+async def get_faculty_admissions():
+    """Get all faculty admissions"""
+    faculty_admissions_collection = _faculty_admissions_collection()
+    data: list[dict[str, Any]] = []
+    
+    async for item in faculty_admissions_collection.find().sort("created_at", -1):
+        data.append(_serialize_faculty_admission(item))
+    
+    return data
+
+
+@router.get("/faculty/{faculty_admission_id}")
+async def get_faculty_admission(faculty_admission_id: str):
+    """Get specific faculty admission by ID"""
+    faculty_admissions_collection = _faculty_admissions_collection()
+    
+    # Try to find by multiple ID formats
+    doc = None
+    try:
+        obj_id = ObjectId(faculty_admission_id)
+        doc = await faculty_admissions_collection.find_one({"_id": obj_id})
+    except:
+        pass
+    
+    if not doc:
+        doc = await faculty_admissions_collection.find_one(
+            {"$or": [{"id": faculty_admission_id}, {"admission_id": faculty_admission_id}]}
+        )
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Faculty admission not found")
+    
+    return _serialize_faculty_admission(doc)
+
+
+@router.put("/faculty/approve/{faculty_admission_id}")
+async def approve_faculty_admission(faculty_admission_id: str):
+    """Approve faculty admission"""
+    faculty_admissions_collection = _faculty_admissions_collection()
+    
+    result = await faculty_admissions_collection.update_one(
+        _build_faculty_lookup_query(faculty_admission_id),
+        {"$set": {"status": "Approved", "updated_at": _utc_now_iso()}},
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Faculty admission not found")
+    
+    return {"message": "Faculty admission approved successfully", "id": faculty_admission_id}
+
+
+@router.put("/faculty/reject/{faculty_admission_id}")
+async def reject_faculty_admission(faculty_admission_id: str):
+    """Reject faculty admission"""
+    faculty_admissions_collection = _faculty_admissions_collection()
+    
+    result = await faculty_admissions_collection.update_one(
+        _build_faculty_lookup_query(faculty_admission_id),
+        {"$set": {"status": "Rejected", "updated_at": _utc_now_iso()}},
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Faculty admission not found")
+    
+    return {"message": "Faculty admission rejected successfully", "id": faculty_admission_id}
+
+
+@router.delete("/faculty/{faculty_admission_id}")
+async def delete_faculty_admission(faculty_admission_id: str):
+    """Delete faculty admission"""
+    faculty_admissions_collection = _faculty_admissions_collection()
+    
+    result = await faculty_admissions_collection.delete_one(
+        _build_faculty_lookup_query(faculty_admission_id)
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Faculty admission not found")
+    
+    return {"message": "Faculty admission deleted successfully", "id": faculty_admission_id}
