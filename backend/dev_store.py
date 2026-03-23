@@ -178,10 +178,10 @@ def _marking_key(class_id: str, date: str, hour: str):
 
 
 def list_attendance_markings(
-    class_id: str | None = None,
-    date: str | None = None,
-    hour: str | None = None,
-    student_id: str | None = None,
+    class_id: Optional[str] = None,
+    date: Optional[str] = None,
+    hour: Optional[str] = None,
+    student_id: Optional[str] = None,
 ):
     items = deepcopy(list(DEV_STORE["attendance_markings"].values()))
     if class_id:
@@ -207,7 +207,7 @@ def upsert_attendance_marking(data: dict):
     return deepcopy(payload)
 
 
-def list_od_requests(student_id: str | None = None, status: str | None = None):
+def list_od_requests(student_id: Optional[str] = None, status: Optional[str] = None):
     items = deepcopy(DEV_STORE["od_requests"])
     if student_id:
         items = [item for item in items if item.get("studentId") == student_id]
@@ -244,7 +244,7 @@ def update_od_request(request_id: str, data: dict):
     return deepcopy(item)
 
 
-def update_od_request_status(request_id: str, status: str, reviewed_by: str | None = None):
+def update_od_request_status(request_id: str, status: str, reviewed_by: Optional[str] = None):
     item = next(
         (
             entry for entry in DEV_STORE["od_requests"]
