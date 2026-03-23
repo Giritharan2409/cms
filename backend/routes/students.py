@@ -7,160 +7,9 @@ from backend.db import get_db
 from backend.dev_store import DEV_STORE
 from backend.schemas.common import StudentRecord
 from backend.utils.mongo import serialize_doc
-from backend.utils.student_id import generate_student_id
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
-# --- Helper Functions for Data Initialization ---
-
-def get_initial_subjects(dept: str, semester: int):
-    """Returns a list of subjects based on department and semester."""
-    # Mapping for all core departments
-    mapping = {
-        "Computer Science": [
-            {"code": "CS", "name": "Programming Fundamentals"},
-            {"code": "MA", "name": "Eng. Mathematics"},
-            {"code": "PH", "name": "Applied Physics"},
-            {"code": "CS", "name": "Data Structures"},
-            {"code": "CS", "name": "Digital Logic"},
-        ],
-        "Mechanical": [
-            {"code": "ME", "name": "Eng. Graphics"},
-            {"code": "MA", "name": "Eng. Mathematics"},
-            {"code": "PH", "name": "Applied Physics"},
-            {"code": "ME", "name": "Thermodynamics"},
-        ],
-        "Electronics": [
-            {"code": "EE", "name": "Circuit Theory"},
-            {"code": "MA", "name": "Eng. Mathematics"},
-            {"code": "PH", "name": "Applied Physics"},
-            {"code": "EC", "name": "Analog Electronics"},
-        ],
-        "Civil": [
-            {"code": "CE", "name": "Surveying"},
-            {"code": "MA", "name": "Eng. Mathematics"},
-            {"code": "PH", "name": "Applied Physics"},
-            {"code": "CE", "name": "Fluid Mechanics"},
-        ]
-    }
-    
-    # Generic fallback
-    default_subjects = [
-        {"code": "GS", "name": "General Studies"},
-        {"code": "MA", "name": "Basic Mathematics"},
-        {"code": "EN", "name": "Professional English"},
-    ]
-    
-    selected = mapping.get(dept, default_subjects)
-    all_subjects = []
-    
-    import random
-    import copy
-    
-    for sem in range(1, semester + 1):
-        for i, sub in enumerate(selected):
-            new_sub = copy.deepcopy(sub)
-            new_sub["semester"] = sem
-            # Generate unique code per semester
-            prefix = new_sub["code"]
-            num = 100 + (sem * 10) + i
-            new_sub["code"] = f"{prefix}{num}"
-            
-            if sem < semester:
-                # Mock grades for past semesters
-                new_sub["grade"] = random.choice(["A", "A+", "B+", "B", "A-"])
-                new_sub["total"] = random.randint(75, 96)
-                new_sub["status"] = "Passed"
-                # Granular breakdown
-                m = new_sub["total"]
-                new_sub["breakdown"] = {
-                    "midTerm": round(m * 0.3, 1),
-                    "assignments": round(m * 0.1, 1),
-                    "finalExam": round(m * 0.6, 1)
-                }
-            else:
-                # Current semester
-                new_sub["grade"] = "Pending"
-                new_sub["total"] = 0
-                new_sub["status"] = "In Progress"
-                new_sub["breakdown"] = {
-                    "midTerm": random.randint(20, 28),
-                    "assignments": random.randint(8, 10),
-                    "finalExam": 0
-                }
-                
-            all_subjects.append(new_sub)
-            
-    return all_subjects
-
-def get_initial_fees(admission_type: str):
-    """Returns initial fee records."""
-    import datetime
-    today = datetime.date.today().isoformat()
-    return [
-        {
-            "id": "FEE-INIT-001",
-            "type": "Tuition Fee",
-            "amount": 80000 if admission_type == "Regular" else 60000,
-            "paid": 0,
-            "due": 80000 if admission_type == "Regular" else 60000,
-            "date": today,
-            "status": "Unpaid"
-        },
-        {
-            "id": "FEE-INIT-002",
-            "type": "Registration Fee",
-            "amount": 5000,
-            "paid": 5000,
-            "due": 0,
-            "date": today,
-            "status": "Paid"
-        }
-    ]
-
-def convert_docs_to_list(docs_dict: dict):
-    """Converts the 'docs' object from frontend to a list of Document objects."""
-    import datetime
-    import random
-    today = datetime.date.today().isoformat()
-    doc_list = []
-    if not docs_dict:
-        return doc_list
-        
-    mapping = {
-        "marksheet10": "10th Marksheet",
-        "marksheet12": "12th Marksheet",
-        "aadhar": "Aadhar Card",
-        "photo": "Passport Photo",
-        "tc": "Transfer Certificate"
-    }
-    
-    for key, label in mapping.items():
-        val = docs_dict.get(key)
-        if val:
-            # Handle both string (URL/Base64) and object {name, size, type}
-            name = label
-            size = f"{random.uniform(0.5, 2.5):.1f} MB"
-            doc_type = "pdf"
-            
-            if isinstance(val, dict):
-                name = val.get("name", label)
-                if val.get("size"):
-                    size = f"{val['size'] / 1024 / 1024:.1f} MB"
-                if val.get("type"):
-                    doc_type = "pdf" if "pdf" in val["type"].lower() else "image"
-            elif isinstance(val, str) and (val.startswith("data:image") or ".jpg" in val or ".png" in val):
-                doc_type = "image"
-
-            doc_list.append({
-                "id": f"DOC-{key.upper()}-{random.randint(100, 999)}",
-                "name": name,
-                "type": doc_type,
-                "uploadDate": today,
-                "size": size,
-                "status": "Verified"
-            })
-    return doc_list
 
 def _seed_dev_students() -> None:
     if DEV_STORE.get("students"):
@@ -464,18 +313,6 @@ def _seed_dev_students() -> None:
     ]
 
 
-@router.get("/generate-id")
-async def get_next_student_id(department: str, year: str):
-    try:
-        db = get_db()
-        new_id = await generate_student_id(db, department, year)
-        return {"id": new_id}
-    except Exception as e:
-        # Fallback for dev mode
-        dept_code = department[:3].upper()
-        return {"id": f"{dept_code}-{year}-001"}
-
-
 @router.get("")
 async def list_students():
     try:
@@ -517,140 +354,15 @@ async def get_student(student_id: str):
     )
     if not row:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    # Initialize missing fields for existing students on-the-fly
-    updated_data = {}
-    
-    if not row.get("subjects"):
-        row["subjects"] = get_initial_subjects(row.get("department", "Computer Science"), row.get("semester", 1))
-        updated_data["subjects"] = row["subjects"]
-    
-    if not row.get("fees"):
-        row["fees"] = get_initial_fees(row.get("admissionType", "Regular"))
-        updated_data["fees"] = row["fees"]
-        
-    if not row.get("attendancePct"):
-        import random
-        row["attendancePct"] = random.randint(75, 98)
-        updated_data["attendancePct"] = row["attendancePct"]
-        
-    if not row.get("bloodGroup"):
-        import random
-        row["bloodGroup"] = random.choice(["A+", "O+", "B+", "AB+", "A-", "O-"])
-        updated_data["bloodGroup"] = row["bloodGroup"]
-        
-    if not row.get("attendanceMonthly"):
-        import random
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        current_month_idx = 5 # June for demo
-        row["attendanceMonthly"] = [
-            {"month": months[m], "present": random.randint(18, 22), "total": 24}
-            for m in range(current_month_idx + 1)
-        ]
-        updated_data["attendanceMonthly"] = row["attendanceMonthly"]
-
-    if not row.get("documents"):
-        # Check both 'documents' and 'docs' (legacy)
-        legacy_docs = row.get("docs")
-        if legacy_docs:
-            row["documents"] = convert_docs_to_list(legacy_docs)
-            updated_data["documents"] = row["documents"]
-        else:
-            row["documents"] = []
-            updated_data["documents"] = []
-
-    if updated_data:
-        await db["students"].update_one({"_id": row["_id"]}, {"$set": updated_data})
-
-    if updated_data:
-        await db["students"].update_one({"_id": row["_id"]}, {"$set": updated_data})
-
     return serialize_doc(row)
 
 
 @router.post("", status_code=201)
 async def create_student(payload: StudentRecord):
     data = payload.model_dump()
-    
-    if not data.get("id"):
-        # We need department and year to generate the ID
-        dept = data.get("department", "GEN")
-        
-        # Get admission year (current year if not provided)
-        from datetime import datetime
-        admission_year = str(datetime.now().year)
-        if data.get("enrollDate"):
-            enroll_date = data["enrollDate"]
-            if isinstance(enroll_date, datetime):
-                admission_year = str(enroll_date.year)
-            elif isinstance(enroll_date, str):
-                try:
-                    # Expecting YYYY-MM-DD
-                    admission_year = enroll_date.split("-")[0]
-                except Exception:
-                    pass
-        
-        try:
-            db = get_db()
-            data["id"] = await generate_student_id(db, dept, admission_year)
-        except HTTPException as error:
-            if error.status_code == 503:
-                # Fallback for dev store if needed
-                # For now, just generate a simple one
-                data["id"] = f"{dept[:3].upper()}-{admission_year}-001"
-            else:
-                raise
 
     if not data.get("rollNumber"):
         data["rollNumber"] = data["id"]
-
-    # --- Initialize Extra Profile Fields ---
-    if not data.get("attendancePct"):
-        import random
-        data["attendancePct"] = random.randint(75, 98) 
-        
-    if not data.get("cgpa"):
-        data["cgpa"] = 0.0 
-        
-    if not data.get("status"):
-        data["status"] = "Active"
-        
-    if not data.get("feeStatus"):
-        data["feeStatus"] = "Pending"
-
-    if not data.get("bloodGroup"):
-        import random
-        data["bloodGroup"] = random.choice(["A+", "O+", "B+", "AB+", "A-", "O-"])
-
-    if not data.get("attendanceMonthly"):
-        import random
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        current_month_idx = 5 # June
-        data["attendanceMonthly"] = [
-            {"month": months[m], "present": random.randint(18, 22), "total": 24}
-            for m in range(current_month_idx + 1)
-        ]
-
-    # Map guardianName if guardian is missing (UI compatibility)
-    if data.get("guardianName") and not data.get("guardian"):
-        data["guardian"] = data["guardianName"]
-    
-    if data.get("guardian") and not data.get("guardianName"):
-        data["guardianName"] = data["guardian"]
-
-    # Auto-assign initial data if lists are empty
-    if not data.get("subjects"):
-        data["subjects"] = get_initial_subjects(data.get("department", "Computer Science"), data.get("semester", 1))
-        
-    if not data.get("fees"):
-        data["fees"] = get_initial_fees(data.get("admissionType", "Regular"))
-        
-    if not data.get("documents"):
-        # Check both 'documents' and 'docs' (legacy)
-        if data.get("docs"):
-            data["documents"] = convert_docs_to_list(data["docs"])
-        else:
-            data["documents"] = []
 
     try:
         db = get_db()
@@ -666,7 +378,6 @@ async def create_student(payload: StudentRecord):
                 None,
             )
             if exists:
-                # If generated ID exists, we might need to retry, but for simplicity:
                 raise HTTPException(status_code=400, detail="Student with this id already exists")
             DEV_STORE["students"].insert(0, deepcopy(data))
             return data
@@ -704,112 +415,14 @@ async def update_student(student_id: str, payload: dict):
             return deepcopy(target)
         raise
 
-    student_doc = await db["students"].find_one_and_update(
+    result = await db["students"].find_one_and_update(
         {"$or": [{"id": student_id}, {"rollNumber": student_id}]},
         {"$set": payload},
         return_document=ReturnDocument.AFTER,
     )
-    if not student_doc:
-        raise HTTPException(status_code=404, detail="Student not found")
-        
-    # Ensure new fields exist for old records
-    if "skills" not in student_doc:
-        student_doc["skills"] = {
-            "Mathematics": 85, "Logic": 78, "Programming": 92, "Core CS": 80, "Soft Skills": 88
-        }
-    if "appeals" not in student_doc:
-        student_doc["appeals"] = []
-        
-    return serialize_doc(student_doc)
-
-@router.get("/{id}/transcript")
-async def get_transcript(id: str):
-    """Mock endpoint for generating a provisional transcript."""
-    # In a real app, this would use a PDF library like ReportLab or WeasyPrint
-    return {
-        "id": id,
-        "type": "Provisional Transcript",
-        "issueDate": "2026-03-23",
-        "status": "Generated",
-        "downloadUrl": f"/api/students/{id}/transcript/pdf" 
-    }
-
-@router.post("/{id}/appeals")
-async def create_appeal(id: str, appeal: dict):
-    """Submits a grade appeal for a student."""
-    import datetime # Import datetime here as it's used in this function
-    db = await get_db()
-    appeal_record = {
-        "id": f"APP-{int(datetime.datetime.now().timestamp())}",
-        "subjectCode": appeal.get("subjectCode"),
-        "reason": appeal.get("reason"),
-        "status": "Pending",
-        "date": datetime.datetime.now().isoformat()
-    }
-    
-    result = await db.students.find_one_and_update(
-        {"id": id},
-        {"$push": {"appeals": appeal_record}},
-        return_document=ReturnDocument.AFTER
-    )
-    
     if not result:
         raise HTTPException(status_code=404, detail="Student not found")
-        
-    return serialize_doc(appeal_record)
-
-@router.get("/placement/requirements")
-async def get_placement_requirements():
-    """Returns mock recruiter criteria for the radar chart."""
-    return [
-        {
-            "name": "Top Tech Corp",
-            "Mathematics": 90,
-            "Logic": 85,
-            "Programming": 95,
-            "Core CS": 90,
-            "Soft Skills": 80
-        },
-        {
-            "name": "Average Recruiter",
-            "Mathematics": 70,
-            "Logic": 70,
-            "Programming": 75,
-            "Core CS": 70,
-            "Soft Skills": 75
-        }
-    ]
-
-
-@router.post("/{student_id}/subjects")
-async def add_student_subject(student_id: str, subject: dict):
-    """Adds a new academic record (subject) to a student."""
-    try:
-        db = get_db()
-    except HTTPException as error:
-        if error.status_code == 503:
-            _seed_dev_students()
-            target = next(
-                (item for item in DEV_STORE["students"] 
-                 if item.get("id") == student_id or item.get("rollNumber") == student_id),
-                None
-            )
-            if not target:
-                raise HTTPException(status_code=404, detail="Student not found")
-            if "subjects" not in target:
-                target["subjects"] = []
-            target["subjects"].append(subject)
-            return subject
-        raise
-
-    result = await db["students"].find_one_and_update(
-        {"$or": [{"id": student_id}, {"rollNumber": student_id}]},
-        {"$push": {"subjects": subject}},
-        return_document=ReturnDocument.AFTER
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return subject
+    return serialize_doc(result)
 
 
 @router.delete("/{student_id}")

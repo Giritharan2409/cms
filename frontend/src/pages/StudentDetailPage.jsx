@@ -1,21 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  AreaChart, Area,
-  PieChart, Pie, Cell
-} from 'recharts'
-import { motion, AnimatePresence } from 'framer-motion'
 import Layout from '../components/Layout'
-import AddStudentModal from '../components/AddStudentModal'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
 function OverviewTab({ student }) {
-  const attendanceMonthly = student.attendanceMonthly || []
-  const latestMonth = attendanceMonthly[attendanceMonthly.length - 1] || { present: 0, total: 24 }
-  
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left Column - Core Info */}
@@ -52,11 +41,11 @@ function OverviewTab({ student }) {
             <div className="space-y-5">
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Father's Name</p>
-                <p className="text-sm font-medium text-slate-700">{student.guardianName || student.guardian}</p>
+                <p className="text-sm font-medium text-slate-700">{student.guardian}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Relationship</p>
-                <p className="text-sm font-medium text-slate-700">Father</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Mother's Name</p>
+                <p className="text-sm font-medium text-slate-700">Sunita Devi</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Guardian Contact</p>
@@ -79,7 +68,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admission Date</p>
-                  <p className="text-sm font-medium text-slate-700">{student.enrollDate ? new Date(student.enrollDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</p>
+                  <p className="text-sm font-medium text-slate-700">{new Date(student.enrollDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -88,7 +77,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Blood Group</p>
-                  <p className="text-sm font-medium text-slate-700">{student.bloodGroup || 'O+'}</p>
+                  <p className="text-sm font-medium text-slate-700">O+</p>
                </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -97,7 +86,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attendance</p>
-                  <p className="text-sm font-medium text-slate-700">{student.attendancePct || 0}%</p>
+                  <p className="text-sm font-medium text-slate-700">{student.attendancePct}%</p>
                </div>
             </div>
           </div>
@@ -118,36 +107,29 @@ function OverviewTab({ student }) {
 
       {/* Right Column - Trends & Status */}
       <div className="lg:col-span-4 space-y-8">
-        {/* GPA Trend Real */}
+        {/* GPA Trend Mock */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider text-slate-900 leading-none">GPA Trend</h3>
-            <span className="px-2 py-0.5 bg-blue-50 text-[#1162d4] rounded text-[9px] font-bold uppercase tracking-wider">{student.cgpa > 8.5 ? 'Excellent' : student.cgpa > 7.5 ? 'B+ Average' : 'Stable'}</span>
+            <span className="px-2 py-0.5 bg-blue-50 text-[#1162d4] rounded text-[9px] font-bold uppercase tracking-wider">B+ Average</span>
           </div>
           <div className="flex items-end justify-between h-24 gap-2 mb-4">
-            {[1, 2, 3, 4, 5, 6].filter(s => s <= (student.semester || 1)).map((sem) => {
-              const semSubjects = (student.subjects || []).filter(s => s.semester === sem.toString() || s.semester === sem);
-              const passed = semSubjects.filter(s => s.grade !== 'Pending');
-              const gpa = passed.length > 0 
-                ? (passed.reduce((acc, s) => acc + (s.total || 0), 0) / (passed.length * 100)) * 100
-                : 20; // Default height for current sem
-              return (
-                <div key={sem} className="flex-1 flex flex-col items-center gap-2">
-                  <div 
-                    className={`w-full rounded-md transition-all duration-1000 ${sem === (student.semester || 1) ? 'bg-[#1162d4]' : 'bg-[#1162d4]/20'}`} 
-                    style={{ height: `${gpa}%` }} 
-                  />
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">S{sem}</span>
-                </div>
-              );
-            })}
+            {[35, 45, 100, 40].map((h, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                <div 
+                  className={`w-full rounded-md transition-all duration-1000 ${i === 2 ? 'bg-[#1162d4]' : 'bg-[#1162d4]/20'}`} 
+                  style={{ height: `${h}%` }} 
+                />
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">SEM{i+1}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Attendance Calendar Real */}
+        {/* Attendance Calendar Mock */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Attendance: {latestMonth.month} 2026</h3>
+              <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Attendance: June 2024</h3>
               <div className="flex gap-1">
                  <div className="w-2 h-2 rounded-full bg-green-500" />
                  <div className="w-2 h-2 rounded-full bg-red-400" />
@@ -157,19 +139,14 @@ function OverviewTab({ student }) {
               {['M','T','W','T','F','S','S'].map(d => (
                 <div key={d} className="text-center text-[9px] font-bold text-slate-300 py-1">{d}</div>
               ))}
-              {Array.from({length: 21}).map((_, i) => {
-                const isPresent = i < latestMonth.present;
-                const isAbsent = i >= latestMonth.present && i < latestMonth.total;
-                return (
-                  <div key={i} className={`aspect-square rounded-md border border-slate-50 transition-colors cursor-pointer ${
-                    isPresent ? 'bg-green-400' : isAbsent ? 'bg-red-400' : 'bg-slate-50'
-                  }`} />
-                );
-              })}
+              {Array.from({length: 21}).map((_, i) => (
+                <div key={i} className={`aspect-square rounded-md border border-slate-50 transition-colors cursor-pointer ${
+                  i === 15 ? 'bg-red-400' : 
+                  i % 3 === 0 ? 'bg-green-100' : 
+                  i % 2 === 0 ? 'bg-green-400' : 'bg-green-50'
+                }`} />
+              ))}
            </div>
-           <p className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
-              {latestMonth.present} Present / {latestMonth.total} Sessions
-           </p>
         </div>
 
         {/* Academic Alert */}
@@ -189,10 +166,7 @@ function OverviewTab({ student }) {
   )
 }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 23351bd (Academics tab redesign: removed breakdown, added inline grade/status editing and record persistence)
 function SubjectRow({ sub, studentId, onUpdate }) {
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -364,49 +338,6 @@ function AddAcademicRecordModal({ isOpen, onClose, onSave, studentId }) {
   )
 }
 
-<<<<<<< HEAD
-=======
-function PlacementRadarChart({ student }) {
-  const [recruiterCriteria, setRecruiterCriteria] = useState(null);
-
-  useEffect(() => {
-    fetch('http://localhost:5000/api/students/placement/requirements')
-      .then(res => res.json())
-      .then(data => setRecruiterCriteria(data[0])) // Using Top Tech Corp as benchmark
-      .catch(console.error);
-  }, []);
-
-  const data = [
-    { subject: 'Mathematics', student: student.skills?.Mathematics || 0, recruiter: recruiterCriteria?.Mathematics || 90 },
-    { subject: 'Logic', student: student.skills?.Logic || 0, recruiter: recruiterCriteria?.Logic || 85 },
-    { subject: 'Programming', student: student.skills?.Programming || 0, recruiter: recruiterCriteria?.Programming || 95 },
-    { subject: 'Core CS', student: student.skills?.['Core CS'] || 0, recruiter: recruiterCriteria?.['Core CS'] || 90 },
-    { subject: 'Soft Skills', student: student.skills?.['Soft Skills'] || 0, recruiter: recruiterCriteria?.['Soft Skills'] || 80 },
-  ];
-
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm flex flex-col items-center">
-      <h3 className="text-sm font-semibold text-slate-800 self-start uppercase tracking-wider mb-8">Placement Eligibility</h3>
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
-            <PolarGrid stroke="#e2e8f0" />
-            <PolarAngleAxis dataKey="subject" tick={{fontSize: 10, fill: '#64748b', fontWeight: 600}} />
-            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar name="Student Score" dataKey="student" stroke="#1162d4" fill="#1162d4" fillOpacity={0.6} />
-            <Radar name="Recruiter Target" dataKey="recruiter" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.1} strokeDasharray="4 4" />
-            <Tooltip />
-            <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-// Academic Insights removed.
-
->>>>>>> 23351bd (Academics tab redesign: removed breakdown, added inline grade/status editing and record persistence)
 function AcademicsTab({ student, onRefresh }) {
   const [semesterFilter, setSemesterFilter] = useState('All')
   const [currentPage, setCurrentPage] = useState(1)
@@ -557,31 +488,6 @@ function AcademicsTab({ student, onRefresh }) {
 
       {/* Right Column - Charts & Awards */}
       <div className="lg:col-span-4 space-y-8">
-<<<<<<< HEAD
-=======
-        <PlacementRadarChart student={student} />
-        
-        {/* Book Coaching Standalone Button */}
-        <div className="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm">
-           <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center">
-                 <span className="material-symbols-outlined">psychology</span>
-              </div>
-              <div>
-                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Academic Support</h4>
-                 <p className="text-[10px] text-slate-500 font-medium tracking-tight">Professional Mentorship</p>
-              </div>
-           </div>
-           <button 
-             onClick={() => alert('Opening Faculty Calendar for session booking...')}
-             className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-50 hover:text-[#1162d4] hover:border-[#1162d4]/30 transition-all active:scale-[0.98] shadow-sm"
-           >
-             <span className="material-symbols-outlined text-[18px]">calendar_month</span>
-             Book Coaching Session
-           </button>
-        </div>
-        
->>>>>>> 23351bd (Academics tab redesign: removed breakdown, added inline grade/status editing and record persistence)
         {/* Credits Overview Card */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm flex flex-col items-center">
           <h3 className="text-sm font-semibold text-slate-800 self-start uppercase tracking-wider mb-8">Credits Overview</h3>
@@ -634,18 +540,6 @@ function AcademicsTab({ student, onRefresh }) {
            </div>
         </div>
       </div>
-
-      <AddAcademicRecordModal 
-        isOpen={isAddRecordModalOpen} 
-        onClose={() => setIsAddRecordModalOpen(false)}
-        studentId={student.id}
-        onSave={(newRecord) => {
-          setSemesterFilter(newRecord.semester.toString());
-          setCurrentPage(1);
-          setIsAddRecordModalOpen(false);
-          if (onRefresh) onRefresh();
-        }}
-      />
     </div>
   )
 }
@@ -658,14 +552,6 @@ function FeesTab({ student }) {
 
   const fmt = (n) => `₹${n.toLocaleString('en-IN')}`
 
-  const handleDownloadInvoice = (feeId) => {
-    alert(`Generating invoice PDF for Transaction #${feeId}...`)
-  }
-
-  const handleNewPayment = () => {
-    alert('Directing to secure payment gateway...')
-  }
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left Column - Payment Ledger */}
@@ -673,10 +559,7 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Fee Payment Ledger</h3>
-            <button 
-              onClick={handleNewPayment}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
-            >
+            <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm">
                <span className="material-symbols-outlined text-[18px]">add</span>
                New Payment
             </button>
@@ -690,44 +573,29 @@ function FeesTab({ student }) {
                    <th className="px-4 py-4">Date</th>
                    <th className="px-4 py-4">Method</th>
                    <th className="px-4 py-4 text-right">Amount</th>
-                   <th className="px-8 py-4 text-center">Actions</th>
+                   <th className="px-8 py-4 text-center">Status</th>
                  </tr>
                </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {fees.length > 0 ? fees.map(f => (
-                    <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors">#{f.id}</td>
-                      <td className="px-4 py-5 text-sm font-medium text-slate-800">{f.type}</td>
-                      <td className="px-4 py-5 text-sm font-medium text-slate-500">{f.date}</td>
-                      <td className="px-4 py-5">
-                         <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">Online</span>
-                      </td>
-                      <td className="px-4 py-5 text-sm font-bold text-slate-900 text-right">{fmt(f.amount)}</td>
-                      <td className="px-8 py-5 text-center">
-                         <div className="flex items-center justify-center gap-2">
-                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                              f.status === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
-                           }`}>
-                              {f.status}
-                           </span>
-                           <button 
-                             onClick={() => handleDownloadInvoice(f.id)}
-                             className="p-1.5 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded transition-all"
-                             title="Download Invoice"
-                           >
-                             <span className="material-symbols-outlined text-[16px]">download</span>
-                           </button>
-                         </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="6" className="px-8 py-10 text-center text-slate-400 text-sm font-medium italic">
-                        No transactions found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+                 {fees.map(f => (
+                   <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
+                     <td className="px-8 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors">#{f.id}</td>
+                     <td className="px-4 py-5 text-sm font-medium text-slate-800">{f.type}</td>
+                     <td className="px-4 py-5 text-sm font-medium text-slate-500">{f.date}</td>
+                     <td className="px-4 py-5">
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">Online</span>
+                     </td>
+                     <td className="px-4 py-5 text-sm font-bold text-slate-900 text-right">{fmt(f.amount)}</td>
+                     <td className="px-8 py-5 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                           f.status === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+                        }`}>
+                           {f.status}
+                        </span>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
              </table>
           </div>
         </div>
@@ -741,9 +609,7 @@ function FeesTab({ student }) {
                     <span className="material-symbols-outlined text-[18px]">sticky_note_2</span>
                  </div>
                  <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                   {totalDue > 0 
-                     ? `Upcoming dues of ${fmt(totalDue)} identified. Automated reminder has been sent to ${student.guardianName || student.guardian}.`
-                     : "Account is currently clear of any pending dues for the active semester."}
+                   Next installment of ₹12,000 scheduled for July 15, 2024. Automated reminder has been sent to the guardian.
                  </p>
               </div>
            </div>
@@ -773,11 +639,8 @@ function FeesTab({ student }) {
               </div>
            </div>
            
-           <button 
-             onClick={() => handleDownloadInvoice('ALL')}
-             className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all active:scale-95"
-           >
-              DOWNLOAD FEE REPORT (PDF)
+           <button className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all">
+              DOWNLOAD INVOICE (PDF)
            </button>
         </div>
 
@@ -799,30 +662,7 @@ function FeesTab({ student }) {
 }
 
 function DocumentsTab({ student }) {
-  const documents = student.documents || []
-  
-  const handleUpload = () => {
-    alert('Browser file picker opened. Selected files will be processed and verified.')
-  }
-
-  const handleDelete = (docName) => {
-    if (confirm(`Are you sure you want to delete "${docName}"? This action cannot be undone.`)) {
-      alert(`${docName} deleted successfully.`)
-    }
-  }
-
-  const handleDownload = (docName) => {
-    alert(`Downloading ${docName}...`)
-  }
-
-  const formatDate = (dateStr) => {
-    if (!dateStr || dateStr === '-') return 'Mar 21, 2026'
-    try {
-      return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    } catch (e) {
-      return 'Mar 21, 2026'
-    }
-  }
+  const docs = student.documents || []
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -832,8 +672,8 @@ function DocumentsTab({ student }) {
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">File Categories</h3>
            <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Academic', count: documents.filter(d => d.name.includes('Marksheet')).length || 12, color: 'bg-blue-50 text-[#1162d4]', icon: 'school' },
-                { label: 'Identity', count: documents.filter(d => d.name.includes('Aadhar')).length || 4, color: 'bg-green-50 text-green-600', icon: 'badge' },
+                { label: 'Academic', count: 12, color: 'bg-blue-50 text-[#1162d4]', icon: 'school' },
+                { label: 'Identity', count: 4, color: 'bg-green-50 text-green-600', icon: 'badge' },
                 { label: 'Fees', count: 8, color: 'bg-purple-50 text-purple-600', icon: 'receipt_long' },
                 { label: 'Others', count: 2, color: 'bg-slate-50 text-slate-400', icon: 'folder_open' }
               ].map(cat => (
@@ -849,10 +689,7 @@ function DocumentsTab({ student }) {
         </div>
 
         {/* Upload Dropzone Preview */}
-        <div 
-          onClick={handleUpload}
-          className="bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all"
-        >
+        <div className="bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all">
            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-[#1162d4] shadow-xl shadow-[#1162d4]/10 mb-6 group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
            </div>
@@ -881,10 +718,10 @@ function DocumentsTab({ student }) {
                    <th className="px-8 py-4 text-center">Actions</th>
                  </tr>
                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {documents.length > 0 ? documents.map(doc => (
-                    <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-5">
+               <tbody className="divide-y divide-slate-100">
+                 {docs.map(doc => (
+                   <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
+                     <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
                            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 group-hover:bg-[#1162d4]/10 group-hover:text-[#1162d4] transition-all">
                               <span className="material-symbols-outlined text-[20px]">{doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}</span>
@@ -894,43 +731,29 @@ function DocumentsTab({ student }) {
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{doc.size}</p>
                            </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-5">
+                     </td>
+                     <td className="px-4 py-5">
                         <div className="flex items-center gap-2">
                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{doc.status || 'Verified'}</span>
+                           <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Verified</span>
                         </div>
-                      </td>
-                      <td className="px-4 py-5 text-sm font-medium text-slate-500">
-                         {formatDate(doc.uploadDate)}
-                      </td>
-                      <td className="px-8 py-5 text-center">
+                     </td>
+                     <td className="px-4 py-5 text-sm font-medium text-slate-500">
+                        {new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                     </td>
+                     <td className="px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                           <button 
-                             className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all" 
-                             onClick={() => handleDownload(doc.name)}
-                             title="Download"
-                           >
+                           <button className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all">
                               <span className="material-symbols-outlined text-[18px]">download</span>
                            </button>
-                           <button 
-                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" 
-                             onClick={() => handleDelete(doc.name)}
-                             title="Delete"
-                           >
+                           <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
                               <span className="material-symbols-outlined text-[18px]">delete</span>
                            </button>
                         </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="4" className="px-8 py-10 text-center text-slate-400 text-sm font-medium italic">
-                        No documents uploaded yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+                     </td>
+                   </tr>
+                 ))}
+               </tbody>
              </table>
           </div>
         </div>
@@ -956,33 +779,8 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
-<<<<<<< HEAD
 
   const refreshData = () => setRefreshKey(prev => prev + 1)
-=======
-  
-  const refreshData = () => setRefreshKey(prev => prev + 1)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false)
-  const quickActionRef = useRef(null)
-
-  // Handle outside click for Quick Action dropdown
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (quickActionRef.current && !quickActionRef.current.contains(event.target)) {
-        setIsQuickActionOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Placeholder for handleDelete - implement actual logic as needed
-  const handleDelete = () => {
-    alert('Student record deleted.');
-    navigate('/students'); // Redirect after deletion
-  };
->>>>>>> 23351bd (Academics tab redesign: removed breakdown, added inline grade/status editing and record persistence)
 
   useEffect(() => {
     const fetchStudent = async () => {
@@ -1006,13 +804,6 @@ export default function StudentDetailPage() {
 
     if (id) fetchStudent()
   }, [id, refreshKey])
-<<<<<<< HEAD
-=======
-
-  const handleEditSuccess = (updatedStudent) => {
-    setStudent(updatedStudent)
-  }
->>>>>>> 23351bd (Academics tab redesign: removed breakdown, added inline grade/status editing and record persistence)
 
   if (loading) {
     return (
@@ -1074,12 +865,10 @@ export default function StudentDetailPage() {
       </div>
 
       {/* Premium Profile Card */}
-      <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative group">
-        {/* Abstract background elements - segregated for overflow control */}
-        <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full opacity-30 group-hover:scale-125 transition-transform duration-1000" />
-          <div className="absolute top-1/2 -right-12 w-32 h-32 bg-blue-50/20 rounded-full blur-3xl" />
-        </div>
+      <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative overflow-hidden group">
+        {/* Abstract background element */}
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-1000" />
+        <div className="absolute top-1/2 -right-12 w-32 h-32 bg-blue-50/30 rounded-full blur-3xl" />
         
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
@@ -1129,120 +918,17 @@ export default function StudentDetailPage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
-            {/* Quick Action Dropdown */}
-            <div className="relative" ref={quickActionRef}>
-              <button 
-                onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all active:scale-95 shadow-sm"
-              >
-                <span className="material-symbols-outlined text-[20px]">bolt</span>
-                <span>Quick Action</span>
-                <span className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${isQuickActionOpen ? 'rotate-180' : ''}`}>expand_more</span>
-              </button>
-
-              {isQuickActionOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-[100] py-2 animate-in fade-in zoom-in duration-200 origin-top-right">
-                  {/* Category: Profile Management */}
-                  <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-1">
-                    Profile & Identity
-                  </div>
-                  <button 
-                    onClick={() => { setIsEditModalOpen(true); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-[#1162d4] transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">edit_note</span>
-                    <span>Edit Profile Info</span>
-                  </button>
-                  <button 
-                    onClick={() => { alert('Generating digital ID card...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-[#1162d4] transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">badge</span>
-                    <span>Issue Digital ID</span>
-                  </button>
-
-                  {/* Category: Academic Operations */}
-                  <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mt-2 mb-1">
-                    Academic Operations
-                  </div>
-                  <button 
-                    onClick={() => { alert('Promoting to next semester...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-green-50 hover:text-green-600 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">trending_up</span>
-                    <span>Promote Semester</span>
-                  </button>
-                  <button 
-                    onClick={() => { alert('Opening section change tool...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">groups</span>
-                    <span>Change Section</span>
-                  </button>
-
-                  {/* Category: Documents */}
-                  <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mt-2 mb-1">
-                    Documents & Certs
-                  </div>
-                  <button 
-                    onClick={() => { alert('Generating Bonafide Certificate...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-600 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">article</span>
-                    <span>Issue Bonafide</span>
-                  </button>
-                  <button 
-                    onClick={() => { alert('Downloading full transcript...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-600 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">history_edu</span>
-                    <span>Official Transcript</span>
-                  </button>
-
-                  {/* Category: System & Security */}
-                  <div className="px-4 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 mt-2 mb-1">
-                    System & Security
-                  </div>
-                  <button 
-                    onClick={() => { alert('Resetting student portal password...'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-amber-50 hover:text-amber-600 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">lock_reset</span>
-                    <span>Reset Password</span>
-                  </button>
-                  <button 
-                    onClick={() => { alert('Access toggled for student portal.'); setIsQuickActionOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">block</span>
-                    <span>Suspend Portal</span>
-                  </button>
-
-                  <div className="h-px bg-slate-100 my-2 mx-2" />
-                  <button 
-                    onClick={() => { 
-                      if (confirm('Are you sure you want to delete this student record? This action is IRREVERSIBLE.')) {
-                        handleDelete();
-                      }
-                      setIsQuickActionOpen(false); 
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-red-600 text-[20px]">delete_forever</span>
-                    <span>Delete Student Record</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <button 
-              onClick={() => alert('Generating full student report...')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
-            >
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all active:scale-95 shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">bolt</span>
+              <span>Quick Action</span>
+            </button>
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm">
               <span className="material-symbols-outlined text-[20px]">description</span>
               <span>Report</span>
+            </button>
+            <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-[#1162d4] hover:border-[#1162d4] transition-all shadow-sm group/edit">
+              <span className="material-symbols-outlined text-[20px] group-hover/edit:rotate-12 transition-transform">edit</span>
             </button>
           </div>
         </div>
@@ -1275,13 +961,6 @@ export default function StudentDetailPage() {
         {activeTab === 'fees' && <FeesTab student={student} />}
         {activeTab === 'documents' && <DocumentsTab student={student} />}
       </div>
-
-      <AddStudentModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
-        onSuccess={handleEditSuccess}
-        editStudent={student}
-      />
     </Layout>
   )
 }

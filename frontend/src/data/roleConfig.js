@@ -130,7 +130,7 @@ export const roleMenuGroups = {
     },
     {
       title: 'Administration',
-      items: ['Admin Dashboard', 'Admission', 'Fees', 'Invoices'], // Payroll removed for admin
+      items: ['Admin Dashboard', 'Admission', 'Fees', 'Payroll', 'Invoices'],
     },
     {
       title: 'Intelligence',
@@ -162,7 +162,7 @@ export const roleMenuGroups = {
     },
     {
       title: 'Administration',
-      items: ['Fees', 'Payroll'], // Removed 'Invoices' for finance
+      items: ['Fees', 'Payroll', 'Invoices'],
     },
     {
       title: 'Intelligence',

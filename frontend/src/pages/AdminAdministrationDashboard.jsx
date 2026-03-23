@@ -11,7 +11,7 @@ export default function AdminAdministrationDashboard() {
   const [feeAssignments, setFeeAssignments] = useState(
     JSON.parse(localStorage.getItem('fee_assignments') || '[]')
   );
-  // const [payrollData, setPayrollData] = useState([]); // Payroll removed for Admin
+  const [payrollData, setPayrollData] = useState([]);
 
   // Listen for updates from other pages
   useEffect(() => {
@@ -26,7 +26,22 @@ export default function AdminAdministrationDashboard() {
     };
   }, []);
 
-  // Payroll fetching removed for Admin
+  // Fetch payroll data from API
+  useEffect(() => {
+    const fetchPayroll = async () => {
+      try {
+        const res = await fetch('/api/payroll');
+        if (res.ok) {
+          const data = await res.json();
+          setPayrollData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching payroll data:', error);
+      }
+    };
+
+    fetchPayroll();
+  }, []);
 
   const stats = useMemo(() => {
     // Admission Stats
@@ -46,11 +61,16 @@ export default function AdminAdministrationDashboard() {
       .filter((fee) => fee.paymentStatus?.toLowerCase() === 'paid')
       .reduce((sum, fee) => sum + (fee.totalFee || 0), 0);
 
+    // Payroll Stats
+    const totalPayrollRecords = payrollData.length;
+    const totalPayrollAmount = payrollData.reduce((sum, record) => sum + (record.netAmount || 0), 0);
+
     return {
       admission: { totalAdmissions, approvedAdmissions, pendingAdmissions },
       fees: { totalFeesAssigned, feesPaid, feesPending, totalFeeRevenue },
+      payroll: { totalPayrollRecords, totalPayrollAmount },
     };
-  }, [studentApps, facultyApps, feeAssignments]);
+  }, [studentApps, facultyApps, feeAssignments, payrollData]);
 
   return (
     <Layout title="Administration Dashboard">
@@ -117,7 +137,27 @@ export default function AdminAdministrationDashboard() {
           </div>
         </div>
 
-        {/* Payroll Management Section removed for Admin */}
+        {/* Payroll Management Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-2xl text-purple-600">receipt_long</span>
+            Payroll Management
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <StatCard
+              icon="assignment"
+              label="Total Payroll Records"
+              value={stats.payroll.totalPayrollRecords}
+              color="blue"
+            />
+            <StatCard
+              icon="money"
+              label="Total Payroll Amount"
+              value={`₹${stats.payroll.totalPayrollAmount.toLocaleString()}`}
+              color="green"
+            />
+          </div>
+        </div>
 
         {/* Quick Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -129,7 +169,7 @@ export default function AdminAdministrationDashboard() {
                   ₹{(stats.fees.totalFeeRevenue + stats.payroll.totalPayrollAmount).toLocaleString()}
                 </p>
                 <p className="text-indigo-600 text-xs mt-2">
-                  Fees: ₹{stats.fees.totalFeeRevenue.toLocaleString()}
+                  Fees: ₹{stats.fees.totalFeeRevenue.toLocaleString()} | Payroll: ₹{stats.payroll.totalPayrollAmount.toLocaleString()}
                 </p>
               </div>
               <span className="material-symbols-outlined text-4xl text-indigo-400">account_balance</span>
