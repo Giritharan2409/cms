@@ -449,3 +449,33 @@ async def delete_student(student_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
     return {"message": "Student deleted"}
+
+@router.post("/{student_id}/subjects")
+async def add_student_subject(student_id: str, subject: dict):
+    """Adds a new academic record (subject) to a student."""
+    try:
+        db = get_db()
+    except HTTPException as error:
+        if error.status_code == 503:
+            _seed_dev_students()
+            target = next(
+                (item for item in DEV_STORE["students"] 
+                 if item.get("id") == student_id or item.get("rollNumber") == student_id),
+                None
+            )
+            if not target:
+                raise HTTPException(status_code=404, detail="Student not found")
+            if "subjects" not in target:
+                target["subjects"] = []
+            target["subjects"].append(subject)
+            return subject
+        raise
+
+    result = await db["students"].find_one_and_update(
+        {"$or": [{"id": student_id}, {"rollNumber": student_id}]},
+        {"$push": {"subjects": subject}},
+        return_document=ReturnDocument.AFTER
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return subject

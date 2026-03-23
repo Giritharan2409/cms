@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional, Union
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -13,11 +14,11 @@ load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 # Use Atlas connection string
 MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb+srv://priyadharshini:Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
 
-client: AsyncIOMotorClient | None = None
+client: Optional[AsyncIOMotorClient] = None
 db = None
 
 
-def mask_mongodb_uri(uri: str | None) -> str:
+def mask_mongodb_uri(uri: Optional[str]) -> str:
     if not uri:
         return "<not configured>"
 

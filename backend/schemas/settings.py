@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Optional, Any
 
 from pydantic import BaseModel
 
@@ -12,16 +12,16 @@ class ChangePasswordPayload(BaseModel):
 class UpdateEmailPayload(BaseModel):
     userId: str
     email: str
-    role: str | None = None
+    role: Optional[str] = None
 
 
 class LogoutAllPayload(BaseModel):
     userId: str
-    role: str | None = None
+    role: Optional[str] = None
 
 
 class DeleteRequestPayload(BaseModel):
-    reason: str | None = None
+    reason: Optional[str] = None
 
 
 class PartialSettingsPayload(BaseModel):

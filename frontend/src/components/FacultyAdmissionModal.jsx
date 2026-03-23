@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAdmission } from '../context/AdmissionContext';
+import { API_BASE } from '../api/apiBase';
 
 const steps = [
   { number: 1, title: 'Personal' },
@@ -14,6 +15,7 @@ const steps = [
 export default function FacultyAdmissionModal({ isOpen, onClose }) {
   const { addFacultyApp } = useAdmission();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     // Step 1: Personal
     fullName: '',
@@ -167,45 +169,95 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsLoading(true);
     const facultyData = {
-      name: formData.fullName,
+      // Personal Information
       fullName: formData.fullName,
+      name: formData.fullName,
       email: formData.email,
       phone: formData.phone,
       dateOfBirth: formData.dateOfBirth,
       gender: formData.gender,
+      
+      // Professional Information
       role: formData.role,
+      designation: formData.role,
       department: formData.department,
-      yearsOfExperience: formData.yearsOfExperience,
+      yearsOfExperience: parseInt(formData.yearsOfExperience) || 0,
+      
+      // Qualification
       highestQualification: formData.highestQualification,
+      qualification: formData.highestQualification,
       specialization: formData.specialization,
       university: formData.university,
+      
+      // Employment
       employmentType: formData.employmentType,
+      
+      // Payment Status
       paymentStatus: 'Paid',
+      status: 'Pending',
     };
 
-    addFacultyApp(facultyData);
-    setFormData({
-      fullName: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      gender: '',
-      role: '',
-      department: '',
-      yearsOfExperience: '',
-      highestQualification: '',
-      specialization: '',
-      university: '',
-      resume: null,
-      certifications: null,
-      employmentType: '',
-      paymentMethod: '',
-    });
-    setPaymentDone(false);
-    setCurrentStep(1);
-    onClose();
+    try {
+      console.log('Submitting faculty data:', facultyData);
+      
+      // Save to backend MongoDB - Faculty Admissions endpoint
+      const response = await fetch(`${API_BASE}/faculty/admission/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(facultyData),
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `HTTP ${response.status}: Failed to save admission`);
+        } catch (parseError) {
+          throw new Error(`Failed to submit faculty admission: ${response.statusText}`);
+        }
+      }
+
+      const responseData = await response.json();
+      console.log('Faculty admission saved:', responseData);
+      
+      // Also save to localStorage for context (backup)
+      addFacultyApp(facultyData);
+      
+      // Reset form
+      setFormData({
+        fullName: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+        gender: '',
+        role: '',
+        department: '',
+        yearsOfExperience: '',
+        highestQualification: '',
+        specialization: '',
+        university: '',
+        resume: null,
+        certifications: null,
+        employmentType: '',
+        paymentMethod: '',
+      });
+      setPaymentDone(false);
+      setCurrentStep(1);
+      
+      alert(`✓ Faculty admission submitted successfully!\nApplication ID: ${responseData.id}`);
+      onClose();
+    } catch (err) {
+      console.error('Error submitting faculty admission:', err);
+      alert(`❌ Error: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -736,9 +788,21 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition flex items-center gap-2"
+                disabled={isLoading}
+                className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition ${
+                  isLoading
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
               >
-                ✓ Submit Application
+                {isLoading ? (
+                  <>
+                    <span className="inline-block animate-spin">⟳</span>
+                    Submitting...
+                  </>
+                ) : (
+                  <>✓ Submit Application</>
+                )}
               </button>
             )}
           </div>

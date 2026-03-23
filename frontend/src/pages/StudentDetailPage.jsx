@@ -166,23 +166,256 @@ function OverviewTab({ student }) {
   )
 }
 
-function AcademicsTab({ student }) {
-  const subjects = student.subjects || []
-  const totalObtained = subjects.reduce((s, sub) => s + sub.total, 0)
-  const totalMax = subjects.length * 100
-  const percentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0
+
+function SubjectRow({ sub, studentId, onUpdate }) {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleChange = async (field, value) => {
+    setIsUpdating(true);
+    await onUpdate(sub.code, field, value);
+    setIsUpdating(false);
+  };
+
+  return (
+    <tr className="hover:bg-slate-50/80 transition-all group">
+      <td className="px-8 py-5 text-sm font-medium text-slate-500 italic">
+        Sem {sub.semester}
+      </td>
+      <td className="px-4 py-5 text-sm font-medium text-slate-400 uppercase tracking-tight">{sub.code}</td>
+      <td className="px-4 py-5 text-sm font-semibold text-slate-800">{sub.name}</td>
+      <td className="px-4 py-5 text-sm font-medium text-slate-500">4.0</td>
+      <td className="px-4 py-5">
+        <select 
+          value={sub.grade}
+          onChange={(e) => handleChange('grade', e.target.value)}
+          disabled={isUpdating}
+          className="bg-transparent text-sm font-bold text-slate-900 outline-none cursor-pointer hover:text-[#1162d4] transition-colors"
+        >
+          {['A+','A','B+','B','C+','C','D','F','Pending'].map(g => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-8 py-5 text-center">
+        <select 
+          value={sub.status || (sub.grade === 'Pending' ? 'In Progress' : 'Passed')}
+          onChange={(e) => handleChange('status', e.target.value)}
+          disabled={isUpdating}
+          className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm outline-none cursor-pointer transition-all ${
+            sub.status === 'Passed' ? 'bg-green-50 text-green-600 border border-green-100' :
+            sub.status === 'In Progress' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
+            'bg-slate-50 text-slate-500 border border-slate-100'
+          }`}
+        >
+          {['Passed', 'Failed', 'In Progress'].map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </td>
+    </tr>
+  );
+}
+
+function AddAcademicRecordModal({ isOpen, onClose, onSave, studentId }) {
+  const [formData, setFormData] = useState({
+    semester: '',
+    code: '',
+    name: '',
+    credits: '4.0',
+    grade: 'A',
+    status: 'Passed'
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+             <h3 className="text-lg font-bold text-slate-800">Add Academic Record</h3>
+             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <span className="material-symbols-outlined text-slate-400 text-[20px]">close</span>
+             </button>
+          </div>
+          <div className="p-8 space-y-6">
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Semester</label>
+                   <select 
+                     value={formData.semester} 
+                     onChange={e => setFormData({...formData, semester: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     <option value="">Select</option>
+                     {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s.toString()}>Sem {s}</option>)}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Credits</label>
+                   <input 
+                     type="text" 
+                     value={formData.credits} 
+                     onChange={e => setFormData({...formData, credits: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   />
+                </div>
+             </div>
+             
+             <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subject Code</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., CS105"
+                  value={formData.code} 
+                  onChange={e => setFormData({...formData, code: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                />
+             </div>
+
+             <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subject Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., Database Management"
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                />
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Grade</label>
+                   <select 
+                     value={formData.grade} 
+                     onChange={e => setFormData({...formData, grade: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     {['A+','A','B+','B','C+','C','D','F','Pending'].map(g => <option key={g} value={g}>{g}</option>)}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                   <select 
+                     value={formData.status} 
+                     onChange={e => setFormData({...formData, status: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     {['Passed','Failed','In Progress'].map(s => <option key={s} value={s}>{s}</option>)}
+                   </select>
+                </div>
+             </div>
+          </div>
+          <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-3">
+             <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all active:scale-95">Cancel</button>
+             <button 
+               onClick={async () => {
+                 try {
+                   const res = await fetch(`http://localhost:5000/api/students/${studentId}/subjects`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({
+                       ...formData,
+                       semester: parseInt(formData.semester),
+                       credits: parseFloat(formData.credits) || 4.0,
+                       total: 0 // New records start at 0
+                     })
+                   });
+                   if (!res.ok) throw new Error('Failed to save record');
+                   const savedRecord = await res.json();
+                   onSave(savedRecord);
+                 } catch (err) {
+                   alert('Error: ' + err.message);
+                 }
+               }}
+               className="flex-1 px-4 py-3 bg-[#1162d4] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+             >
+               Add Record
+             </button>
+          </div>
+       </div>
+    </div>
+  )
+}
+
+function AcademicsTab({ student, onRefresh }) {
+  const [semesterFilter, setSemesterFilter] = useState('All')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false)
+  const itemsPerPage = 8
+
+  const allSubjects = student.subjects || []
+  const filteredSubjects = semesterFilter === 'All' 
+    ? allSubjects 
+    : allSubjects.filter(s => s.semester?.toString() === semesterFilter)
+
+  const totalPages = Math.ceil(filteredSubjects.length / itemsPerPage)
+  const currentSubjects = filteredSubjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const passedSubjects = allSubjects.filter(s => s.grade !== 'Pending')
+  const totalObtained = passedSubjects.reduce((s, sub) => s + (sub.total || 0), 0)
+  const totalMax = passedSubjects.length * 100
+  const calcCGPA = totalMax > 0 ? ((totalObtained / totalMax) * 10).toFixed(2) : '0.00'
+
+  const handleUpdateSubject = async (subjectCode, field, value) => {
+    const updatedSubjects = allSubjects.map(s => 
+      s.code === subjectCode ? { ...s, [field]: value } : s
+    );
+    try {
+      const res = await fetch(`http://localhost:5000/api/students/${student.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects: updatedSubjects })
+      });
+      if (!res.ok) throw new Error('Failed to update student');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Error updating subject:', err);
+      alert('Failed to update: ' + err.message);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left Column - Grades Table */}
       <div className="lg:col-span-8 space-y-8">
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Semester Grades and Results</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-100 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">filter_list</span>
-              Filter Semester
-            </button>
+          <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-50 text-[#1162d4] rounded-xl flex items-center justify-center shadow-inner">
+                 <span className="material-symbols-outlined text-[24px]">school</span>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Semester Outcomes</h3>
+                <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">Official Academic Record</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsAddRecordModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Record
+              </button>
+              <button 
+                onClick={() => alert('Generating Provisional Transcript...')}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[18px] text-[#1162d4]">description</span>
+                Download Transcript
+              </button>
+              <select 
+                value={semesterFilter}
+                onChange={(e) => {setSemesterFilter(e.target.value); setCurrentPage(1);}}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider outline-none cursor-pointer"
+              >
+                <option value="All">All Semesters</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                  <option key={s} value={s.toString()}>Semester {s}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
@@ -196,42 +429,66 @@ function AcademicsTab({ student }) {
                    <th className="px-8 py-4 text-center">Status</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {subjects.map(sub => (
-                   <tr key={sub.code} className="hover:bg-slate-50/50 transition-colors group">
-                     <td className="px-8 py-5 text-sm font-medium text-slate-500">Sem {student.semester}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors uppercase tracking-tight">{sub.code}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-800">{sub.name}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-500">4.0</td>
-                     <td className="px-4 py-5 text-sm font-bold text-slate-900">{sub.grade}</td>
-                     <td className="px-8 py-5 text-center">
-                       <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[9px] font-bold uppercase tracking-wider">Pass</span>
-                     </td>
-                   </tr>
-                 ))}
-               </tbody>
+                <tbody className="divide-y divide-slate-100">
+                  {currentSubjects.length > 0 ? currentSubjects.map(sub => (
+                    <SubjectRow key={sub.code} sub={sub} studentId={student.id} onUpdate={handleUpdateSubject} />
+                  )) : (
+                    <tr>
+                      <td colSpan="6" className="px-8 py-10 text-center text-slate-400 text-sm font-medium italic">
+                        No subjects found for this selection.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
              </table>
           </div>
           <div className="px-8 py-6 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100">
-             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Showing 1-5 of 18 subjects</p>
+             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+               Showing {filteredSubjects.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(filteredSubjects.length, currentPage * itemsPerPage)} of {filteredSubjects.length} subjects
+             </p>
              <div className="flex items-center gap-1.5">
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className={`w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200' : 'text-slate-500 hover:text-slate-900 hover:border-slate-300'}`}
+                >
                   <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                 </button>
-                <button className="w-8 h-8 flex items-center justify-center bg-[#1162d4] border border-[#1162d4] rounded-lg text-white font-semibold text-xs shadow-sm">1</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">2</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">3</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
+                {Array.from({length: totalPages}).map((_, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg font-semibold text-xs border transition-all ${currentPage === i + 1 ? 'bg-[#1162d4] border-[#1162d4] text-white shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button 
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className={`w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg transition-all ${currentPage === totalPages || totalPages === 0 ? 'text-slate-200' : 'text-slate-500 hover:text-slate-900 hover:border-slate-300'}`}
+                >
                   <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                 </button>
              </div>
           </div>
         </div>
+
+        <AddAcademicRecordModal 
+          isOpen={isAddRecordModalOpen}
+          onClose={() => setIsAddRecordModalOpen(false)}
+          studentId={student.id}
+          onSave={(newRecord) => {
+            setIsAddRecordModalOpen(false);
+            if (onRefresh) onRefresh();
+            setSemesterFilter(newRecord.semester.toString());
+          }}
+        />
       </div>
 
       {/* Right Column - Charts & Awards */}
       <div className="lg:col-span-4 space-y-8">
-        {/* Credits Overview Radial Mock */}
+        {/* Credits Overview Card */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm flex flex-col items-center">
           <h3 className="text-sm font-semibold text-slate-800 self-start uppercase tracking-wider mb-8">Credits Overview</h3>
           <div className="relative w-48 h-48 flex items-center justify-center">
@@ -241,21 +498,21 @@ function AcademicsTab({ student }) {
                 cx="60" cy="60" r="54"
                 stroke="#1162d4" strokeWidth="12" fill="none"
                 strokeLinecap="round"
-                strokeDasharray={`${(110/145) * 339} ${339 - (110/145) * 339}`}
+                strokeDasharray={`${((passedSubjects.length * 4) / 145) * 339} ${339}`}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-               <p className="text-4xl font-bold text-slate-900 leading-none">110</p>
+               <p className="text-4xl font-bold text-slate-900 leading-none">{passedSubjects.length * 4}</p>
                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">of 145 Earned</p>
             </div>
           </div>
           <div className="grid grid-cols-2 w-full gap-4 mt-8 border-t border-slate-100 pt-8">
              <div className="text-center">
-                <p className="text-lg font-bold text-[#1162d4]">{student.cgpa}</p>
-                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Current CGPA</p>
+                <p className="text-lg font-bold text-[#1162d4]">{calcCGPA}</p>
+                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Calculated CGPA</p>
              </div>
              <div className="text-center">
-                <p className="text-lg font-bold text-slate-800">CS Eng.</p>
+                <p className="text-lg font-bold text-slate-800">{student.department === 'Computer Science' ? 'CS Eng.' : student.department || 'N/A'}</p>
                 <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Major</p>
              </div>
           </div>
@@ -521,6 +778,9 @@ export default function StudentDetailPage() {
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const refreshData = () => setRefreshKey(prev => prev + 1)
 
   useEffect(() => {
     const fetchStudent = async () => {
@@ -543,7 +803,7 @@ export default function StudentDetailPage() {
     }
 
     if (id) fetchStudent()
-  }, [id])
+  }, [id, refreshKey])
 
   if (loading) {
     return (
@@ -697,7 +957,7 @@ export default function StudentDetailPage() {
       {/* Tab Content */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === 'overview' && <OverviewTab student={student} />}
-        {activeTab === 'academics' && <AcademicsTab student={student} />}
+        {activeTab === 'academics' && <AcademicsTab student={student} onRefresh={refreshData} />}
         {activeTab === 'fees' && <FeesTab student={student} />}
         {activeTab === 'documents' && <DocumentsTab student={student} />}
       </div>

@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { getUserSession, hasActiveSession } from './auth/sessionController';
 import { AdmissionProvider } from './context/AdmissionContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import DashboardPage from './pages/DashboardPage';
+import DashboardPageWrapper from './pages/DashboardPageWrapper';
 import LoginPage from './pages/LoginPage';
 import TimetablePage from './pages/TimetablePage';
 import AttendancePage from './pages/AttendancePage';
@@ -10,7 +10,7 @@ import ExamsPage from './pages/ExamsPage';
 import PlacementPage from './pages/PlacementPage';
 import FacilityPage from './pages/FacilityPage';
 import SettingsPage from './pages/SettingsPage';
-import StudentsPage from './pages/StudentsPage';
+import StudentPageWrapper from './pages/StudentPageWrapper';
 import StudentDetailPage from './pages/StudentDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
@@ -25,6 +25,7 @@ import FinanceInvoicePage from './pages/FinanceInvoicePage';
 import ComingSoonPage from './pages/ComingSoonPage';
 import FacultyPage from './pages/FacultyPage';
 import FacultyProfilePage from './pages/FacultyProfilePage';
+import FacultyDepartmentPage from './pages/FacultyDepartmentPage';
 
 export default function App() {
   const session = getUserSession();
@@ -45,7 +46,7 @@ export default function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <DashboardPageWrapper />
             </ProtectedRoute>
           }
         />
@@ -72,11 +73,11 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+        <Route path="/students" element={<ProtectedRoute><StudentPageWrapper /></ProtectedRoute>} />
         <Route path="/students/:id" element={<ProtectedRoute><StudentDetailPage /></ProtectedRoute>} />
         <Route path="/faculty" element={<ProtectedRoute><FacultyPage /></ProtectedRoute>} />
         <Route path="/faculty/:id" element={<ProtectedRoute><FacultyProfilePage /></ProtectedRoute>} />
-        <Route path="/department" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
+        <Route path="/department" element={<ProtectedRoute><FacultyDepartmentPage /></ProtectedRoute>} />
         <Route path="/my-courses" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/admission" element={<ProtectedRoute><AdmissionPage /></ProtectedRoute>} />

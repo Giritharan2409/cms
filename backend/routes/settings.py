@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.settings import (
@@ -32,7 +33,7 @@ def _require_role(role: str) -> str:
     return normalized
 
 
-def _resolve_user_role(role: str | None, user_id: str) -> str:
+def _resolve_user_role(role: Optional[str], user_id: str) -> str:
     if role:
         return _require_role(role)
     inferred = infer_role_by_user_id(user_id)
@@ -117,7 +118,7 @@ async def update_notifications_by_role(role: str, user_id: str, payload: Partial
 
 @router.get("/{user_id}/sessions")
 @router.get("/{role}/{user_id}/sessions")
-async def get_user_sessions(user_id: str, role: str | None = None):
+async def get_user_sessions(user_id: str, role: Optional[str] = None):
     _resolve_user_role(role, user_id)
     return get_sessions(user_id)
 
@@ -131,14 +132,14 @@ async def logout_all(payload: LogoutAllPayload):
 
 @router.get("/{user_id}/login-history")
 @router.get("/{role}/{user_id}/login-history")
-async def get_user_login_history(user_id: str, role: str | None = None):
+async def get_user_login_history(user_id: str, role: Optional[str] = None):
     _resolve_user_role(role, user_id)
     return get_login_history(user_id)
 
 
 @router.get("/{user_id}/appearance")
 @router.get("/{role}/{user_id}/appearance")
-async def get_appearance(user_id: str, role: str | None = None):
+async def get_appearance(user_id: str, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     user = get_user_record(resolved_role, user_id)
     if not user:
@@ -148,7 +149,7 @@ async def get_appearance(user_id: str, role: str | None = None):
 
 @router.put("/{user_id}/appearance")
 @router.put("/{role}/{user_id}/appearance")
-async def update_appearance(user_id: str, payload: PartialSettingsPayload, role: str | None = None):
+async def update_appearance(user_id: str, payload: PartialSettingsPayload, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     updated = update_section(resolved_role, user_id, "appearance", payload.as_dict())
     return {"message": "Appearance settings updated successfully.", "data": updated}
@@ -156,7 +157,7 @@ async def update_appearance(user_id: str, payload: PartialSettingsPayload, role:
 
 @router.get("/{user_id}/language")
 @router.get("/{role}/{user_id}/language")
-async def get_language(user_id: str, role: str | None = None):
+async def get_language(user_id: str, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     user = get_user_record(resolved_role, user_id)
     if not user:
@@ -166,7 +167,7 @@ async def get_language(user_id: str, role: str | None = None):
 
 @router.put("/{user_id}/language")
 @router.put("/{role}/{user_id}/language")
-async def update_language(user_id: str, payload: PartialSettingsPayload, role: str | None = None):
+async def update_language(user_id: str, payload: PartialSettingsPayload, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     updated = update_section(resolved_role, user_id, "language", payload.as_dict())
     return {"message": "Language & region settings updated successfully.", "data": updated}
@@ -174,7 +175,7 @@ async def update_language(user_id: str, payload: PartialSettingsPayload, role: s
 
 @router.get("/{user_id}/privacy")
 @router.get("/{role}/{user_id}/privacy")
-async def get_privacy(user_id: str, role: str | None = None):
+async def get_privacy(user_id: str, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     user = get_user_record(resolved_role, user_id)
     if not user:
@@ -184,7 +185,7 @@ async def get_privacy(user_id: str, role: str | None = None):
 
 @router.put("/{user_id}/privacy")
 @router.put("/{role}/{user_id}/privacy")
-async def update_privacy(user_id: str, payload: PartialSettingsPayload, role: str | None = None):
+async def update_privacy(user_id: str, payload: PartialSettingsPayload, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     updated = update_section(resolved_role, user_id, "privacy", payload.as_dict())
     return {"message": "Privacy settings updated successfully.", "data": updated}
@@ -192,7 +193,7 @@ async def update_privacy(user_id: str, payload: PartialSettingsPayload, role: st
 
 @router.get("/{user_id}/accessibility")
 @router.get("/{role}/{user_id}/accessibility")
-async def get_accessibility(user_id: str, role: str | None = None):
+async def get_accessibility(user_id: str, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     user = get_user_record(resolved_role, user_id)
     if not user:
@@ -202,7 +203,7 @@ async def get_accessibility(user_id: str, role: str | None = None):
 
 @router.put("/{user_id}/accessibility")
 @router.put("/{role}/{user_id}/accessibility")
-async def update_accessibility(user_id: str, payload: PartialSettingsPayload, role: str | None = None):
+async def update_accessibility(user_id: str, payload: PartialSettingsPayload, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     updated = update_section(resolved_role, user_id, "accessibility", payload.as_dict())
     return {"message": "Accessibility settings updated successfully.", "data": updated}
@@ -210,7 +211,7 @@ async def update_accessibility(user_id: str, payload: PartialSettingsPayload, ro
 
 @router.get("/{user_id}/export-data")
 @router.get("/{role}/{user_id}/export-data")
-async def export_data(user_id: str, role: str | None = None):
+async def export_data(user_id: str, role: Optional[str] = None):
     _resolve_user_role(role, user_id)
     data = export_user_data(user_id)
     if not data:
@@ -220,7 +221,7 @@ async def export_data(user_id: str, role: str | None = None):
 
 @router.post("/{user_id}/delete-request")
 @router.post("/{role}/{user_id}/delete-request")
-async def request_account_deletion(user_id: str, payload: DeleteRequestPayload, role: str | None = None):
+async def request_account_deletion(user_id: str, payload: DeleteRequestPayload, role: Optional[str] = None):
     resolved_role = _resolve_user_role(role, user_id)
     entry = create_delete_request(user_id, resolved_role, payload.reason)
     return {"message": "Account deletion request submitted.", "data": entry}

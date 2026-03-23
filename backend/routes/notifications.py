@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 
 @router.get("/{role}")
-async def list_notifications(role: str, limit: int | None = None, search: str | None = None):
+async def list_notifications(role: str, limit: Optional[int] = None, search: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:

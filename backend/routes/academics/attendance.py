@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import uuid4
-
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -23,7 +25,7 @@ router = APIRouter(prefix="/api/academics/attendance", tags=["academics:attendan
 
 
 @router.get("")
-async def list_attendance(role: str | None = None, person_id: str | None = None):
+async def list_attendance(role: Optional[str] = None, person_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -56,7 +58,7 @@ async def create_attendance(payload: AttendanceRecord):
 
 
 @router.get("/weekly")
-async def get_weekly_attendance(role: str | None = None):
+async def get_weekly_attendance(role: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -83,10 +85,10 @@ async def get_weekly_attendance(role: str | None = None):
 
 @router.get("/markings")
 async def list_attendance_markings(
-    class_id: str | None = None,
-    date: str | None = None,
-    hour: str | None = None,
-    student_id: str | None = None,
+    class_id: Optional[str] = None,
+    date: Optional[str] = None,
+    hour: Optional[str] = None,
+    student_id: Optional[str] = None,
 ):
     try:
         db = get_db()
@@ -143,7 +145,7 @@ async def upsert_attendance_marking(payload: AttendanceMarkRecord):
 
 
 @router.get("/od-requests")
-async def list_od_requests(student_id: str | None = None, status: str | None = None):
+async def list_od_requests(student_id: Optional[str] = None, status: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:

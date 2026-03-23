@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,7 +47,7 @@ PORT = int(os.getenv("PORT", 5000))
 app = FastAPI(title="CMS API", lifespan=lifespan)
 
 
-def _parse_origins(value: str | None):
+def _parse_origins(value: Optional[str]):
     if not value:
         return []
     return [origin.strip() for origin in value.split(",") if origin.strip()]

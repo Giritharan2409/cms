@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import uuid4
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
@@ -136,7 +139,7 @@ async def publish_exam_results(exam_id: str):
 
 
 @router.get("/registrations")
-async def list_registrations(exam_id: str | None = None, student_id: str | None = None):
+async def list_registrations(exam_id: Optional[str] = None, student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -198,7 +201,7 @@ async def create_registration(payload: dict):
 
 
 @router.get("/marks")
-async def list_marks(exam_id: str | None = None, student_id: str | None = None):
+async def list_marks(exam_id: Optional[str] = None, student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -265,7 +268,7 @@ async def upsert_mark(payload: dict):
 
 
 @router.get("/internal-marks")
-async def list_internal_marks(exam_id: str | None = None, student_id: str | None = None):
+async def list_internal_marks(exam_id: Optional[str] = None, student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -331,7 +334,7 @@ async def upsert_internal_mark(payload: dict):
 
 
 @router.get("/attendance")
-async def list_exam_attendance(exam_id: str | None = None):
+async def list_exam_attendance(exam_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -390,7 +393,7 @@ async def upsert_exam_attendance(payload: dict):
 
 
 @router.get("/invigilators")
-async def list_invigilators(exam_id: str | None = None):
+async def list_invigilators(exam_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -465,7 +468,7 @@ async def remove_invigilator(assignment_id: str):
 
 
 @router.get("/revaluations")
-async def list_revaluations(student_id: str | None = None, exam_id: str | None = None):
+async def list_revaluations(student_id: Optional[str] = None, exam_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -553,7 +556,7 @@ async def list_exam_halls():
 
 
 @router.get("/seats")
-async def list_seat_assignments(exam_id: str | None = None, student_id: str | None = None):
+async def list_seat_assignments(exam_id: Optional[str] = None, student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -798,7 +801,7 @@ async def update_timetable_draft_status(draft_id: str, payload: dict):
 
 
 @router.get("/notifications")
-async def list_exam_notifications(student_id: str | None = None):
+async def list_exam_notifications(student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:

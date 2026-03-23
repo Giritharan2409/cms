@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field
 
@@ -7,4 +7,4 @@ class SystemSetting(BaseModel):
     key: str
     value: Any
     description: str = ""
-    updated_at: str | None = Field(default=None, alias="updatedAt")
+    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
