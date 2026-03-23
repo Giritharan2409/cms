@@ -38,6 +38,7 @@ from backend.routes.faculty_research import router as faculty_research_router
 from backend.routes.faculty_compliance import router as faculty_compliance_router
 from backend.routes.faculty_okr import router as faculty_okr_router
 from backend.routes.faculty_publications import router as faculty_publications_router
+from backend.routes.departments import router as departments_router
 from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
@@ -100,6 +101,7 @@ app.include_router(faculty_research_router)
 app.include_router(faculty_compliance_router)
 app.include_router(faculty_okr_router)
 app.include_router(faculty_publications_router)
+app.include_router(departments_router)
 app.include_router(payroll_router)
 app.include_router(payroll_dev_router)
 app.include_router(analytics_router)

@@ -26,6 +26,7 @@ import ComingSoonPage from './pages/ComingSoonPage';
 import FacultyPage from './pages/FacultyPage';
 import FacultyProfilePage from './pages/FacultyProfilePage';
 import FacultyDepartmentPage from './pages/FacultyDepartmentPage';
+import AdminDepartmentPage from './pages/AdminDepartmentPage';
 
 export default function App() {
   const session = getUserSession();
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/faculty" element={<ProtectedRoute><FacultyPage /></ProtectedRoute>} />
         <Route path="/faculty/:id" element={<ProtectedRoute><FacultyProfilePage /></ProtectedRoute>} />
         <Route path="/department" element={<ProtectedRoute><FacultyDepartmentPage /></ProtectedRoute>} />
+        <Route path="/admin-department" element={<ProtectedRoute allowedRoles={['admin']}><AdminDepartmentPage /></ProtectedRoute>} />
         <Route path="/my-courses" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><ComingSoonPage /></ProtectedRoute>} />
         <Route path="/admission" element={<ProtectedRoute><AdmissionPage /></ProtectedRoute>} />

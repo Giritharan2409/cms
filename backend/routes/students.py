@@ -1,6 +1,8 @@
+import asyncio
 from copy import deepcopy
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pymongo import ReturnDocument
 
 from backend.db import get_db
@@ -314,19 +316,51 @@ def _seed_dev_students() -> None:
 
 
 @router.get("")
-async def list_students():
+async def list_students(
+    department: Optional[str] = Query(default=None),
+    limit: int = Query(default=200, ge=1, le=1000),
+):
     try:
         db = get_db()
     except HTTPException as error:
         if error.status_code == 503:
             _seed_dev_students()
-            return deepcopy(DEV_STORE["students"])
+            rows = deepcopy(DEV_STORE["students"])
+            if department:
+                rows = [row for row in rows if row.get("department") == department]
+            return rows[:limit]
         raise
 
-    rows = []
-    async for row in db["students"].find().sort("_id", -1):
-        rows.append(serialize_doc(row))
-    return rows
+    query = {"department": department} if department else {}
+    projection = {
+        "id": 1,
+        "rollNumber": 1,
+        "name": 1,
+        "email": 1,
+        "phone": 1,
+        "department": 1,
+        "section": 1,
+        "year": 1,
+        "semester": 1,
+        "status": 1,
+        "cgpa": 1,
+        "attendancePct": 1,
+        "avatar": 1,
+    }
+
+    cursor = (
+        db["students"]
+        .find(query, projection)
+        .sort("_id", -1)
+        .limit(limit)
+        .max_time_ms(5000)
+    )
+    try:
+        docs = await asyncio.wait_for(cursor.to_list(length=limit), timeout=6)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Student list request timed out")
+
+    return [serialize_doc(row) for row in docs]
 
 
 @router.get("/{student_id}")

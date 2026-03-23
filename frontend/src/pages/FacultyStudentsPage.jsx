@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
-import { Users, Search, Filter, BookOpen, Mail, Phone, Plus, X } from 'lucide-react';
+import { Users, Search, Filter, BookOpen, Mail, Phone, Plus, X, Trash2 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 // Add Student Modal Component
 function AddStudentModal({ isOpen, onClose, onAdd }) {
@@ -22,9 +22,10 @@ function AddStudentModal({ isOpen, onClose, onAdd }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (formData.name && formData.rollNumber && formData.email) {
-      onAdd(formData);
+      const success = await onAdd(formData);
+      if (!success) return;
       setFormData({
         name: '',
         rollNumber: '',
@@ -166,6 +167,32 @@ function AddStudentModal({ isOpen, onClose, onAdd }) {
                 boxSizing: 'border-box'
               }}
             />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+              Department
+            </label>
+            <select
+              name="department"
+              value={formData.department}
+              onChange={handleChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                outline: 'none',
+                cursor: 'pointer',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="Computer Science">Computer Science</option>
+              <option value="Electrical Engineering">Electrical Engineering</option>
+              <option value="Mechanical Engineering">Mechanical Engineering</option>
+              <option value="Civil Engineering">Civil Engineering</option>
+            </select>
           </div>
 
           <div>
@@ -384,6 +411,7 @@ function StudentDetailsModal({ student, isOpen, onClose }) {
 export default function FacultyStudentsPage() {
   const [studentsList, setStudentsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -398,17 +426,25 @@ export default function FacultyStudentsPage() {
 
   const fetchStudents = async () => {
     setLoading(true);
+    setError('');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
       let url = `${API_BASE_URL}/students`;
       if (departmentFilter) {
         url += `?department=${encodeURIComponent(departmentFilter)}`;
       }
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
       const data = await response.json();
       setStudentsList(data);
     } catch (error) {
       console.error('Error fetching students:', error);
+      setError('Unable to load students from server.');
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -426,20 +462,80 @@ export default function FacultyStudentsPage() {
     departments: new Set(studentsList.map(s => s.department)).size
   };
 
-  const handleAddStudent = (studentData) => {
-    // In a real app, this would send data to the backend
-    const newStudent = {
-      ...studentData,
-      _id: `student-${Date.now()}`,
-      status: 'Active'
-    };
-    setStudentsList([...studentsList, newStudent]);
-    console.log('Student added:', studentData);
+  const handleAddStudent = async (studentData) => {
+    try {
+      const payload = {
+        id: studentData.rollNumber,
+        rollNumber: studentData.rollNumber,
+        name: studentData.name,
+        email: studentData.email,
+        phone: studentData.phone,
+        department: studentData.department,
+        section: studentData.section,
+        status: 'Active',
+      };
+
+      const response = await fetch(`${API_BASE_URL}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData?.detail || 'Failed to add student';
+        alert(message);
+        return false;
+      }
+
+      const createdStudent = await response.json();
+      setStudentsList((prev) => [createdStudent, ...prev]);
+      // Refresh in background to sync any server-side transformations.
+      fetchStudents();
+      return true;
+    } catch (error) {
+      console.error('Error adding student:', error);
+      alert('Failed to add student. Please try again.');
+      return false;
+    }
   };
 
   const handleViewDetails = (student) => {
     setSelectedStudent(student);
     setIsDetailsOpen(true);
+  };
+
+  const handleDeleteStudent = async (student) => {
+    const studentId = student.rollNumber || student.id;
+    if (!studentId) {
+      alert('Unable to delete this student: missing student ID.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete student ${student.name} (${studentId})?`);
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/students/${encodeURIComponent(studentId)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData?.detail || 'Failed to delete student.');
+        return;
+      }
+
+      setStudentsList((prev) =>
+        prev.filter((s) => (s.rollNumber || s.id) !== studentId)
+      );
+      alert('Student deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      alert('Failed to delete student. Please try again.');
+    }
   };
 
   return (
@@ -748,6 +844,35 @@ export default function FacultyStudentsPage() {
                           title={student._id && student._id.startsWith('student-') ? 'Newly added students must be saved first' : 'View full student profile'}
                         >
                           Profile
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStudent(student)}
+                          style={{
+                            padding: '6px 10px',
+                            background: '#fee2e2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#fecaca';
+                            e.currentTarget.style.borderColor = '#fca5a5';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#fee2e2';
+                            e.currentTarget.style.borderColor = '#fecaca';
+                          }}
+                          title="Delete student"
+                        >
+                          <Trash2 size={12} />
+                          Delete
                         </button>
                       </div>
                     </td>

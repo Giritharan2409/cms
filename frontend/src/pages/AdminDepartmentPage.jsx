@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
-import { Building2, Users, BookOpen, Mail, MapPin, Share2, Edit, X, Save, Trash2 } from 'lucide-react';
+import { Mail, MapPin, Share2, Edit, X, Save } from 'lucide-react';
 
 const API_BASE_URL = '/api';
 
@@ -43,7 +43,7 @@ function EditDepartmentModal({ isOpen, onClose, department, onSave }) {
         background: 'white',
         borderRadius: '12px',
         padding: '24px',
-        maxWidth: '450px',
+        maxWidth: '500px',
         width: '90%',
         boxShadow: '0 20px 25px rgba(0,0,0,0.15)',
         maxHeight: '90vh',
@@ -331,7 +331,7 @@ function AddDepartmentModal({ isOpen, onClose, onSave }) {
         background: 'white',
         borderRadius: '12px',
         padding: '24px',
-        maxWidth: '450px',
+        maxWidth: '500px',
         width: '90%',
         boxShadow: '0 20px 25px rgba(0,0,0,0.15)',
         maxHeight: '90vh',
@@ -600,7 +600,7 @@ function AddDepartmentModal({ isOpen, onClose, onSave }) {
             onClick={handleSubmit}
             style={{
               padding: '8px 16px',
-              background: '#2563eb',
+              background: '#06b6d4',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -612,8 +612,8 @@ function AddDepartmentModal({ isOpen, onClose, onSave }) {
               gap: '6px',
               transition: 'all 0.2s'
             }}
-            onMouseEnter={(e) => e.target.style.background = '#1d4ed8'}
-            onMouseLeave={(e) => e.target.style.background = '#2563eb'}
+            onMouseEnter={(e) => e.target.style.background = '#0891b2'}
+            onMouseLeave={(e) => e.target.style.background = '#06b6d4'}
           >
             <Save size={16} />
             Add Department
@@ -777,7 +777,7 @@ function ShareDepartmentModal({ isOpen, onClose, departmentName }) {
   );
 }
 
-export default function FacultyDepartmentPage() {
+export default function AdminDepartmentPage() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -789,10 +789,8 @@ export default function FacultyDepartmentPage() {
   const fetchDepartments = async () => {
     setLoading(true);
     setError('');
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(`${API_BASE_URL}/departments/`, { signal: controller.signal });
+      const response = await fetch(`${API_BASE_URL}/departments/`);
       if (!response.ok) {
         throw new Error('Failed to fetch departments');
       }
@@ -806,7 +804,6 @@ export default function FacultyDepartmentPage() {
       setSelectedDept(null);
       setError('Unable to load departments from database.');
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
@@ -850,45 +847,12 @@ export default function FacultyDepartmentPage() {
       if (!response.ok) {
         throw new Error('Failed to create department');
       }
-
-      const payload = await response.json();
-      const createdDepartment = {
-        ...newDept,
-        id: payload?.id || newDept.id,
-      };
-
-      setDepartments((prev) => [createdDepartment, ...prev]);
-      setSelectedDept(createdDepartment);
-      // Refresh in background to ensure exact DB state is reflected.
-      fetchDepartments();
+      await fetchDepartments();
       return true;
     } catch (error) {
       console.error('Error creating department:', error);
       alert('Failed to save department in database.');
       return false;
-    }
-  };
-
-  const handleDeleteDepartment = async () => {
-    if (!selectedDept?.id) return;
-
-    const shouldDelete = window.confirm(`Delete department ${selectedDept.code}?`);
-    if (!shouldDelete) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/departments/${selectedDept.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete department');
-      }
-
-      await fetchDepartments();
-      alert('Department deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting department:', error);
-      alert('Failed to delete department.');
     }
   };
 
@@ -900,7 +864,7 @@ export default function FacultyDepartmentPage() {
   };
 
   return (
-    <Layout title="Departments">
+    <Layout title="Department Directory">
       <div style={{ paddingBottom: '40px' }}>
         {error && (
           <div style={{
@@ -931,7 +895,7 @@ export default function FacultyDepartmentPage() {
               onClick={() => setIsAddOpen(true)}
               style={{
                 padding: '10px 20px',
-                background: '#2563eb',
+                background: '#06b6d4',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -943,8 +907,8 @@ export default function FacultyDepartmentPage() {
                 gap: '8px',
                 transition: 'all 0.2s'
               }}
-              onMouseEnter={(e) => e.target.style.background = '#1d4ed8'}
-              onMouseLeave={(e) => e.target.style.background = '#2563eb'}
+              onMouseEnter={(e) => e.target.style.background = '#0891b2'}
+              onMouseLeave={(e) => e.target.style.background = '#06b6d4'}
             >
               + Add Department
             </button>
@@ -1126,35 +1090,6 @@ export default function FacultyDepartmentPage() {
                       <Share2 size={14} />
                       Share
                     </button>
-                    <button
-                      onClick={handleDeleteDepartment}
-                      style={{
-                        padding: '8px 16px',
-                        background: '#fef2f2',
-                        color: '#dc2626',
-                        border: '1px solid #fecaca',
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fee2e2';
-                        e.currentTarget.style.borderColor = '#fca5a5';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = '#fef2f2';
-                        e.currentTarget.style.borderColor = '#fecaca';
-                      }}
-                      title="Delete department"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
                   </div>
                 </div>
                 <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
@@ -1227,10 +1162,9 @@ export default function FacultyDepartmentPage() {
               <div style={{
                 background: '#f9fafb',
                 borderRadius: '10px',
-                padding: '16px',
-                marginBottom: '24px'
+                padding: '16px'
               }}>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '12px', margin: '0 0 12px 0' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', margin: '0 0 12px 0' }}>
                   Contact Information
                 </h3>
                 <div style={{
