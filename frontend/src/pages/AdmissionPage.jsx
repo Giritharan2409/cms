@@ -201,17 +201,28 @@ export default function AdmissionPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredApps.map((app) => (
+                {filteredApps.map((app) => {
+                  // Helper function to safely extract string values from objects
+                  const getValue = (field) => {
+                    if (typeof field === 'string') return field;
+                    if (typeof field === 'object' && field !== null) {
+                      // If it's an object, try to return the course or name property
+                      return field.course || field.name || field.value || JSON.stringify(field);
+                    }
+                    return '';
+                  };
+
+                  return (
                   <tr key={app.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-gray-700">{app.id}</td>
                     <td className="py-3 px-4 text-gray-700">
                       {app.name || app.fullName}
                     </td>
                     <td className="py-3 px-4 text-gray-700">
-                      {activeTab === 'students' ? app.course : app.role}
+                      {activeTab === 'students' ? getValue(app.course) : getValue(app.role)}
                     </td>
                     {activeTab === 'faculty' && (
-                      <td className="py-3 px-4 text-gray-700">{app.department}</td>
+                      <td className="py-3 px-4 text-gray-700">{getValue(app.department)}</td>
                     )}
                     <td className="py-3 px-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[app.status]}`}>
@@ -260,7 +271,8 @@ export default function AdmissionPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {filteredApps.length === 0 && (

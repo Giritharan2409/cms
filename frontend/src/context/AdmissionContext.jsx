@@ -6,30 +6,42 @@ export function AdmissionProvider({ children }) {
   const [studentApps, setStudentApps] = useState([]);
   const [facultyApps, setFacultyApps] = useState([]);
   const [approvedStudents, setApprovedStudents] = useState([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  const parseStoredArray = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
 
   // Load from localStorage on mount
   useEffect(() => {
-    const savedStudentApps = localStorage.getItem('admissions_students');
-    const savedFacultyApps = localStorage.getItem('admissions_faculty');
-    const savedApprovedStudents = localStorage.getItem('approved_students_for_fees');
-
-    if (savedStudentApps) setStudentApps(JSON.parse(savedStudentApps));
-    if (savedFacultyApps) setFacultyApps(JSON.parse(savedFacultyApps));
-    if (savedApprovedStudents) setApprovedStudents(JSON.parse(savedApprovedStudents));
+    setStudentApps(parseStoredArray('admissions_students'));
+    setFacultyApps(parseStoredArray('admissions_faculty'));
+    setApprovedStudents(parseStoredArray('approved_students_for_fees'));
+    setIsHydrated(true);
   }, []);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
+    if (!isHydrated) return;
     localStorage.setItem('admissions_students', JSON.stringify(studentApps));
-  }, [studentApps]);
+  }, [studentApps, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     localStorage.setItem('admissions_faculty', JSON.stringify(facultyApps));
-  }, [facultyApps]);
+  }, [facultyApps, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     localStorage.setItem('approved_students_for_fees', JSON.stringify(approvedStudents));
-  }, [approvedStudents]);
+  }, [approvedStudents, isHydrated]);
 
   const addStudentApp = (student) => {
     const newStudent = {

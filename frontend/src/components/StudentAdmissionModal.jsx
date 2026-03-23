@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAdmission } from '../context/AdmissionContext';
+import { API_BASE } from '../api/apiBase';
 
 const steps = [
   { number: 1, title: 'Personal' },
@@ -175,7 +176,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const studentData = {
       name: formData.name,
       email: formData.email,
@@ -194,31 +195,70 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       paymentStatus: 'Paid',
     };
 
-    addStudentApp(studentData);
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      gender: '',
-      previousSchool: '',
-      board: '',
-      yearOfPassing: '',
-      marksPercentage: '',
-      courseCategory: '',
-      course: '',
-      quota: '',
-      accommodation: '',
-      roomType: '',
-      passportPhoto: null,
-      aadhaarCard: null,
-      marksheet: null,
-      transferCertificate: null,
-      paymentMethod: '',
-    });
-    setPaymentDone(false);
-    setCurrentStep(1);
-    onClose();
+    try {
+      console.log('Submitting student data:', studentData);
+      // Save to backend MongoDB
+      const response = await fetch(`${API_BASE}/admissions/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData),
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || `HTTP ${response.status}: Failed to save admission`);
+        } catch (parseError) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Failed to save admission'}`);
+        }
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Invalid response from server');
+      }
+      
+      console.log('Admission saved to MongoDB:', result);
+
+      // Also add to local state for immediate UI update
+      addStudentApp(studentData);
+
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        dateOfBirth: '',
+        gender: '',
+        previousSchool: '',
+        board: '',
+        yearOfPassing: '',
+        marksPercentage: '',
+        courseCategory: '',
+        course: '',
+        quota: '',
+        accommodation: '',
+        roomType: '',
+        passportPhoto: null,
+        aadhaarCard: null,
+        marksheet: null,
+        transferCertificate: null,
+        paymentMethod: '',
+      });
+      setPaymentDone(false);
+      setCurrentStep(1);
+      onClose();
+    } catch (error) {
+      console.error('Error saving admission:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
   if (!isOpen) return null;

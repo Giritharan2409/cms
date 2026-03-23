@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from datetime import datetime, timezone
+from typing import Any
+
 from bson import ObjectId
+from fastapi import APIRouter, HTTPException
 
 from backend.db import get_db
 from backend.schemas.admission_schema import AdmissionCreate
@@ -7,97 +10,295 @@ from backend.schemas.admission_schema import AdmissionCreate
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
 
 
-# -----------------------------
-# Create Admission
-# -----------------------------
-@router.post("/create")
-async def create_admission(data: AdmissionCreate):
+def _admissions_collection():
+    return get_db()["admissions"]
 
-    db = get_db()
 
-    admissions_collection = db["admissions"]
+def _to_float(value: Any, fallback: float = 0.0) -> float:
+    if value is None:
+        return fallback
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = value.replace("%", "").strip()
+        try:
+            return float(cleaned)
+        except ValueError:
+            return fallback
+    return fallback
 
-    admission = data.model_dump()
 
-    admission.setdefault("status", "Pending")
+def _to_int(value: Any, fallback: int = 0) -> int:
+    if value is None:
+        return fallback
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        cleaned = value.strip()
+        try:
+            return int(cleaned)
+        except ValueError:
+            return fallback
+    return fallback
 
-    payment = admission.get("payment") or {}
-    admission["payment_status"] = (
-        admission.get("payment_status")
-        or payment.get("status")
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _today_ymd() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _build_lookup_query(admission_id: str) -> dict[str, Any]:
+    lookup: list[dict[str, Any]] = [
+        {"id": admission_id},
+        {"admission_id": admission_id},
+    ]
+    if ObjectId.is_valid(admission_id):
+        lookup.append({"_id": ObjectId(admission_id)})
+    return {"$or": lookup}
+
+
+def _serialize_admission(item: dict[str, Any]) -> dict[str, Any]:
+    serialized = dict(item)
+    serialized["_id"] = str(serialized["_id"])
+
+    if not serialized.get("id"):
+        serialized["id"] = serialized.get("admission_id") or serialized["_id"]
+    if not serialized.get("admission_id"):
+        serialized["admission_id"] = serialized["id"]
+
+    payment_status = (
+        serialized.get("paymentStatus")
+        or serialized.get("payment_status")
+        or (serialized.get("payment") or {}).get("status")
         or "Pending"
     )
+    serialized["payment_status"] = payment_status
+    serialized["paymentStatus"] = payment_status
 
-    result = await admissions_collection.insert_one(admission)
+    if not serialized.get("name") and serialized.get("fullName"):
+        serialized["name"] = serialized["fullName"]
+    if not serialized.get("fullName") and serialized.get("name"):
+        serialized["fullName"] = serialized["name"]
 
-    return {
-        "message": "Admission created successfully",
-        "id": str(result.inserted_id)
+    return serialized
+
+
+def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    generated_id = f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    admission_id = payload.get("id") or payload.get("admission_id") or generated_id
+
+    name = (payload.get("name") or payload.get("fullName") or "").strip()
+    email = (payload.get("email") or "").strip()
+    phone = (payload.get("phone") or "").strip()
+
+    payment_status = payload.get("paymentStatus") or payload.get("payment_status") or "Pending"
+
+    normalized = {
+        "id": admission_id,
+        "admission_id": admission_id,
+        "role": "student",
+        "type": "student",
+        "status": payload.get("status") or "Pending",
+        "createdDate": payload.get("createdDate") or _today_ymd(),
+        "created_at": _utc_now_iso(),
+        "name": name,
+        "fullName": payload.get("fullName") or name,
+        "email": email,
+        "phone": phone,
+        "dateOfBirth": payload.get("dateOfBirth") or payload.get("dob") or "",
+        "gender": payload.get("gender") or "",
+        "previousSchool": payload.get("previousSchool") or "",
+        "board": payload.get("board") or "",
+        "yearOfPassing": _to_int(payload.get("yearOfPassing")),
+        "marksPercentage": _to_float(payload.get("marksPercentage")),
+        "courseCategory": payload.get("courseCategory") or "",
+        "course": payload.get("course") or "",
+        "quota": payload.get("quota") or "",
+        "accommodation": payload.get("accommodation") or "",
+        "roomType": payload.get("roomType") or "",
+        "documents": {
+            "passport_photo": payload.get("passportPhoto"),
+            "aadhaar_card": payload.get("aadhaarCard"),
+            "marksheet": payload.get("marksheet"),
+            "transfer_certificate": payload.get("transferCertificate"),
+        },
+        "payment": {
+            "application_fee": _to_float(payload.get("applicationFee"), 500.0),
+            "payment_method": payload.get("paymentMethod"),
+            "transaction_id": payload.get("transactionId"),
+            "payment_datetime": payload.get("paymentDateTime"),
+            "status": payment_status,
+        },
+        "payment_status": payment_status,
+        "paymentStatus": payment_status,
     }
 
+    # Keep nested structure for backwards compatibility with any existing API consumers.
+    normalized["personal"] = {
+        "full_name": normalized["fullName"],
+        "gender": normalized["gender"],
+        "dob": normalized["dateOfBirth"],
+        "email": normalized["email"],
+        "phone": normalized["phone"],
+        "student_id": normalized["id"],
+        "address": payload.get("address") or "",
+        "city": payload.get("city") or "",
+        "state": payload.get("state") or "",
+        "pincode": payload.get("pincode") or "",
+    }
+    normalized["academic"] = {
+        "previous_school": normalized["previousSchool"],
+        "board": normalized["board"],
+        "year_of_passing": normalized["yearOfPassing"],
+        "marks_percentage": normalized["marksPercentage"],
+    }
+    normalized["course_info"] = {
+        "category": normalized["courseCategory"],
+        "course": normalized["course"],
+    }
 
-# -----------------------------
-# Get All Admissions
-# -----------------------------
+    return normalized
+
+
+def _normalize_from_nested_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    validated = AdmissionCreate.model_validate(payload)
+    admission = validated.model_dump()
+
+    personal = admission.get("personal") or {}
+    academic = admission.get("academic") or {}
+    course = admission.get("course") or {}
+    payment = admission.get("payment") or {}
+
+    admission_id = personal.get("student_id") or f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+    payment_status = admission.get("payment_status") or payment.get("status") or "Pending"
+
+    admission.update(
+        {
+            "id": admission_id,
+            "admission_id": admission_id,
+            "type": "student" if admission.get("role") == "student" else admission.get("role"),
+            "status": admission.get("status") or "Pending",
+            "createdDate": _today_ymd(),
+            "created_at": _utc_now_iso(),
+            "name": personal.get("full_name") or "",
+            "fullName": personal.get("full_name") or "",
+            "email": personal.get("email") or "",
+            "phone": personal.get("phone") or "",
+            "dateOfBirth": personal.get("dob") or "",
+            "gender": personal.get("gender") or "",
+            "previousSchool": academic.get("previous_school") or "",
+            "board": academic.get("board") or "",
+            "yearOfPassing": academic.get("year_of_passing") or 0,
+            "marksPercentage": academic.get("marks_percentage") or 0,
+            "courseCategory": course.get("category") or "",
+            "payment_status": payment_status,
+            "paymentStatus": payment_status,
+            "course_info": {
+                "category": course.get("category") or "",
+                "course": course.get("course") or "",
+            },
+        }
+    )
+
+    return admission
+
+
+def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if "personal" in payload and "academic" in payload and "course" in payload:
+        return _normalize_from_nested_payload(payload)
+
+    if payload.get("name") or payload.get("fullName"):
+        return _normalize_from_flat_payload(payload)
+
+    raise HTTPException(
+        status_code=422,
+        detail="Unsupported admission payload. Provide nested admission payload or student add form payload.",
+    )
+
+
+@router.post("/create")
+async def create_admission(payload: dict[str, Any]):
+    try:
+        admissions_collection = _admissions_collection()
+        admission = _normalize_payload(payload)
+
+        result = await admissions_collection.insert_one(admission)
+
+        return {
+            "message": "Admission created successfully",
+            "mongo_id": str(result.inserted_id),
+            "id": admission.get("id"),
+            "admission_id": admission.get("admission_id"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error creating admission: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating admission: {str(e)}")
+
+
 @router.get("/")
 async def get_all_admissions():
+    admissions_collection = _admissions_collection()
+    data: list[dict[str, Any]] = []
 
-    db = get_db()
-
-    admissions_collection = db["admissions"]
-
-    data = []
-
-    async for item in admissions_collection.find():
-        item["_id"] = str(item["_id"])
-        data.append(item)
+    async for item in admissions_collection.find().sort("created_at", -1):
+        data.append(_serialize_admission(item))
 
     return data
 
 
-# -----------------------------
-# Approve Admission
-# -----------------------------
-@router.put("/approve/{id}")
-async def approve_admission(id: str):
+@router.get("/students")
+async def get_student_admissions():
+    admissions_collection = _admissions_collection()
+    data: list[dict[str, Any]] = []
 
-    db = get_db()
+    query = {"$or": [{"role": "student"}, {"type": "student"}]}
+    async for item in admissions_collection.find(query).sort("created_at", -1):
+        data.append(_serialize_admission(item))
 
-    admissions_collection = db["admissions"]
+    return data
 
-    if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid admission id")
 
+@router.put("/approve/{admission_id}")
+async def approve_admission(admission_id: str):
+    admissions_collection = _admissions_collection()
     result = await admissions_collection.update_one(
-        {"_id": ObjectId(id)},
-        {"$set": {"status": "Approved"}}
+        _build_lookup_query(admission_id),
+        {"$set": {"status": "Approved", "updated_at": _utc_now_iso()}},
     )
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Admission not found")
 
-    return {"message": "Admission approved successfully"}
+    return {"message": "Admission approved successfully", "id": admission_id}
 
 
-# -----------------------------
-# Reject Admission
-# -----------------------------
-@router.put("/reject/{id}")
-async def reject_admission(id: str):
-
-    db = get_db()
-
-    admissions_collection = db["admissions"]
-
-    if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid admission id")
-
+@router.put("/reject/{admission_id}")
+async def reject_admission(admission_id: str):
+    admissions_collection = _admissions_collection()
     result = await admissions_collection.update_one(
-        {"_id": ObjectId(id)},
-        {"$set": {"status": "Rejected"}}
+        _build_lookup_query(admission_id),
+        {"$set": {"status": "Rejected", "updated_at": _utc_now_iso()}},
     )
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Admission not found")
 
-    return {"message": "Admission rejected successfully"}
+    return {"message": "Admission rejected successfully", "id": admission_id}
+
+
+@router.delete("/{admission_id}")
+async def delete_admission(admission_id: str):
+    admissions_collection = _admissions_collection()
+    result = await admissions_collection.delete_one(_build_lookup_query(admission_id))
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    return {"message": "Admission deleted successfully", "id": admission_id}
