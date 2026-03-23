@@ -13,7 +13,6 @@ const steps = [
 ];
 
 export default function FacultyAdmissionModal({ isOpen, onClose }) {
-  const { addFacultyApp } = useAdmission();
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -226,8 +225,6 @@ export default function FacultyAdmissionModal({ isOpen, onClose }) {
       const responseData = await response.json();
       console.log('Faculty admission saved:', responseData);
       
-      // Also save to localStorage for context (backup)
-      addFacultyApp(facultyData);
       
       // Reset form
       setFormData({

@@ -138,7 +138,7 @@ export function AdmissionProvider({ children }) {
   // ✅ Add Faculty (NEW - important)
   const addFacultyApp = async (facultyData) => {
     try {
-      await fetch(`${API_BASE}/faculty/create`, {
+      await fetch(`${API_BASE}/faculty`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(facultyData),
