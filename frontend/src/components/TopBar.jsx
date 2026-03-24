@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { getUserSession } from '../auth/sessionController'
 import { cmsRoles } from '../data/roleConfig'
+import NotificationBell from './NotificationBell'
+import NotificationDropdown from './NotificationDropdown'
 
 export default function TopBar({ title, isSidebarVisible = true }) {
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const session = getUserSession()
   const role = session?.role || 'student'
   const user = cmsRoles[role] || cmsRoles.student
@@ -15,11 +19,16 @@ export default function TopBar({ title, isSidebarVisible = true }) {
         </div>
       </div>
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <button className="p-2.5 text-slate-400 hover:bg-slate-50 rounded-xl transition-all relative">
-            <span className="material-symbols-outlined text-[24px]">notifications</span>
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-          </button>
+        <div className="flex items-center gap-2 relative">
+          <NotificationBell
+            role={role}
+            onBellClick={() => setIsNotificationOpen((prev) => !prev)}
+          />
+          <NotificationDropdown
+            role={role}
+            isOpen={isNotificationOpen}
+            onClose={() => setIsNotificationOpen(false)}
+          />
           <button className="p-2.5 text-slate-400 hover:bg-slate-50 rounded-xl transition-all">
             <span className="material-symbols-outlined text-[24px]">settings</span>
           </button>

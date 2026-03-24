@@ -31,7 +31,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
     try {
       await fetch(buildApiUrl(`/notifications/${notificationId}/read`), { method: 'PUT' });
       setNotifications(notifications.map(n =>
-        n.id === notificationId ? { ...n, status: 'read' } : n
+        (n.id || n._id) === notificationId ? { ...n, status: 'read' } : n
       ));
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -41,7 +41,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
   const handleDelete = async (notificationId) => {
     try {
       await fetch(buildApiUrl(`/notifications/${notificationId}`), { method: 'DELETE' });
-      setNotifications(notifications.filter(n => n.id !== notificationId));
+      setNotifications(notifications.filter(n => (n.id || n._id) !== notificationId));
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
@@ -67,7 +67,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
             <ul className="notification-list">
               {notifications.slice(0, 5).map(notif => (
                 <li
-                  key={notif.id}
+                  key={notif.id || notif._id}
                   className={`notification-item ${notif.status === 'unread' ? 'unread' : ''}`}
                 >
                   <div className="notification-item-header">
@@ -79,7 +79,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
                     {notif.status === 'unread' && (
                       <button
                         className="notification-action-btn"
-                        onClick={() => handleMarkAsRead(notif.id)}
+                        onClick={() => handleMarkAsRead(notif.id || notif._id)}
                         title="Mark as read"
                       >
                         Mark Read
@@ -87,7 +87,7 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
                     )}
                     <button
                       className="notification-action-btn danger"
-                      onClick={() => handleDelete(notif.id)}
+                      onClick={() => handleDelete(notif.id || notif._id)}
                       title="Delete notification"
                     >
                       Delete
@@ -105,7 +105,8 @@ export default function NotificationDropdown({ role = 'student', isOpen = false,
         <div className="notification-dropdown-footer">
           <a href="#" className="view-all-link" onClick={(e) => {
             e.preventDefault();
-            window.location.href = `/notifications?role=${encodeURIComponent(role)}`;
+            window.location.hash = `#/notifications?role=${encodeURIComponent(role)}`;
+            onClose?.();
           }}>
             View All Notifications →
           </a>

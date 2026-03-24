@@ -64,10 +64,18 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
         })
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data = {};
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = {};
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create notification');
+        throw new Error(data.detail || data.error || data.message || 'Failed to create notification');
       }
 
       setSuccess('Notification created successfully!');
@@ -81,7 +89,7 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
       });
 
       if (onNotificationCreated) {
-        onNotificationCreated(data.data);
+        onNotificationCreated(data.data || null);
       }
 
       setTimeout(() => setSuccess(''), 3000);
