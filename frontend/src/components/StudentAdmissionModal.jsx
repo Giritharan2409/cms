@@ -891,7 +891,12 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : currentStep === 7 && !paymentDone ? (
               <button
                 onClick={handlePayment}
-                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition"
+                disabled={!formData.paymentMethod}
+                className={`px-6 py-2 rounded-lg font-medium transition ${
+                  !formData.paymentMethod
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
               >
                 💳 Proceed to Payment
               </button>
@@ -905,9 +910,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !paymentDone}
                 className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition ${
-                  isSubmitting
+                  isSubmitting || !paymentDone
                     ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                     : 'bg-green-500 text-white hover:bg-green-600'
                 }`}

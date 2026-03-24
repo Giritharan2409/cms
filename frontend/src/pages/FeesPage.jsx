@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
+import StatCard from '../components/StatCard';
 import { getUserSession } from '../auth/sessionController';
 import { jsPDF } from 'jspdf';
 
@@ -59,13 +60,26 @@ export default function FeesPage() {
   const studentFees = useMemo(() => {
     let fees = feeAssignments;
 
-    // Filter by student ID
+    // Filter by student ID (application ID)
     if (studentId) {
-      fees = fees.filter((fee) => fee.studentId === studentId);
+      fees = fees.filter((fee) => fee.studentId === studentId || fee.applicationId === studentId);
     }
 
     return fees;
   }, [feeAssignments, studentId]);
+
+  // Calculate statistics for student
+  const stats = useMemo(() => {
+    const totalAssigned = studentFees.length;
+    const paidCount = studentFees.filter((fee) => fee.paymentStatus?.toLowerCase() === 'paid').length;
+    const pendingCount = studentFees.filter((fee) => fee.paymentStatus?.toLowerCase() === 'pending').length;
+    const totalAmount = studentFees.reduce((sum, fee) => sum + (fee.totalFee || 0), 0);
+    const paidAmount = studentFees
+      .filter((fee) => fee.paymentStatus?.toLowerCase() === 'paid')
+      .reduce((sum, fee) => sum + (fee.totalFee || 0), 0);
+
+    return { totalAssigned, paidCount, pendingCount, totalAmount, paidAmount };
+  }, [studentFees]);
 
   const handlePayClick = (fee) => {
     setSelectedFee(fee);
@@ -324,117 +338,133 @@ export default function FeesPage() {
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Fee Management</h1>
-          <p className="text-blue-100">Track and pay semester fees</p>
+        {/* Statistics Cards - Same as Admin */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard
+            icon="assign"
+            label="Total Assigned"
+            value={stats.totalAssigned}
+            color="blue"
+          />
+          <StatCard
+            icon="check_circle"
+            label="Paid Fees"
+            value={stats.paidCount}
+            color="green"
+          />
+          <StatCard
+            icon="schedule"
+            label="Pending Fees"
+            value={stats.pendingCount}
+            color="orange"
+          />
+          <StatCard
+            icon="trending_up"
+            label="Total Amount"
+            value={`₹${stats.totalAmount.toLocaleString()}`}
+            color="purple"
+          />
         </div>
 
-        {/* Fee Cards Grid */}
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* All Fee Assignments Cards - Exact same structure as Admin */}
+        <div>
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-gray-800">My Fee Assignments</h2>
+          </div>
+
           {studentFees.length === 0 ? (
-            <div className="text-center py-12">
-              <span className="material-symbols-outlined text-6xl text-gray-300 block mb-4">
-                receipt_long
-              </span>
-              <p className="text-gray-500 text-lg">No fees assigned yet</p>
+            <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">receipt_long</span>
+              <p className="font-medium">No fee assignments yet</p>
+              <p className="text-sm">Your fees will appear here once assigned by the admin</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {studentFees.map((fee) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {studentFees.map((assignment) => (
                 <div
-                  key={fee.id}
-                  className={`rounded-lg shadow border-l-4 p-6 ${
-                    fee.paymentStatus === 'paid'
-                      ? 'bg-green-50 border-l-green-500'
-                      : 'bg-orange-50 border-l-orange-500'
-                  }`}
+                  key={assignment.id}
+                  className="bg-green-50 border-2 border-green-100 rounded-lg p-4 shadow hover:shadow-md transition"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="material-symbols-outlined text-3xl text-orange-500">
-                      receipt_long
+                  {/* Badge - Same as Admin */}
+                  <div className="mb-2">
+                    <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      Fee Assigned
                     </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        fee.paymentStatus === 'paid'
+                  </div>
+
+                  {/* Student Name - Same as Admin */}
+                  <h3 className="text-base font-bold text-gray-900 mb-2">
+                    {assignment.studentName}
+                  </h3>
+
+                  {/* Application ID and Basic Info - Same as Admin */}
+                  <div className="text-xs text-gray-600 mb-2 space-y-1">
+                    <p><span className="font-semibold">Application ID:</span> {assignment.applicationId}</p>
+                    <p><span className="font-semibold">Semester:</span> {assignment.semester}</p>
+                    <p><span className="font-semibold">Course:</span> {assignment.course}</p>
+                  </div>
+
+                  {/* Total Fee (Prominent) - Same as Admin */}
+                  <div className="bg-white rounded-lg p-2 mb-2 border border-green-200">
+                    <p className="text-2xl font-bold text-orange-600 mb-1">
+                      ₹{assignment.totalFee.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-600">Total Fee</p>
+                  </div>
+
+                  {/* Assigned Date and Status - Same as Admin */}
+                  <div className="text-xs text-gray-600 mb-2 space-y-1">
+                    <p><span className="font-semibold">Assigned Date:</span> {assignment.assignedDate}</p>
+                    <p>
+                      <span className="font-semibold">Payment Status:</span>
+                      <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        assignment.paymentStatus === 'Paid'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-orange-100 text-orange-800'
-                      }`}
-                    >
-                      {fee.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-gray-800 text-lg mb-4">{fee.studentName}</h3>
-
-                  <div className="space-y-2 text-sm text-gray-700 mb-4">
-                    <p>
-                      <span className="font-semibold">Application ID:</span> {fee.applicationId}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Semester:</span> {fee.semester}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Course:</span> {fee.course}
-                    </p>
-                    <p className="text-2xl font-bold text-orange-600 mt-3">
-                      Total Fee: ₹{fee.totalFee}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Assigned Date:</span> {fee.assignedDate}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Payment Status:</span> {fee.paymentStatus}
+                      }`}>
+                        {assignment.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+                      </span>
                     </p>
                   </div>
 
-                  {/* Fee Breakdown */}
-                  <div className="bg-white rounded p-4 mb-4">
-                    <p className="font-bold text-gray-800 mb-2">Fee Breakdown:</p>
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        • Semester Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.semesterFee}</span>
-                      </p>
-                      <p>
-                        • Book Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.bookFee}</span>
-                      </p>
-                      <p>
-                        • Exam Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.examFee}</span>
-                      </p>
-                      {fee.hostelFee > 0 && (
-                        <p>
-                          • Hostel Fee:{' '}
-                          <span className="font-semibold float-right">₹{fee.hostelFee}</span>
-                        </p>
+                  {/* Fee Breakdown - Same as Admin */}
+                  <div className="bg-white rounded-lg p-2 mb-3">
+                    <p className="text-xs font-bold text-gray-800 mb-1">Fee Breakdown:</p>
+                    <ul className="text-xs text-gray-700 space-y-0.5">
+                      <li>• Semester Fee: <span className="float-right font-semibold">₹{assignment.semesterFee.toLocaleString()}</span></li>
+                      <li>• Book Fee: <span className="float-right font-semibold">₹{assignment.bookFee.toLocaleString()}</span></li>
+                      <li>• Exam Fee: <span className="float-right font-semibold">₹{assignment.examFee.toLocaleString()}</span></li>
+                      {assignment.hostelFee > 0 && (
+                        <li>• Hostel Fee: <span className="float-right font-semibold">₹{assignment.hostelFee.toLocaleString()}</span></li>
                       )}
-                      {fee.miscFee > 0 && (
-                        <p>
-                          • Misc Fee:{' '}
-                          <span className="font-semibold float-right">₹{fee.miscFee}</span>
-                        </p>
+                      {assignment.miscFee > 0 && (
+                        <li>• Misc Fee: <span className="float-right font-semibold">₹{assignment.miscFee.toLocaleString()}</span></li>
                       )}
-                    </div>
+                    </ul>
                   </div>
 
-                  {/* Action Button */}
-                  {fee.paymentStatus === 'pending' ? (
-                    <button
-                      onClick={() => handlePayClick(fee)}
-                      className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition font-medium"
-                    >
-                      Pay Now
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleViewInvoice(fee)}
-                      className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition font-medium"
-                    >
-                      View Invoice
-                    </button>
-                  )}
+                  {/* Action Buttons - Modified for Student */}
+                  <div className="flex gap-2">
+                    {assignment.paymentStatus === 'pending' ? (
+                      <button
+                        onClick={() => handlePayClick(assignment)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                        title="Pay Fee"
+                      >
+                        <span className="material-symbols-outlined text-sm">payments</span>
+                        Pay
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleViewInvoice(assignment)}
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                        title="View Invoice"
+                      >
+                        <span className="material-symbols-outlined text-sm">receipt</span>
+                        View Invoice
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -660,7 +690,7 @@ export default function FeesPage() {
         </div>
       )}
 
-      {/* Success Modal */}
+      {/* Success Modal - Exact payment container from image */}
       {showSuccess && selectedFee && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl text-center">

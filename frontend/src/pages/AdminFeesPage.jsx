@@ -14,7 +14,6 @@ export default function AdminFeesPage() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleteReason, setDeleteReason] = useState('');
-  const [studentIdMapping, setStudentIdMapping] = useState('');
   const [assignFormData, setAssignFormData] = useState({
     semester: '',
     course: '',
@@ -23,17 +22,6 @@ export default function AdminFeesPage() {
     isAcHostel: false,
   });
 
-  // Demo student IDs for mapping
-  const demoStudents = [
-    { id: 'STU-2024-1547', name: 'John Anderson' },
-    { id: 'STU-2024-042', name: 'Priya Sharma' },
-    { id: 'STU-2024-089', name: 'Sneha Reddy' },
-    { id: 'STU-2024-118', name: 'Vikram Singh' },
-    { id: 'STU-2024-155', name: 'Ananya Patel' },
-    { id: 'STU-2024-190', name: 'Divya Iyer' },
-    { id: 'STU-2024-203', name: 'Rohan Mehta' },
-    { id: 'STU-2024-245', name: 'Meera Joshi' },
-  ];
 
   // Save to localStorage whenever feeAssignments changes and notify listeners
   React.useEffect(() => {
@@ -82,18 +70,12 @@ export default function AdminFeesPage() {
 
   const handleAssignClick = (student) => {
     setSelectedStudent(student);
-    setStudentIdMapping('');
     setShowAssignModal(true);
   };
 
   const handleConfirmAssignFee = () => {
     if (!selectedStudent || !assignFormData.semester) {
       alert('Please fill required fields');
-      return;
-    }
-
-    if (!studentIdMapping) {
-      alert('Please map this student to a demo user ID');
       return;
     }
 
@@ -104,14 +86,11 @@ export default function AdminFeesPage() {
       assignFormData.isAcHostel
     );
 
-    // Get the mapped student name
-    const mappedStudent = demoStudents.find((s) => s.id === studentIdMapping);
-
     const newAssignment = {
       id: `FEE${Date.now()}`,
-      studentId: studentIdMapping,  // ✅ Use the mapped demo user ID
-      studentName: mappedStudent?.name || selectedStudent.name || selectedStudent.fullName,
-      applicationId: selectedStudent.id,  // Keep original application ID for reference
+      studentId: selectedStudent.id,  // Use application ID directly
+      studentName: selectedStudent.name || selectedStudent.fullName,
+      applicationId: selectedStudent.id,
       semester: assignFormData.semester,
       course: assignFormData.course || selectedStudent.course,
       ...fees,
@@ -123,7 +102,6 @@ export default function AdminFeesPage() {
     setFeeAssignments([...feeAssignments, newAssignment]);
     setShowAssignModal(false);
     setSelectedStudent(null);
-    setStudentIdMapping('');
     setAssignFormData({
       semester: '',
       course: '',
@@ -133,6 +111,9 @@ export default function AdminFeesPage() {
     });
 
     alert('Fee assigned successfully!');
+
+    // Automatically generate invoice for the assigned fee
+    handleGenerateInvoice(newAssignment);
   };
 
   const handleDeleteClick = (assignment) => {
@@ -310,19 +291,12 @@ export default function AdminFeesPage() {
                   {/* Action Buttons */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleGenerateInvoice(assignment)}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
-                      title="Generate Invoice"
-                    >
-                      <span className="material-symbols-outlined text-sm">receipt</span>
-                      Generate Invoice
-                    </button>
-                    <button
                       onClick={() => handleDeleteClick(assignment)}
-                      className="p-1.5 hover:bg-red-100 text-red-600 rounded transition border border-red-200"
-                      title="Delete"
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                      title="Delete Assignment"
                     >
-                      <span className="material-symbols-outlined text-base">delete</span>
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -386,32 +360,6 @@ export default function AdminFeesPage() {
               </p>
             </div>
 
-            {/* Student ID Mapping - Link to Demo Account */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                🔗 Map to Student Login Account * (Required)
-              </label>
-              <p className="text-xs text-gray-600 mb-3">
-                Select which demo student account this approved student should be linked to for login and fees viewing.
-              </p>
-              <select
-                value={studentIdMapping}
-                onChange={(e) => setStudentIdMapping(e.target.value)}
-                className="w-full px-4 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-white"
-              >
-                <option value="">-- Select Student Account --</option>
-                {demoStudents.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.id} - {student.name}
-                  </option>
-                ))}
-              </select>
-              {studentIdMapping && (
-                <p className="text-xs text-green-700 mt-2 bg-green-50 p-2 rounded">
-                  ✓ Mapped to: {demoStudents.find((s) => s.id === studentIdMapping)?.name}
-                </p>
-              )}
-            </div>
 
             <div className="space-y-4 mb-8">
               <div>
