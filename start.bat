@@ -4,28 +4,50 @@ setlocal EnableDelayedExpansion
 set "ROOT_DIR=%~dp0"
 set "BACKEND_DIR=%ROOT_DIR%backend"
 set "FRONTEND_DIR=%ROOT_DIR%frontend"
-set "PYTHON_CMD="
+set "PYTHON_EXE="
+set "PYTHON_ARGS="
 set "BACKEND_APP="
 
 if exist "%ROOT_DIR%..\.venv\Scripts\python.exe" (
-  set "PYTHON_CMD=%ROOT_DIR%..\.venv\Scripts\python.exe"
+  set "PYTHON_EXE=%ROOT_DIR%..\.venv\Scripts\python.exe"
 ) else if exist "%ROOT_DIR%.venv\Scripts\python.exe" (
-  set "PYTHON_CMD=%ROOT_DIR%.venv\Scripts\python.exe"
+  set "PYTHON_EXE=%ROOT_DIR%.venv\Scripts\python.exe"
 ) else (
+  where py >nul 2>nul
+  if not errorlevel 1 (
+    py -3 -c "import sys" >nul 2>nul
+    if not errorlevel 1 (
+      set "PYTHON_EXE=py"
+      set "PYTHON_ARGS=-3"
+      goto :python_found
+    )
+    py -c "import sys" >nul 2>nul
+    if not errorlevel 1 (
+      set "PYTHON_EXE=py"
+      set "PYTHON_ARGS="
+      goto :python_found
+    )
+  )
+
   for /f "delims=" %%P in ('where python 2^>nul') do (
-    set "PYTHON_CMD=%%P"
-    goto :python_found
+    "%%P" -c "import sys" >nul 2>nul
+    if not errorlevel 1 (
+      set "PYTHON_EXE=%%P"
+      set "PYTHON_ARGS="
+      goto :python_found
+    )
   )
 )
 
 :python_found
 
-if not defined PYTHON_CMD (
+if not defined PYTHON_EXE (
   echo [ERROR] Python was not found. Install Python or create .venv before running this script.
+  echo [ERROR] On Windows, install from python.org and ensure py launcher is available.
   exit /b 1
 )
 
-echo [INFO] Using Python command: %PYTHON_CMD%
+echo [INFO] Using Python command: %PYTHON_EXE% %PYTHON_ARGS%
 
 if exist "%BACKEND_DIR%\main.py" (
   set "BACKEND_APP=main:app"
@@ -72,7 +94,7 @@ if exist "%BACKEND_DIR%\requirements.txt" (
   echo [2/5] Backend will run with FastAPI Python stack.
   echo [3/5] Installing backend Python dependencies...
   cd /d "%BACKEND_DIR%"
-  call "%PYTHON_CMD%" -m pip install -r requirements.txt
+  call "%PYTHON_EXE%" %PYTHON_ARGS% -m pip install -r requirements.txt
   if errorlevel 1 (
     echo Backend dependency installation failed.
     exit /b 1
@@ -89,7 +111,7 @@ timeout /t 1 /nobreak
 
 echo [4/5] Starting backend server...
 start "MIT Connect Backend (FastAPI)" /D "%BACKEND_DIR%" powershell -NoExit -ExecutionPolicy Bypass -Command ^
-  "try { & '%PYTHON_CMD%' -m uvicorn %BACKEND_APP% --host 127.0.0.1 --port 8000 } catch { Write-Host 'Backend failed' ; Read-Host 'Press Enter to exit' }"
+  "try { & '%PYTHON_EXE%' %PYTHON_ARGS% -m uvicorn %BACKEND_APP% --host 127.0.0.1 --port 8000 } catch { Write-Host 'Backend failed' ; Read-Host 'Press Enter to exit' }"
 
 timeout /t 2 /nobreak
 
