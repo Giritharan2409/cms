@@ -80,13 +80,23 @@ export default function ExamsPage({ noLayout = false }) {
       await fetchExams()
       alert('Successfully registered for the exam!')
     } catch (err) {
-      alert(err?.message || 'Registration failed.')
+      const message = err?.message || 'Registration failed.'
+
+      // If backend says the student is already registered, treat it as a
+      // non-fatal case: refresh state so the row shows as registered.
+      if (message.toLowerCase().includes('already registered')) {
+        await fetchExams()
+        alert('You are already registered for this exam.')
+        return
+      }
+
+      alert(message)
     }
   }
 
   const getRegisteredExams = () => {
-    const registeredIds = new Set(studentRegistrations.map((reg) => reg.examId))
-    return exams.filter((exam) => registeredIds.has(exam._id || exam.id))
+    const registeredIds = new Set(studentRegistrations.map((reg) => String(reg.examId)))
+    return exams.filter((exam) => registeredIds.has(String(exam._id || exam.id)))
   }
 
   // Handle opening unified hall ticket
@@ -138,14 +148,15 @@ export default function ExamsPage({ noLayout = false }) {
       ])
 
       setStudentRegistrations(registrations)
-      const registeredIds = new Set(registrations.map((reg) => reg.examId))
+      const registeredIds = new Set(registrations.map((reg) => String(reg.examId)))
       const marksByExam = marks.reduce((acc, item) => {
-        if (!acc[item.examId]) acc[item.examId] = item
+        const key = String(item.examId)
+        if (!acc[key]) acc[key] = item
         return acc
       }, {})
 
       const merged = examList.map((exam) => {
-        const examId = exam._id || exam.id
+        const examId = String(exam._id || exam.id)
         const mark = marksByExam[examId]
         return {
           ...exam,
@@ -465,7 +476,7 @@ export default function ExamsPage({ noLayout = false }) {
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {exam.status === 'Completed' && exam.resultsPublished ? (
+                        {exam.resultsPublished ? (
                           <button
                             onClick={() => handleOpenRevaluation(exam)}
                             className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-semibold hover:bg-orange-600 transition-all"

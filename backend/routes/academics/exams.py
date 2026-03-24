@@ -70,51 +70,6 @@ async def create_exam(payload: ExamCreate):
     return {"success": True, "data": serialize_doc(created)}
 
 
-@router.put("/{exam_id}")
-async def update_exam(exam_id: str, payload: ExamUpdate):
-    update_data = {key: value for key, value in payload.model_dump().items() if value is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No fields provided for update")
-
-    try:
-        db = get_db()
-    except HTTPException as error:
-        if error.status_code == 503:
-            updated = update_dev_exam(exam_id, update_data)
-            if not updated:
-                raise HTTPException(status_code=404, detail="Exam not found")
-            return {"success": True, "data": updated}
-        raise
-
-    updated = await db["exams"].find_one_and_update(
-        _id_query(exam_id),
-        {"$set": update_data},
-        return_document=ReturnDocument.AFTER,
-    )
-
-    if not updated:
-        raise HTTPException(status_code=404, detail="Exam not found")
-
-    return {"success": True, "data": serialize_doc(updated)}
-
-
-@router.delete("/{exam_id}")
-async def delete_exam(exam_id: str):
-    try:
-        db = get_db()
-    except HTTPException as error:
-        if error.status_code == 503:
-            deleted = delete_dev_exam(exam_id)
-            if not deleted:
-                raise HTTPException(status_code=404, detail="Exam not found")
-            return {"success": True, "message": "Exam deleted"}
-        raise
-    result = await db["exams"].delete_one(_id_query(exam_id))
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Exam not found")
-    return {"success": True, "message": "Exam deleted"}
-
-
 @router.patch("/{exam_id}/publish-results")
 async def publish_exam_results(exam_id: str):
     patch = {"resultsPublished": True, "updatedAt": _now_iso()}
@@ -334,7 +289,7 @@ async def upsert_internal_mark(payload: dict):
 
 
 @router.get("/attendance")
-async def list_exam_attendance(exam_id: Optional[str] = None):
+async def list_exam_attendance(exam_id: Optional[str] = None, student_id: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
@@ -342,10 +297,16 @@ async def list_exam_attendance(exam_id: Optional[str] = None):
             items = _dev_list("exam_attendance")
             if exam_id:
                 items = [item for item in items if str(item.get("examId")) == str(exam_id)]
+            if student_id:
+                items = [item for item in items if str(item.get("studentId")) == str(student_id)]
             return {"success": True, "data": items}
         raise
 
-    query = {"examId": exam_id} if exam_id else {}
+    query = {}
+    if exam_id:
+        query["examId"] = exam_id
+    if student_id:
+        query["studentId"] = student_id
     rows = []
     async for row in db["exam_attendance"].find(query).sort("updatedAt", -1):
         rows.append(serialize_doc(row))
@@ -892,3 +853,52 @@ async def mark_all_notifications_as_read(payload: dict):
         {"$set": {"read": True, "updatedAt": _now_iso()}},
     )
     return {"success": True, "message": "Notifications marked as read"}
+
+
+@router.put("/{exam_id}")
+async def update_exam(exam_id: str, payload: ExamUpdate):
+    update_data = {
+        key: value
+        for key, value in payload.model_dump().items()
+        if value is not None
+    }
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields provided for update")
+
+    try:
+        db = get_db()
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated = update_dev_exam(exam_id, update_data)
+            if not updated:
+                raise HTTPException(status_code=404, detail="Exam not found")
+            return {"success": True, "data": updated}
+        raise
+
+    updated = await db["exams"].find_one_and_update(
+        _id_query(exam_id),
+        {"$set": update_data},
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    return {"success": True, "data": serialize_doc(updated)}
+
+
+@router.delete("/{exam_id}")
+async def delete_exam(exam_id: str):
+    try:
+        db = get_db()
+    except HTTPException as error:
+        if error.status_code == 503:
+            deleted = delete_dev_exam(exam_id)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Exam not found")
+            return {"success": True, "message": "Exam deleted"}
+        raise
+    result = await db["exams"].delete_one(_id_query(exam_id))
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    return {"success": True, "message": "Exam deleted"}
