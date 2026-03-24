@@ -4,9 +4,8 @@ import StatCard from '../components/StatCard';
 import FacultyTable from '../components/FacultyTable';
 import SearchFilter from '../components/SearchFilter';
 import AddEditFacultyModal from '../components/AddEditFacultyModal';
+import { API_BASE } from '../api/apiBase';
 import '../styles.css';
-
-const API_BASE_URL = '/api';
 
 export default function FacultyPage() {
   const [facultyList, setFacultyList] = useState([]);
@@ -26,7 +25,7 @@ export default function FacultyPage() {
   const fetchFaculty = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/faculty`);
+      const response = await fetch(`${API_BASE}/faculty`);
       if (!response.ok) throw new Error('Failed to fetch faculty');
       const data = await response.json();
       setFacultyList(data);
@@ -43,7 +42,7 @@ export default function FacultyPage() {
   const seedFacultyData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/faculty/seed/data`, {
+      const response = await fetch(`${API_BASE}/faculty/seed/data`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -93,7 +92,7 @@ export default function FacultyPage() {
     
     try {
       const facultyId = faculty._id || faculty.id || faculty.employeeId;
-      const response = await fetch(`${API_BASE_URL}/faculty/${facultyId}`, {
+      const response = await fetch(`${API_BASE}/faculty/${facultyId}`, {
         method: 'DELETE'
       });
       if (response.ok) {

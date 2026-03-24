@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { API_BASE } from '../api/apiBase';
 
 export default function AddEditFacultyModal({ isOpen, onClose, onSuccess, editMode, initialData }) {
   const [formData, setFormData] = useState({
@@ -57,8 +58,8 @@ export default function AddEditFacultyModal({ isOpen, onClose, onSuccess, editMo
     
     try {
       const url = editMode 
-        ? `/api/faculty/${formData.employeeId}`
-        : `/api/faculty`;
+        ? `${API_BASE}/faculty/${formData.employeeId}`
+        : `${API_BASE}/faculty`;
         
       const method = editMode ? 'PUT' : 'POST';
       
