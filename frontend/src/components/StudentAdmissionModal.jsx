@@ -46,6 +46,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
 
   const [paymentDone, setPaymentDone] = useState(false);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
     cardHolderName: '',
     cardNumber: '',
@@ -175,6 +176,11 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+
     const studentData = {
       name: formData.name,
       email: formData.email,
@@ -193,6 +199,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       paymentStatus: 'Paid',
     };
 
+    setIsSubmitting(true);
     try {
       console.log('Submitting student data:', studentData);
       // Save to backend MongoDB
@@ -253,6 +260,8 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     } catch (error) {
       console.error('Error saving admission:', error);
       alert(`Error: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -896,9 +905,14 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition flex items-center gap-2"
+                disabled={isSubmitting}
+                className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition ${
+                  isSubmitting
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
               >
-                ✓ Submit Application
+                {isSubmitting ? '⏳ Submitting...' : '✓ Submit Application'}
               </button>
             )}
           </div>
