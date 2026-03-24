@@ -43,7 +43,7 @@ from backend.routes.students import router as students_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
 from backend.routes.administration.invoices import router as invoices_router
-PORT = int(os.getenv("PORT", 5000))
+PORT = int(os.getenv("PORT", 8000))
 
 app = FastAPI(title="CMS API", lifespan=lifespan)
 
@@ -129,4 +129,4 @@ async def serve_react_app(full_path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=5000)
+    uvicorn.run("main:app", host="127.0.0.1", port=PORT)

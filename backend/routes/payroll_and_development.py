@@ -40,7 +40,7 @@ def _load_local_faculty_data() -> list[dict]:
     return []
 
 
-def _find_local_faculty(faculty_id: str) -> dict | None:
+def _find_local_faculty(faculty_id: str) -> Optional[dict]:
     normalized_id = str(faculty_id).strip()
     if not normalized_id:
         return None

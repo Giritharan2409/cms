@@ -490,7 +490,7 @@ export default function PayrollPage({ noLayout = false }) {
                             ) : error ? (
                                 <tr>
                                     <td colSpan="6" style={{ padding: '32px 20px', textAlign: 'center', color: '#ef4444' }}>
-                                        ⚠️ {error} — Make sure the backend server is running on port 5000.
+                                        ⚠️ {error} — Make sure the backend server is running on port 8000.
                                     </td>
                                 </tr>
                             ) : paginatedData.length > 0 ? (
