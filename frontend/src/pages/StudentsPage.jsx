@@ -98,10 +98,6 @@ export default function StudentsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Students</h1>
           <p className="text-slate-500 mt-1">Manage and monitor comprehensive student enrollment records.</p>
         </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 hidden xl:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-600">March 12, 2026 • 10:25 AM</p>
-        </div>
       </div>
 
       {/* Summary Cards */}

@@ -311,7 +311,7 @@ function AddAcademicRecordModal({ isOpen, onClose, onSave, studentId }) {
              <button 
                onClick={async () => {
                  try {
-                   const res = await fetch(`http://localhost:5000/api/students/${studentId}/subjects`, {
+                   const res = await fetch(`/api/students/${studentId}/subjects`, {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({
@@ -362,7 +362,7 @@ function AcademicsTab({ student, onRefresh }) {
       s.code === subjectCode ? { ...s, [field]: value } : s
     );
     try {
-      const res = await fetch(`http://localhost:5000/api/students/${student.id}`, {
+      const res = await fetch(`/api/students/${student.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subjects: updatedSubjects })
@@ -544,13 +544,166 @@ function AcademicsTab({ student, onRefresh }) {
   )
 }
 
-function FeesTab({ student }) {
-  const fees = student.fees || []
-  const totalAmount = fees.reduce((s, f) => s + f.amount, 0)
-  const totalPaid = fees.reduce((s, f) => s + f.paid, 0)
-  const totalDue = fees.reduce((s, f) => s + f.due, 0)
+function FeesTab({ student, onStudentUpdate }) {
+  const [fees, setFees] = useState(student.fees || [])
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [preselectedMethod, setPreselectedMethod] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({
+    type: 'Tuition Fee',
+    amount: '',
+    method: 'Online',
+    date: new Date().toISOString().split('T')[0],
+  })
 
+  const totalAmount = fees.reduce((s, f) => s + (f.amount || 0), 0)
+  const totalPaid = fees.reduce((s, f) => s + (f.paid || 0), 0)
+  const totalDue = fees.reduce((s, f) => s + (f.due || 0), 0)
   const fmt = (n) => `₹${n.toLocaleString('en-IN')}`
+
+  const handleOpenPayment = (method = '') => {
+    setPreselectedMethod(method)
+    setPaymentForm({
+      type: 'Tuition Fee',
+      amount: '',
+      method: method || 'Online',
+      date: new Date().toISOString().split('T')[0],
+    })
+    setShowPaymentModal(true)
+  }
+
+  const handleSubmitPayment = async () => {
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+    setIsSubmitting(true)
+    const amt = parseFloat(paymentForm.amount)
+    const newFee = {
+      id: `FEE-${Date.now().toString().slice(-6)}`,
+      type: paymentForm.type,
+      date: paymentForm.date,
+      amount: amt,
+      paid: amt,
+      due: 0,
+      status: 'Paid',
+      method: paymentForm.method,
+    }
+    const updatedFees = [...fees, newFee]
+
+    try {
+      const studentId = student.rollNumber || student.id
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fees: updatedFees }),
+      })
+      if (res.ok) {
+        setFees(updatedFees)
+        if (onStudentUpdate) onStudentUpdate({ ...student, fees: updatedFees })
+        setShowPaymentModal(false)
+        alert('Payment recorded successfully!')
+      } else {
+        alert('Failed to save payment. Please try again.')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Network error. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDownloadInvoice = () => {
+    // Dynamic import to avoid issues if jsPDF isn't loaded
+    import('jspdf').then(({ jsPDF }) => {
+      const pdf = new jsPDF()
+      const pw = pdf.internal.pageSize.getWidth()
+      let y = 20
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(20)
+      pdf.text('MIT CONNECT', pw / 2, y, { align: 'center' })
+      y += 8
+      pdf.setFontSize(12)
+      pdf.text('FEE INVOICE', pw / 2, y, { align: 'center' })
+      y += 6
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text('123 University Road, Education City | Phone: +91-9876543210', pw / 2, y, { align: 'center' })
+      y += 8
+
+      pdf.setDrawColor(180)
+      pdf.line(20, y, pw - 20, y)
+      y += 8
+
+      // Student info
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.text('Student Details', 20, y)
+      y += 6
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text(`Name: ${student.name}`, 20, y)
+      pdf.text(`ID: ${student.rollNumber || student.id}`, pw / 2, y)
+      y += 5
+      pdf.text(`Department: ${student.department || 'N/A'}`, 20, y)
+      pdf.text(`Semester: ${student.semester || 'N/A'}`, pw / 2, y)
+      y += 5
+      pdf.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 20, y)
+      y += 10
+
+      // Table header
+      pdf.setDrawColor(180)
+      pdf.line(20, y, pw - 20, y)
+      y += 5
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('#', 22, y)
+      pdf.text('Fee Type', 30, y)
+      pdf.text('Date', 85, y)
+      pdf.text('Amount', 120, y)
+      pdf.text('Paid', 148, y)
+      pdf.text('Due', 172, y)
+      pdf.text('Status', 188, y)
+      y += 3
+      pdf.line(20, y, pw - 20, y)
+      y += 5
+
+      // Table rows
+      pdf.setFont('helvetica', 'normal')
+      fees.forEach((f, i) => {
+        pdf.text(String(i + 1), 22, y)
+        pdf.text(f.type || '', 30, y)
+        pdf.text(f.date || '', 85, y)
+        pdf.text(String(f.amount || 0), 120, y)
+        pdf.text(String(f.paid || 0), 148, y)
+        pdf.text(String(f.due || 0), 172, y)
+        pdf.text(f.status || '', 188, y)
+        y += 6
+      })
+
+      // Total
+      y += 2
+      pdf.line(20, y, pw - 20, y)
+      y += 6
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.text('Total Fees:', 30, y)
+      pdf.text(String(totalAmount), 120, y)
+      pdf.text(String(totalPaid), 148, y)
+      pdf.text(String(totalDue), 172, y)
+      y += 10
+
+      // Footer
+      pdf.setFont('helvetica', 'italic')
+      pdf.setFontSize(8)
+      pdf.text('This is a computer-generated invoice. No signature required.', pw / 2, y, { align: 'center' })
+
+      pdf.save(`invoice_${student.rollNumber || student.id}.pdf`)
+    }).catch(() => {
+      alert('PDF library not available. Please try again.')
+    })
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -559,7 +712,10 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Fee Payment Ledger</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm">
+            <button
+              onClick={() => handleOpenPayment('')}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm"
+            >
                <span className="material-symbols-outlined text-[18px]">add</span>
                New Payment
             </button>
@@ -577,18 +733,20 @@ function FeesTab({ student }) {
                  </tr>
                </thead>
                 <tbody className="divide-y divide-slate-100">
-                 {fees.map(f => (
+                 {fees.length === 0 ? (
+                   <tr><td colSpan="6" className="px-8 py-12 text-center text-slate-400 text-sm">No fee records found</td></tr>
+                 ) : fees.map(f => (
                    <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
                      <td className="px-8 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors">#{f.id}</td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-800">{f.type}</td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-500">{f.date}</td>
                      <td className="px-4 py-5">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">Online</span>
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">{f.method || 'N/A'}</span>
                      </td>
                      <td className="px-4 py-5 text-sm font-bold text-slate-900 text-right">{fmt(f.amount)}</td>
                      <td className="px-8 py-5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                           f.status === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+                           f.status === 'Paid' ? 'bg-green-50 text-green-600' : f.status === 'Partial' ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
                         }`}>
                            {f.status}
                         </span>
@@ -609,7 +767,9 @@ function FeesTab({ student }) {
                     <span className="material-symbols-outlined text-[18px]">sticky_note_2</span>
                  </div>
                  <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                   Next installment of ₹12,000 scheduled for July 15, 2024. Automated reminder has been sent to the guardian.
+                   {totalDue > 0
+                     ? `Outstanding balance of ${fmt(totalDue)} pending. Please complete the remaining payment to avoid late charges.`
+                     : 'All fees are paid. No outstanding balance.'}
                  </p>
               </div>
            </div>
@@ -639,7 +799,11 @@ function FeesTab({ student }) {
               </div>
            </div>
            
-           <button className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all">
+           <button
+             onClick={handleDownloadInvoice}
+             className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all flex items-center justify-center gap-2"
+           >
+              <span className="material-symbols-outlined text-[16px]">download</span>
               DOWNLOAD INVOICE (PDF)
            </button>
         </div>
@@ -648,15 +812,122 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">Payment Methods</h3>
            <div className="space-y-3">
-              {['HDFC Bank Summary', 'Unified Payments (UPI)', 'Credit/Debit Cards'].map(method => (
-                <div key={method} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#1162d4]/30 transition-all cursor-pointer group">
-                   <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{method}</span>
+              {[
+                { label: 'Net Banking', method: 'Net Banking', icon: 'account_balance' },
+                { label: 'Unified Payments (UPI)', method: 'UPI', icon: 'qr_code_2' },
+                { label: 'Credit/Debit Cards', method: 'Card', icon: 'credit_card' },
+              ].map(pm => (
+                <div
+                  key={pm.label}
+                  onClick={() => handleOpenPayment(pm.method)}
+                  className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#1162d4]/30 hover:bg-blue-50/30 transition-all cursor-pointer group"
+                >
+                   <div className="flex items-center gap-3">
+                     <span className="material-symbols-outlined text-slate-400 group-hover:text-[#1162d4] text-[20px]">{pm.icon}</span>
+                     <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{pm.label}</span>
+                   </div>
                    <span className="material-symbols-outlined text-slate-300 group-hover:text-[#1162d4] text-[18px]">chevron_right</span>
                 </div>
               ))}
            </div>
         </div>
       </div>
+
+      {/* New Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+            <div className="px-8 py-6 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-3">
+                <div className="p-2 bg-[#1162d4]/10 rounded-lg">
+                  <span className="material-symbols-outlined text-[#1162d4]">payments</span>
+                </div>
+                Record New Payment
+              </h2>
+              <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-8 space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Type *</label>
+                <select
+                  value={paymentForm.type}
+                  onChange={(e) => setPaymentForm(p => ({ ...p, type: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700 bg-white"
+                >
+                  {['Tuition Fee', 'Hostel Fee', 'Exam Fee', 'Lab Fee', 'Library Fee', 'Transport Fee', 'Misc Fee'].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Amount (₹) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm(p => ({ ...p, amount: e.target.value }))}
+                  placeholder="Enter amount"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Method</label>
+                  <select
+                    value={paymentForm.method}
+                    onChange={(e) => setPaymentForm(p => ({ ...p, method: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700 bg-white"
+                  >
+                    {['Online', 'UPI', 'Net Banking', 'Card', 'Cash', 'Cheque'].map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                  <input
+                    type="date"
+                    value={paymentForm.date}
+                    onChange={(e) => setPaymentForm(p => ({ ...p, date: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700"
+                  />
+                </div>
+              </div>
+
+              {paymentForm.amount && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-green-600">info</span>
+                  <p className="text-xs text-green-700">
+                    Recording payment of <strong>{fmt(parseFloat(paymentForm.amount) || 0)}</strong> for <strong>{paymentForm.type}</strong> via <strong>{paymentForm.method}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="px-6 py-2.5 text-xs font-bold text-slate-400 hover:text-slate-600 tracking-wider uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitPayment}
+                disabled={isSubmitting}
+                className={`px-6 py-2.5 ${isSubmitting ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2`}
+              >
+                {isSubmitting ? 'Saving...' : 'Confirm Payment'}
+                <span className="material-symbols-outlined text-base">{isSubmitting ? 'sync' : 'check_circle'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

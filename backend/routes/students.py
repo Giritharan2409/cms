@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Query
 from pymongo import ReturnDocument
 
 from backend.db import get_db
-from backend.dev_store import DEV_STORE
-from backend.schemas.common import StudentRecord
+from backend.dev_store import DEV_STORE, save_dev_store
+from backend.schemas.common import StudentRecord, StudentResponse
 from backend.utils.mongo import serialize_doc
 
 router = APIRouter(prefix="/api/students", tags=["students"])
@@ -114,7 +114,11 @@ def _seed_dev_students() -> None:
             "subjects": [
                 {"code": "CS301", "name": "Data Structures", "grade": "A+", "total": 94},
             ],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -140,7 +144,11 @@ def _seed_dev_students() -> None:
             "subjects": [
                 {"code": "ME201", "name": "Thermodynamics", "grade": "B", "total": 65},
             ],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -164,7 +172,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 65432 10900",
             "avatar": "https://ui-avatars.com/api/?name=Ananya+Patel&background=059669&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -182,13 +194,17 @@ def _seed_dev_students() -> None:
             "attendancePct": 81,
             "feeStatus": "Paid",
             "status": "Active",
-            "enrollDate": "2023-08-01",
+            "enrollDate": "203-08-01",
             "address": "56, Whitefield, Bangalore",
             "guardian": "Deepak Mehta",
             "guardianPhone": "+91 54321 09800",
             "avatar": "https://ui-avatars.com/api/?name=Rohan+Mehta&background=0891b2&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -212,7 +228,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 43210 98700",
             "avatar": "https://ui-avatars.com/api/?name=Sneha+Reddy&background=dc2626&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -236,7 +256,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 32109 87600",
             "avatar": "https://ui-avatars.com/api/?name=Karthik+Nair&background=b91c1c&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -260,7 +284,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 21098 76500",
             "avatar": "https://ui-avatars.com/api/?name=Divya+Iyer&background=7c3aed&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -284,7 +312,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 10987 65400",
             "avatar": "https://ui-avatars.com/api/?name=Arjun+Desai&background=0d9488&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -308,7 +340,11 @@ def _seed_dev_students() -> None:
             "guardianPhone": "+91 09876 54300",
             "avatar": "https://ui-avatars.com/api/?name=Meera+Joshi&background=2563eb&color=fff&size=128",
             "subjects": [],
-            "fees": [],
+            "fees": [
+                {"id": "FEE-101", "type": "Tuition Fee", "date": "2024-07-15", "amount": 75000, "paid": 75000, "due": 0, "status": "Paid", "method": "Online"},
+                {"id": "FEE-102", "type": "Hostel Fee", "date": "2024-07-20", "amount": 45000, "paid": 30000, "due": 15000, "status": "Partial", "method": "Online"},
+                {"id": "FEE-103", "type": "Exam Fee", "date": "2024-08-01", "amount": 5000, "paid": 0, "due": 5000, "status": "Unpaid", "method": ""},
+            ],
             "documents": [],
             "attendanceMonthly": [],
         },
@@ -331,7 +367,6 @@ async def list_students(
             return rows[:limit]
         raise
 
-    query = {"department": department} if department else {}
     projection = {
         "id": 1,
         "rollNumber": 1,
@@ -348,19 +383,54 @@ async def list_students(
         "avatar": 1,
     }
 
-    cursor = (
-        db["students"]
-        .find(query, projection)
-        .sort("_id", -1)
-        .limit(limit)
-        .max_time_ms(5000)
-    )
-    try:
-        docs = await asyncio.wait_for(cursor.to_list(length=limit), timeout=6)
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Student list request timed out")
-
-    return [serialize_doc(row) for row in docs]
+    query = {"department": department} if department else {}
+    
+    # Official students from database
+    students_cursor = db["students"].find(query, projection).sort("_id", -1)
+    students_list = await asyncio.wait_for(students_cursor.to_list(length=limit), timeout=6)
+    
+    # Also fetch approved admissions as "students"
+    admissions_query = {"status": "Approved"}
+    if department:
+        admissions_query["course"] = department # Assuming 'course' in admissions maps to 'department'
+    
+    admissions_cursor = db["admissions"].find(admissions_query)
+    approved_admissions = await asyncio.wait_for(admissions_cursor.to_list(length=limit), timeout=6)
+    
+    # Map admissions to student records and combine
+    combined_list = [serialize_doc(row) for row in students_list]
+    
+    for adm in approved_admissions:
+        adm_id = str(adm.get("_id", ""))
+        # Check if already in official list to avoid duplicates by id or rollNumber
+        if not any(s.get("id") == adm_id or s.get("rollNumber") == adm.get("rollNumber") for s in combined_list):
+            combined_list.append({
+                "id": adm_id,
+                "name": adm.get("student_name", adm.get("fullName", adm.get("name", "N/A"))),
+                "rollNumber": adm.get("rollNumber", adm.get("id", f"ADM_{adm_id[:8]}")),
+                "department": adm.get("department", adm.get("course", "N/A")),
+                "email": adm.get("email", ""),
+                "phone": adm.get("phone", ""),
+                "status": "Active",
+                "feeStatus": adm.get("payment_status", "Pending"),
+                "semester": adm.get("semester", 1),
+                "year": adm.get("year", "1st Year"),
+                "cgpa": 0.0,
+                "attendancePct": 0,
+                "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', adm.get('fullName', 'S'))}&background=2563eb&color=fff&size=128",
+                "enrollDate": adm.get("approved_at", adm.get("created_at", adm.get("createdDate", ""))),
+                "is_admission": True
+            })
+    
+    # Apply limit and department filter again to the combined list if necessary
+    # (department filter already applied to individual queries, but good for robustness)
+    if department:
+        combined_list = [row for row in combined_list if row.get("department") == department]
+    
+    # Sort by _id (or a suitable field) and apply final limit
+    # For combined list, sorting by _id might not be consistent across students and admissions
+    # For simplicity, we'll just take the top 'limit' after combining
+    return combined_list[:limit]
 
 
 @router.get("/{student_id}")
@@ -395,6 +465,10 @@ async def get_student(student_id: str):
 async def create_student(payload: StudentRecord):
     data = payload.model_dump()
 
+    # Normalize guardianName → guardian
+    if data.get("guardianName") and not data.get("guardian"):
+        data["guardian"] = data["guardianName"]
+
     if not data.get("rollNumber"):
         data["rollNumber"] = data["id"]
 
@@ -414,7 +488,8 @@ async def create_student(payload: StudentRecord):
             if exists:
                 raise HTTPException(status_code=400, detail="Student with this id already exists")
             DEV_STORE["students"].insert(0, deepcopy(data))
-            return data
+            save_dev_store()
+            return {"message": "Student created (Dev Store)", "data": data}
         raise
 
     exists = await db["students"].find_one(
@@ -446,6 +521,7 @@ async def update_student(student_id: str, payload: dict):
             if not target:
                 raise HTTPException(status_code=404, detail="Student not found")
             target.update(payload)
+            save_dev_store()
             return deepcopy(target)
         raise
 
@@ -474,6 +550,7 @@ async def delete_student(student_id: str):
             ]
             if len(DEV_STORE["students"]) == before:
                 raise HTTPException(status_code=404, detail="Student not found")
+            save_dev_store()
             return {"message": "Student deleted"}
         raise
 
@@ -502,6 +579,7 @@ async def add_student_subject(student_id: str, subject: dict):
             if "subjects" not in target:
                 target["subjects"] = []
             target["subjects"].append(subject)
+            save_dev_store()
             return subject
         raise
 
