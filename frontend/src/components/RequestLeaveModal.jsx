@@ -35,16 +35,25 @@ export default function RequestLeaveModal({ isOpen, onClose, onSuccess, facultyI
     }
 
     try {
+      const payload = {
+        ...formData,
+        facultyId
+      };
+
       const response = await fetch(`/api/faculty/${facultyId}/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to submit leave request');
+        const detail = data?.detail;
+        const message = Array.isArray(detail)
+          ? detail.map((item) => item?.msg).filter(Boolean).join(', ')
+          : (typeof detail === 'string' ? detail : 'Failed to submit leave request');
+        throw new Error(message);
       }
       
       onSuccess();

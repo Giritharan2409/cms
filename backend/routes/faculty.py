@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Query, Body, Path
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
+import json
+from pathlib import Path as FilePath
 from pydantic import BaseModel
 
 from backend.db import get_db
@@ -13,6 +15,213 @@ from backend.models.faculty_feedback import PeerReview
 from backend.models.faculty_notification import Notification
 
 router = APIRouter(prefix="/api/faculty", tags=["faculty"])
+
+LOCAL_FACULTY_DATA_PATH = FilePath(__file__).resolve().parent.parent / "faculty.json"
+
+
+def default_local_faculty_data() -> List[Dict[str, Any]]:
+    return [
+        {
+            "name": "Dr. Ramesh Kumar",
+            "employeeId": "FAC001",
+            "email": "ramesh.kumar@mit.edu",
+            "phone": "+91-9876543210",
+            "designation": "Professor",
+            "department_id": "CS",
+            "departmentId": "Computer Science",
+            "qualification": "Ph.D. in Computer Science",
+            "employment_status": "Active",
+            "office_location": "Building A, Room 301",
+            "status": "Top",
+            "attendance_rate": 91,
+            "pass_rate": 93,
+            "specialization": "Database Management",
+            "id": "local-fac001",
+            "leave_requests": [],
+        }
+    ]
+
+
+def load_local_faculty_data() -> List[Dict[str, Any]]:
+    if not LOCAL_FACULTY_DATA_PATH.exists():
+        return default_local_faculty_data()
+
+    try:
+        with LOCAL_FACULTY_DATA_PATH.open("r", encoding="utf-8") as faculty_file:
+            data = json.load(faculty_file)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        return default_local_faculty_data()
+
+    return default_local_faculty_data()
+
+
+def save_local_faculty_data(faculty_list: List[Dict[str, Any]]) -> None:
+    def _json_default(value: Any):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
+    tmp_path = LOCAL_FACULTY_DATA_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as faculty_file:
+        json.dump(
+            faculty_list,
+            faculty_file,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            default=_json_default,
+        )
+    tmp_path.replace(LOCAL_FACULTY_DATA_PATH)
+
+
+def filter_local_faculty_data(
+    faculty_list: List[Dict[str, Any]],
+    department_id: Optional[str],
+    designation: Optional[str],
+    employment_status: Optional[str],
+    search: Optional[str],
+) -> List[Dict[str, Any]]:
+    filtered = faculty_list
+
+    if department_id:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("departmentId", "")).strip().lower() == department_id.strip().lower()
+        ]
+
+    if designation:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("designation", "")).strip().lower() == designation.strip().lower()
+        ]
+
+    if employment_status:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("employment_status", "")).strip().lower() == employment_status.strip().lower()
+        ]
+
+    if search:
+        needle = search.strip().lower()
+        filtered = [
+            faculty
+            for faculty in filtered
+            if needle in str(faculty.get("name", "")).lower()
+            or needle in str(faculty.get("employeeId", "")).lower()
+            or needle in str(faculty.get("email", "")).lower()
+        ]
+
+    return filtered
+
+
+def build_local_faculty_profile(faculty: Dict[str, Any]) -> Dict[str, Any]:
+    profile = dict(faculty)
+
+    # Align local fallback shape with what the profile page expects.
+    if "qualifications" not in profile:
+        qualification = profile.get("qualification")
+        profile["qualifications"] = [
+            {"degree": qualification, "institution": "", "year": ""}
+        ] if qualification else []
+
+    if "specializations" not in profile:
+        specialization = profile.get("specialization")
+        profile["specializations"] = [specialization] if specialization else []
+
+    profile.setdefault("publications", [])
+    profile.setdefault("office_hours", [])
+    profile.setdefault("teaching_load", [])
+    profile.setdefault("performance_metrics", [])
+    profile.setdefault("professional_development", [])
+    profile.setdefault("leave_requests", [])
+    profile.setdefault("mentorships", [])
+    profile.setdefault("research_projects", [])
+    profile.setdefault("peer_reviews", [])
+
+    return profile
+
+
+def find_local_faculty_by_id(faculty_id: str) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    for faculty in load_local_faculty_data():
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized in candidate_ids:
+            return build_local_faculty_profile(faculty)
+
+    return None
+
+
+def update_local_faculty_by_id(faculty_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized not in candidate_ids:
+            continue
+
+        existing = dict(faculty)
+
+        # Keep canonical faculty ID stable in edit mode.
+        if "employeeId" in updates:
+            updates = dict(updates)
+            updates.pop("employeeId", None)
+
+        existing.update(updates)
+        local_faculty_list[idx] = existing
+        save_local_faculty_data(local_faculty_list)
+        return build_local_faculty_profile(existing)
+
+    return None
+
+
+def add_local_leave_request(faculty_id: str, leave_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        leave_requests.append(leave_payload)
+        updated_faculty["leave_requests"] = leave_requests
+        local_faculty_list[idx] = updated_faculty
+        save_local_faculty_data(local_faculty_list)
+        return leave_payload
+
+    return None
 
 # Helper functions
 async def get_faculty_collection():
@@ -673,10 +882,22 @@ async def list_faculty(
     employment_status: Optional[str] = Query(None, alias="employmentStatus"),
     search: Optional[str] = None
 ):
-    collection = await get_faculty_collection()
-    perf_col = await get_faculty_activity_collection("faculty_performance")
-    leave_col = await get_faculty_activity_collection("faculty_leave")
-    career_col = await get_faculty_activity_collection("career_pathways")
+    try:
+        collection = await get_faculty_collection()
+        perf_col = await get_faculty_activity_collection("faculty_performance")
+        leave_col = await get_faculty_activity_collection("faculty_leave")
+        career_col = await get_faculty_activity_collection("career_pathways")
+    except HTTPException as error:
+        if error.status_code == 503:
+            local_faculty = load_local_faculty_data()
+            return filter_local_faculty_data(
+                local_faculty,
+                department_id=department_id,
+                designation=designation,
+                employment_status=employment_status,
+                search=search,
+            )
+        raise
     
     query = {}
     if department_id:
@@ -818,7 +1039,16 @@ async def submit_faculty_admission(faculty_data: dict = Body(...)):
 
 @router.get("/{faculty_id}")
 async def get_faculty(faculty_id: str = Path(...)):
-    collection = await get_faculty_collection()
+    try:
+        collection = await get_faculty_collection()
+    except HTTPException as error:
+        if error.status_code == 503:
+            local_faculty = find_local_faculty_by_id(faculty_id)
+            if local_faculty:
+                return local_faculty
+            raise HTTPException(status_code=404, detail="Faculty not found")
+        raise
+
     try:
         obj_id = ObjectId(faculty_id)
         doc = await collection.find_one({"_id": obj_id})
@@ -833,7 +1063,12 @@ async def get_faculty(faculty_id: str = Path(...)):
     emp_id = doc_serialized.get("employeeId")
     
     # Courses
-    courses_col = await get_faculty_activity_collection("faculty_courses")
+    try:
+        courses_col = await get_faculty_activity_collection("faculty_courses")
+    except HTTPException as error:
+        if error.status_code == 503:
+            return build_local_faculty_profile(doc_serialized)
+        raise
     courses = []
     if emp_id:
         async for c in courses_col.find({"facultyId": emp_id}):
@@ -892,22 +1127,31 @@ async def get_faculty(faculty_id: str = Path(...)):
 
 @router.put("/{faculty_id}")
 async def update_faculty(faculty_id: str, updates: Dict[str, Any] = Body(...)):
-    collection = await get_faculty_collection()
+    # Prevent updating primary key fields.
+    sanitized_updates = dict(updates)
+    sanitized_updates.pop("_id", None)
+    sanitized_updates.pop("id", None)
+
     try:
-        query = {"_id": ObjectId(faculty_id)}
-    except:
-        query = {"employeeId": faculty_id}
-        
-    # Prevent updating _id or core immutable fields if needed
-    if "_id" in updates:
-        del updates["_id"]
-        
-    result = await collection.update_one(query, {"$set": updates})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Faculty not found")
-        
-    updated_doc = await collection.find_one(query)
-    return serialize_doc(updated_doc)
+        collection = await get_faculty_collection()
+        try:
+            query = {"_id": ObjectId(faculty_id)}
+        except Exception:
+            query = {"employeeId": faculty_id}
+
+        result = await collection.update_one(query, {"$set": sanitized_updates})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Faculty not found")
+
+        updated_doc = await collection.find_one(query)
+        return serialize_doc(updated_doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated_local_faculty = update_local_faculty_by_id(faculty_id, sanitized_updates)
+            if not updated_local_faculty:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return updated_local_faculty
+        raise
 
 @router.delete("/{faculty_id}")
 async def delete_faculty(faculty_id: str):
@@ -999,27 +1243,51 @@ async def add_development_record(faculty_id: str, dev: ProfessionalDevelopment):
 
 @router.post("/{faculty_id}/leave")
 async def request_leave(faculty_id: str, leave: FacultyLeave):
-    collection = await get_faculty_activity_collection("faculty_leave")
-    
     leave_dict = leave.dict(by_alias=True)
     if leave_dict["facultyId"] != faculty_id:
         if leave_dict["facultyId"] == "string":
             leave_dict["facultyId"] = faculty_id
         else:
             raise HTTPException(status_code=400, detail="Faculty ID mismatch")
-            
-    result = await collection.insert_one(leave_dict)
-    doc = await collection.find_one({"_id": result.inserted_id})
-    return serialize_doc(doc)
+
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+        result = await collection.insert_one(leave_dict)
+        doc = await collection.find_one({"_id": result.inserted_id})
+        return serialize_doc(doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            fallback_leave = {
+                "facultyId": leave_dict.get("facultyId", faculty_id),
+                "leave_type": leave_dict.get("leave_type"),
+                "start_date": leave_dict.get("start_date"),
+                "end_date": leave_dict.get("end_date"),
+                "reason": leave_dict.get("reason"),
+                "status": leave_dict.get("status", "Pending"),
+                "applied_on": leave_dict.get("applied_on") or datetime.utcnow().isoformat(),
+            }
+            saved = add_local_leave_request(faculty_id, fallback_leave)
+            if not saved:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return saved
+        raise
 
 @router.get("/{faculty_id}/leave")
 async def get_leave_requests(faculty_id: str):
-    collection = await get_faculty_activity_collection("faculty_leave")
-    
-    requests = []
-    async for req in collection.find({"facultyId": faculty_id}):
-        requests.append(serialize_doc(req))
-    return requests
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        requests = []
+        async for req in collection.find({"facultyId": faculty_id}):
+            requests.append(serialize_doc(req))
+        return requests
+    except HTTPException as error:
+        if error.status_code == 503:
+            faculty = find_local_faculty_by_id(faculty_id)
+            if not faculty:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return faculty.get("leave_requests", [])
+        raise
 
 @router.put("/leave/{leave_id}")
 async def update_leave_status(leave_id: str, updates: Dict[str, Any] = Body(...)):

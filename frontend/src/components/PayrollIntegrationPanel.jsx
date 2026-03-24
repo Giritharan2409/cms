@@ -13,9 +13,14 @@ export default function PayrollIntegrationPanel({ facultyId, semester, academicY
 
   const fetchPayrollData = async () => {
     setLoading(true);
+    setError(null);
     try {
+      const query = new URLSearchParams({
+        semester: semester || '',
+        academic_year: academicYear || ''
+      });
       const response = await fetch(
-        `/api/faculty/${facultyId}/payroll?semester=${semester}&academic_year=${academicYear}`
+        `/api/faculty/${facultyId}/payroll?${query.toString()}`
       );
       
       if (!response.ok) {
@@ -24,6 +29,7 @@ export default function PayrollIntegrationPanel({ facultyId, semester, academicY
       
       const data = await response.json();
       setPayroll(data);
+      setError(null);
     } catch (err) {
       setError(err.message);
     } finally {

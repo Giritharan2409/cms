@@ -23,6 +23,7 @@ export default function CareerPathwayTracking({ facultyId }) {
 
   const fetchPathway = async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch(
         `/api/faculty/${facultyId}/career-pathway`
@@ -31,9 +32,11 @@ export default function CareerPathwayTracking({ facultyId }) {
       if (response.status === 404) {
         // No existing pathway
         setPathway(null);
+        setError(null);
       } else if (response.ok) {
         const data = await response.json();
         setPathway(data);
+        setError(null);
       } else {
         throw new Error('Failed to fetch pathway');
       }
@@ -55,6 +58,7 @@ export default function CareerPathwayTracking({ facultyId }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...formData,
+            facultyId,
             required_qualifications: formData.required_qualifications.filter(Boolean),
             completed_milestones: formData.completed_milestones.filter(Boolean),
             pending_milestones: formData.pending_milestones.filter(Boolean),
@@ -63,9 +67,13 @@ export default function CareerPathwayTracking({ facultyId }) {
         }
       );
 
-      if (!response.ok) throw new Error('Failed to create pathway');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.detail || 'Failed to create pathway');
+      }
 
       setShowAddForm(false);
+      setError(null);
       fetchPathway();
     } catch (err) {
       setError(err.message);
@@ -83,6 +91,7 @@ export default function CareerPathwayTracking({ facultyId }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...formData,
+            facultyId,
             required_qualifications: formData.required_qualifications.filter(Boolean),
             completed_milestones: formData.completed_milestones.filter(Boolean),
             pending_milestones: formData.pending_milestones.filter(Boolean),
@@ -91,9 +100,13 @@ export default function CareerPathwayTracking({ facultyId }) {
         }
       );
 
-      if (!response.ok) throw new Error('Failed to update pathway');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.detail || 'Failed to update pathway');
+      }
 
       setEditMode(false);
+      setError(null);
       fetchPathway();
     } catch (err) {
       setError(err.message);
