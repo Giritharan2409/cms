@@ -32,6 +32,7 @@ export default function FacultyProfilePage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRequestLeaveOpen, setIsRequestLeaveOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
+  const [editingLeave, setEditingLeave] = useState(null);
 
   useEffect(() => {
     fetchFacultyDetails();
@@ -54,6 +55,40 @@ export default function FacultyProfilePage() {
       setError(error.message || 'Failed to fetch faculty details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditLeave = (leaveReq) => {
+    setEditingLeave(leaveReq);
+    setIsRequestLeaveOpen(true);
+  };
+
+  const handleDeleteLeave = async (leaveReq) => {
+    if (!window.confirm(`Are you sure you want to delete this leave request (${leaveReq.leave_type})?`)) {
+      return;
+    }
+    
+    try {
+      const leaveId = leaveReq._id || leaveReq.id;
+      if (!leaveId) {
+        alert('Cannot delete this leave request because its ID is missing.');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/faculty/${faculty.employeeId}/leave/${leaveId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        alert('Leave request deleted successfully');
+        await fetchFacultyDetails();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData?.detail || 'Failed to delete leave request');
+      }
+    } catch (err) {
+      console.error('Error deleting leave request:', err);
+      alert('Error deleting leave request');
     }
   };
 
@@ -108,12 +143,22 @@ export default function FacultyProfilePage() {
           <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
           <span>Back to Faculty</span>
         </button>
-        <button
-          onClick={() => setIsEditModalOpen(true)}
-          className="px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all"
-        >
-          Edit Profile
-        </button>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+            <div className="w-1.5 h-1.5 bg-[#1162d4] rounded-full animate-pulse" />
+            <span className="text-[10px] font-bold text-[#1162d4] uppercase tracking-wider">Active Session</span>
+          </div>
+          <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+            <div className="text-right hidden md:block">
+              <span className="block text-sm font-bold text-slate-900 leading-none">Admin Control</span>
+              <span className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-1">Super User</span>
+            </div>
+            <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 shadow-sm">
+              <span className="material-symbols-outlined text-[18px]">person</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative overflow-hidden group">
@@ -122,9 +167,14 @@ export default function FacultyProfilePage() {
 
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-            <div className="w-28 h-28 rounded-xl bg-gradient-to-br from-[#1162d4] to-[#60a5fa] p-1 shadow-xl">
-              <div className="w-full h-full rounded-lg bg-white flex items-center justify-center text-[#1162d4]">
-                <User size={40} />
+            <div className="relative">
+              <div className="w-32 h-32 rounded-xl bg-gradient-to-br from-[#1162d4] to-[#60a5fa] p-1 shadow-xl">
+                <div className="w-full h-full rounded-lg bg-white flex items-center justify-center text-[#1162d4]">
+                  <User size={46} />
+                </div>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md">
+                <div className={`w-5 h-5 rounded-full border-2 border-white ${faculty.employment_status === 'Active' ? 'bg-green-500' : 'bg-yellow-500'}`} />
               </div>
             </div>
 
@@ -136,23 +186,42 @@ export default function FacultyProfilePage() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2">
-                <span className="text-base font-semibold text-slate-600">{faculty.designation}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block" />
-                <span className="text-base font-semibold text-slate-400">{faculty.departmentId}</span>
-              </div>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2">
+                  <span className="text-base font-semibold text-slate-600">{faculty.designation}</span>
+                  <span className="w-1 h-1 rounded-full bg-slate-300 hidden sm:block" />
+                  <span className="text-base font-semibold text-slate-400">{faculty.departmentId}</span>
+                </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-4">
-                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${faculty.employment_status === 'Active' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
-                  {faculty.employment_status || 'Active'}
-                </span>
-                {faculty.contract_end_date && (
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    Contract: {new Date(faculty.contract_end_date).toLocaleDateString()}
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-5 mt-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <span className="material-symbols-outlined text-[20px] text-slate-300">badge</span>
+                    <span className="uppercase tracking-wide">{faculty.employeeId}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <span className="material-symbols-outlined text-[20px] text-slate-300">location_on</span>
+                    <span className="uppercase tracking-wide">{faculty.office_location || 'Office Not Assigned'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <span className="material-symbols-outlined text-[20px] text-slate-300">event_available</span>
+                    <span className="uppercase tracking-wide">{faculty.employment_status || 'Active'}</span>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">description</span>
+              <span>Report</span>
+            </button>
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-[#1162d4] hover:border-[#1162d4] transition-all shadow-sm group/edit"
+            >
+              <span className="material-symbols-outlined text-[20px] group-hover/edit:rotate-12 transition-transform">edit</span>
+            </button>
           </div>
         </div>
       </div>
@@ -168,10 +237,7 @@ export default function FacultyProfilePage() {
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <span className="inline-flex items-center gap-2">
-              <tab.icon size={16} />
-              {tab.label}
-            </span>
+            {tab.label}
             {activeTab === tab.id && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1162d4] rounded-t-full" />
             )}
@@ -380,6 +446,7 @@ export default function FacultyProfilePage() {
                     <th className="px-4 py-4">End Date</th>
                     <th className="px-4 py-4">Status</th>
                     <th className="px-8 py-4">Applied On</th>
+                    <th className="px-8 py-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -395,11 +462,29 @@ export default function FacultyProfilePage() {
                           </span>
                         </td>
                         <td className="px-8 py-5 text-sm text-slate-700">{new Date(leaveReq.applied_on).toLocaleDateString()}</td>
+                        <td className="px-8 py-5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditLeave(leaveReq)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all group"
+                              title="Edit leave request"
+                            >
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLeave(leaveReq)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all group"
+                              title="Delete leave request"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="px-8 py-10 text-center text-sm text-slate-500">No leave records found.</td>
+                      <td colSpan="6" className="px-8 py-10 text-center text-sm text-slate-500">No leave records found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -420,9 +505,13 @@ export default function FacultyProfilePage() {
       
       <RequestLeaveModal
         isOpen={isRequestLeaveOpen}
-        onClose={() => setIsRequestLeaveOpen(false)}
+        onClose={() => {
+          setIsRequestLeaveOpen(false);
+          setEditingLeave(null);
+        }}
         onSuccess={fetchFacultyDetails}
         facultyId={faculty.employeeId}
+        editingLeave={editingLeave}
       />
 
       <PerformanceEvaluationModal
@@ -430,6 +519,7 @@ export default function FacultyProfilePage() {
         onClose={() => setIsEvalModalOpen(false)}
         onSuccess={fetchFacultyDetails}
         facultyId={faculty.employeeId}
+        facultyName={faculty.name}
       />
 
     </div>

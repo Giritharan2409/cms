@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
 import json
+import time
 from pathlib import Path as FilePath
 from pydantic import BaseModel
 
@@ -15,6 +16,13 @@ from backend.models.faculty_feedback import PeerReview
 from backend.models.faculty_notification import Notification
 
 router = APIRouter(prefix="/api/faculty", tags=["faculty"])
+
+FACULTY_LIST_CACHE_TTL_SECONDS = 20
+_faculty_list_cache: Dict[str, Any] = {}
+
+
+def _clear_faculty_list_cache() -> None:
+    _faculty_list_cache.clear()
 
 LOCAL_FACULTY_DATA_PATH = FilePath(__file__).resolve().parent.parent / "faculty.json"
 
@@ -222,6 +230,95 @@ def add_local_leave_request(faculty_id: str, leave_payload: Dict[str, Any]) -> O
         return leave_payload
 
     return None
+
+
+def update_local_leave_request(
+    faculty_id: str,
+    leave_id: str,
+    updates: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    normalized_faculty_id = str(faculty_id).strip()
+    normalized_leave_id = str(leave_id).strip()
+    if not normalized_faculty_id or not normalized_leave_id:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized_faculty_id not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        for leave_idx, leave_entry in enumerate(leave_requests):
+            entry_id = str(leave_entry.get("_id") or leave_entry.get("id") or "").strip()
+            if entry_id != normalized_leave_id:
+                continue
+
+            allowed_updates = {
+                "leave_type",
+                "start_date",
+                "end_date",
+                "reason",
+                "status",
+                "applied_on",
+            }
+            sanitized_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+            updated_entry = dict(leave_entry)
+            updated_entry.update(sanitized_updates)
+            leave_requests[leave_idx] = updated_entry
+
+            updated_faculty["leave_requests"] = leave_requests
+            local_faculty_list[idx] = updated_faculty
+            save_local_faculty_data(local_faculty_list)
+            return updated_entry
+
+    return None
+
+
+def delete_local_leave_request(faculty_id: str, leave_id: str) -> bool:
+    normalized_faculty_id = str(faculty_id).strip()
+    normalized_leave_id = str(leave_id).strip()
+    if not normalized_faculty_id or not normalized_leave_id:
+        return False
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return False
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized_faculty_id not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        filtered = [
+            entry
+            for entry in leave_requests
+            if str(entry.get("_id") or entry.get("id") or "").strip() != normalized_leave_id
+        ]
+
+        if len(filtered) == len(leave_requests):
+            continue
+
+        updated_faculty["leave_requests"] = filtered
+        local_faculty_list[idx] = updated_faculty
+        save_local_faculty_data(local_faculty_list)
+        return True
+
+    return False
 
 # Helper functions
 async def get_faculty_collection():
@@ -862,6 +959,7 @@ async def seed_faculty_data():
         
         # Insert new data
         result = await collection.insert_many(faculty_data)
+        _clear_faculty_list_cache()
         
         return {
             "status": "success",
@@ -880,23 +978,22 @@ async def list_faculty(
     department_id: Optional[str] = Query(None, alias="departmentId"),
     designation: Optional[str] = None,
     employment_status: Optional[str] = Query(None, alias="employmentStatus"),
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ):
     try:
         collection = await get_faculty_collection()
-        perf_col = await get_faculty_activity_collection("faculty_performance")
-        leave_col = await get_faculty_activity_collection("faculty_leave")
-        career_col = await get_faculty_activity_collection("career_pathways")
     except HTTPException as error:
         if error.status_code == 503:
             local_faculty = load_local_faculty_data()
-            return filter_local_faculty_data(
+            filtered = filter_local_faculty_data(
                 local_faculty,
                 department_id=department_id,
                 designation=designation,
                 employment_status=employment_status,
                 search=search,
             )
+            return filtered[:limit]
         raise
     
     query = {}
@@ -912,86 +1009,71 @@ async def list_faculty(
             {"employeeId": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}}
         ]
+
+    cache_key = f"{department_id}|{designation}|{employment_status}|{search}|{limit}"
+    cached = _faculty_list_cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached.get("ts", 0) <= FACULTY_LIST_CACHE_TTL_SECONDS:
+        return cached["data"]
         
-    cursor = collection.find(query)
+    projection = {
+        "name": 1,
+        "employeeId": 1,
+        "email": 1,
+        "phone": 1,
+        "designation": 1,
+        "subject": 1,
+        "department_id": 1,
+        "departmentId": 1,
+        "employment_status": 1,
+        "attendance_rate": 1,
+        "pass_rate": 1,
+        "specialization": 1,
+        "status": 1,
+        "cgpa": 1,
+        "office_location": 1,
+    }
+
+    cursor = collection.find(query, projection).sort("_id", -1).limit(limit)
     faculty_list = []
     async for doc in cursor:
         faculty_doc = serialize_doc(doc)
-        emp_id = faculty_doc.get("employeeId")
+        designation_value = str(faculty_doc.get("designation", "")).lower()
+        if "assistant" in designation_value:
+            next_role = "Associate Professor"
+        elif "associate" in designation_value:
+            next_role = "Professor"
+        elif "professor" in designation_value:
+            next_role = "HOD / Dean Track"
+        else:
+            next_role = "Senior Faculty"
 
-        if emp_id:
-            performance_records = await perf_col.find({"facultyId": emp_id}).to_list(100)
-            leave_records = await leave_col.find({"facultyId": emp_id}).to_list(200)
-            career_path = await career_col.find_one(
-                {"faculty_id": emp_id, "status": "Active"}
-            )
-            if not career_path:
-                career_path = await career_col.find_one({"faculty_id": emp_id})
+        faculty_doc["performance_summary"] = {
+            "overall_status": faculty_doc.get("status", "Good"),
+            "pass_rate": faculty_doc.get("pass_rate", 0),
+            "attendance_rate": faculty_doc.get("attendance_rate", 0),
+            "avg_feedback_score": 0,
+            "records_count": 0,
+        }
 
-            avg_feedback = 0
-            if performance_records:
-                scored = [
-                    float(record.get("student_feedback_score", 0) or 0)
-                    for record in performance_records
-                ]
-                avg_feedback = round(sum(scored) / len(scored), 2)
+        faculty_doc["career_path_summary"] = {
+            "current_designation": faculty_doc.get("designation"),
+            "next_role": next_role,
+            "status": "Not Started",
+            "target_years": None,
+        }
 
-            approved_leaves = [
-                record for record in leave_records if str(record.get("status", "")).lower() == "approved"
-            ]
-            pending_leaves = [
-                record for record in leave_records if str(record.get("status", "")).lower() == "pending"
-            ]
-
-            total_leave_days = 0
-            for leave in approved_leaves:
-                try:
-                    start_date = leave.get("start_date")
-                    end_date = leave.get("end_date")
-                    if isinstance(start_date, datetime) and isinstance(end_date, datetime):
-                        total_leave_days += max((end_date - start_date).days + 1, 0)
-                    else:
-                        total_leave_days += int(leave.get("number_of_days", 0) or 0)
-                except Exception:
-                    continue
-
-            next_role = None
-            designation = str(faculty_doc.get("designation", "")).lower()
-            if designation:
-                if "assistant" in designation:
-                    next_role = "Associate Professor"
-                elif "associate" in designation:
-                    next_role = "Professor"
-                elif "professor" in designation:
-                    next_role = "HOD / Dean Track"
-                else:
-                    next_role = "Senior Faculty"
-
-            faculty_doc["performance_summary"] = {
-                "overall_status": faculty_doc.get("status", "Good"),
-                "pass_rate": faculty_doc.get("pass_rate", 0),
-                "attendance_rate": faculty_doc.get("attendance_rate", 0),
-                "avg_feedback_score": avg_feedback,
-                "records_count": len(performance_records),
-            }
-
-            faculty_doc["career_path_summary"] = {
-                "current_designation": faculty_doc.get("designation"),
-                "next_role": (career_path or {}).get("target_designation") or next_role,
-                "status": (career_path or {}).get("status") or "Not Started",
-                "target_years": (career_path or {}).get("target_years"),
-            }
-
-            faculty_doc["leave_attendance_summary"] = {
-                "employment_status": faculty_doc.get("employment_status", "Active"),
-                "attendance_rate": faculty_doc.get("attendance_rate", 0),
-                "leave_requests_count": len(leave_records),
-                "approved_leaves": len(approved_leaves),
-                "pending_leaves": len(pending_leaves),
-                "total_leave_days": total_leave_days,
-            }
+        faculty_doc["leave_attendance_summary"] = {
+            "employment_status": faculty_doc.get("employment_status", "Active"),
+            "attendance_rate": faculty_doc.get("attendance_rate", 0),
+            "leave_requests_count": 0,
+            "approved_leaves": 0,
+            "pending_leaves": 0,
+            "total_leave_days": 0,
+        }
 
         faculty_list.append(faculty_doc)
+    _faculty_list_cache[cache_key] = {"ts": now, "data": faculty_list}
     return faculty_list
 
 @router.post("")
@@ -1005,6 +1087,7 @@ async def create_faculty(faculty: Faculty):
         
     faculty_dict = faculty.dict(by_alias=True)
     result = await collection.insert_one(faculty_dict)
+    _clear_faculty_list_cache()
     
     created_doc = await collection.find_one({"_id": result.inserted_id})
     return serialize_doc(created_doc)
@@ -1144,6 +1227,7 @@ async def update_faculty(faculty_id: str, updates: Dict[str, Any] = Body(...)):
             raise HTTPException(status_code=404, detail="Faculty not found")
 
         updated_doc = await collection.find_one(query)
+        _clear_faculty_list_cache()
         return serialize_doc(updated_doc)
     except HTTPException as error:
         if error.status_code == 503:
@@ -1164,6 +1248,7 @@ async def delete_faculty(faculty_id: str):
     result = await collection.delete_one(query)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Faculty not found")
+    _clear_faculty_list_cache()
         
     return {"status": "success", "message": "Faculty deleted"}
 
@@ -1302,6 +1387,71 @@ async def update_leave_status(leave_id: str, updates: Dict[str, Any] = Body(...)
         
     updated_doc = await collection.find_one({"_id": ObjectId(leave_id)})
     return serialize_doc(updated_doc)
+
+
+@router.put("/{faculty_id}/leave/{leave_id}")
+async def update_leave_request(
+    faculty_id: str,
+    leave_id: str,
+    updates: Dict[str, Any] = Body(...),
+):
+    allowed_updates = {
+        "leave_type",
+        "start_date",
+        "end_date",
+        "reason",
+        "status",
+        "applied_on",
+    }
+    sanitized_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        query: Dict[str, Any] = {"facultyId": faculty_id}
+        try:
+            query["_id"] = ObjectId(leave_id)
+        except Exception:
+            query["id"] = leave_id
+
+        result = await collection.update_one(query, {"$set": sanitized_updates})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+
+        updated_doc = await collection.find_one(query)
+        return serialize_doc(updated_doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated_local = update_local_leave_request(faculty_id, leave_id, sanitized_updates)
+            if not updated_local:
+                raise HTTPException(status_code=404, detail="Leave request not found")
+            return updated_local
+        raise
+
+
+@router.delete("/{faculty_id}/leave/{leave_id}")
+async def delete_leave_request(faculty_id: str, leave_id: str):
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        query: Dict[str, Any] = {"facultyId": faculty_id}
+        try:
+            query["_id"] = ObjectId(leave_id)
+        except Exception:
+            query["id"] = leave_id
+
+        result = await collection.delete_one(query)
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+
+        return {"status": "success", "message": "Leave request deleted"}
+    except HTTPException as error:
+        if error.status_code == 503:
+            deleted_local = delete_local_leave_request(faculty_id, leave_id)
+            if not deleted_local:
+                raise HTTPException(status_code=404, detail="Leave request not found")
+            return {"status": "success", "message": "Leave request deleted"}
+        raise
 
 # -----------------
 # Mentorship

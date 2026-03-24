@@ -19,23 +19,43 @@ export default function FacultyPage() {
   const ITEMS_PER_PAGE = 8;
 
   useEffect(() => {
-    fetchFaculty();
+    const cached = localStorage.getItem('faculty_list_cache');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          setFacultyList(parsed);
+          setLoading(false);
+        }
+      } catch {
+        // ignore invalid local cache and fetch fresh data
+      }
+    }
+
+    fetchFaculty(Boolean(cached));
   }, []);
 
-  const fetchFaculty = async () => {
-    setLoading(true);
+  const fetchFaculty = async (background = false) => {
+    if (!background) {
+      setLoading(true);
+    }
     try {
-      const response = await fetch(`${API_BASE}/faculty`);
+    const response = await fetch(`${API_BASE}/faculty?limit=120`);
       if (!response.ok) throw new Error('Failed to fetch faculty');
       const data = await response.json();
       setFacultyList(data);
+      localStorage.setItem('faculty_list_cache', JSON.stringify(data));
       setError(null);
     } catch (err) {
       console.error('Error fetching faculty:', err);
       setError(err.message);
-      setFacultyList([]);
+      if (!background) {
+        setFacultyList([]);
+      }
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   };
 
@@ -163,9 +183,7 @@ export default function FacultyPage() {
         <SearchFilter 
           searchQuery={searchQuery}
           onSearchChange={handleSearch}
-          onAddClick={handleAddFaculty}
           placeholder="Search faculty by name, ID, or email..."
-          addButtonLabel="Add Faculty"
         />
       </div>
 

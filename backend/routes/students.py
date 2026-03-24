@@ -1,6 +1,7 @@
 import asyncio
 from copy import deepcopy
 from typing import Optional
+import time
 
 from fastapi import APIRouter, HTTPException, Query
 from pymongo import ReturnDocument
@@ -11,6 +12,13 @@ from backend.schemas.common import StudentRecord, StudentResponse
 from backend.utils.mongo import serialize_doc
 
 router = APIRouter(prefix="/api/students", tags=["students"])
+
+STUDENT_LIST_CACHE_TTL_SECONDS = 20
+_students_list_cache = {}
+
+
+def _clear_students_list_cache() -> None:
+    _students_list_cache.clear()
 
 
 def _seed_dev_students() -> None:
@@ -367,6 +375,13 @@ async def list_students(
             return rows[:limit]
         raise
 
+    cache_key = f"{department}|{limit}"
+    cached = _students_list_cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached.get("ts", 0) <= STUDENT_LIST_CACHE_TTL_SECONDS:
+        return cached["data"]
+
+    query = {"department": department} if department else {}
     projection = {
         "id": 1,
         "rollNumber": 1,
@@ -383,11 +398,18 @@ async def list_students(
         "avatar": 1,
     }
 
-    query = {"department": department} if department else {}
-    
     # Official students from database
-    students_cursor = db["students"].find(query, projection).sort("_id", -1)
-    students_list = await asyncio.wait_for(students_cursor.to_list(length=limit), timeout=6)
+    students_cursor = (
+        db["students"]
+        .find(query, projection)
+        .sort("_id", -1)
+        .limit(limit)
+        .max_time_ms(5000)
+    )
+    try:
+        students_list = await asyncio.wait_for(students_cursor.to_list(length=limit), timeout=6)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Student list request timed out")
     
     # Also fetch approved admissions as "students"
     admissions_query = {"status": "Approved"}
@@ -430,7 +452,9 @@ async def list_students(
     # Sort by _id (or a suitable field) and apply final limit
     # For combined list, sorting by _id might not be consistent across students and admissions
     # For simplicity, we'll just take the top 'limit' after combining
-    return combined_list[:limit]
+    rows = combined_list[:limit]
+    _students_list_cache[cache_key] = {"ts": now, "data": rows}
+    return rows
 
 
 @router.get("/{student_id}")
@@ -500,6 +524,7 @@ async def create_student(payload: StudentRecord):
 
     result = await db["students"].insert_one(data)
     created = await db["students"].find_one({"_id": result.inserted_id})
+    _clear_students_list_cache()
     return serialize_doc(created)
 
 
@@ -532,6 +557,7 @@ async def update_student(student_id: str, payload: dict):
     )
     if not result:
         raise HTTPException(status_code=404, detail="Student not found")
+    _clear_students_list_cache()
     return serialize_doc(result)
 
 
@@ -559,6 +585,7 @@ async def delete_student(student_id: str):
     )
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
+    _clear_students_list_cache()
     return {"message": "Student deleted"}
 
 @router.post("/{student_id}/subjects")

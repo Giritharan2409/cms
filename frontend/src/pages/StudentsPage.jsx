@@ -15,24 +15,45 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState(null)
   const itemsPerPage = 8
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (background = false) => {
     try {
-      setLoading(true)
-      const res = await fetch('/api/students')
+      if (!background) {
+        setLoading(true)
+      }
+      const res = await fetch('/api/students?limit=120')
       if (!res.ok) throw new Error('Failed to fetch students')
       const data = await res.json()
       setStudentsList(data)
+      localStorage.setItem('students_list_cache', JSON.stringify(data))
       setError(null)
     } catch (err) {
       console.error('Error fetching students:', err)
       setError('Could not connect to backend. Please ensure the server is running.')
+      if (!background) {
+        setStudentsList([])
+      }
     } finally {
-      setLoading(false)
+      if (!background) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    fetchStudents()
+    const cached = localStorage.getItem('students_list_cache')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed)) {
+          setStudentsList(parsed)
+          setLoading(false)
+        }
+      } catch {
+        // ignore invalid local cache and fetch fresh data
+      }
+    }
+
+    fetchStudents(Boolean(cached))
   }, [])
 
   const handleDelete = async (student) => {
@@ -112,7 +133,6 @@ export default function StudentsPage() {
         <SearchFilter
           searchQuery={searchQuery}
           onSearchChange={handleSearch}
-          onAddClick={() => { setEditingStudent(null); setIsModalOpen(true); }}
         />
       </div>
 
