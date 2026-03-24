@@ -1,4 +1,3 @@
-from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -15,9 +14,9 @@ router = APIRouter(prefix="/api/academics/placement", tags=["academics:placement
 
 @router.get("")
 async def list_placements(
-    status: Optional[str] = None,
-    search: Optional[str] = None,
-    person_id: Optional[str] = None,
+    status: str | None = None,
+    search: str | None = None,
+    person_id: str | None = None,
 ):
     try:
         db = get_db()

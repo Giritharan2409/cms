@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
-import StatCard from '../components/StatCard';
 import { useAdmission } from '../context/AdmissionContext';
 import { getUserSession } from '../auth/sessionController';
 
@@ -22,7 +21,6 @@ export default function AdminFeesPage() {
     isAcHostel: false,
   });
 
-
   // Save to localStorage whenever feeAssignments changes and notify listeners
   React.useEffect(() => {
     localStorage.setItem('fee_assignments', JSON.stringify(feeAssignments));
@@ -30,20 +28,9 @@ export default function AdminFeesPage() {
     window.dispatchEvent(new CustomEvent('feeAssignmentUpdated', { detail: feeAssignments }));
   }, [feeAssignments]);
 
-  // Listen for fee updates from student payments
-  React.useEffect(() => {
-    const handleFeeUpdate = (event) => {
-      const updatedFees = event.detail || JSON.parse(localStorage.getItem('fee_assignments') || '[]');
-      setFeeAssignments(updatedFees);
-    };
-
-    window.addEventListener('feeAssignmentUpdated', handleFeeUpdate);
-    return () => window.removeEventListener('feeAssignmentUpdated', handleFeeUpdate);
-  }, []);
-
   const studentsWithoutFees = useMemo(() => {
     return approvedStudents.filter(
-      (student) => !feeAssignments.some((fee) => fee.applicationId === student.id)
+      (student) => !feeAssignments.some((fee) => fee.studentId === student.id)
     );
   }, [approvedStudents, feeAssignments]);
 
@@ -88,7 +75,7 @@ export default function AdminFeesPage() {
 
     const newAssignment = {
       id: `FEE${Date.now()}`,
-      studentId: selectedStudent.id,  // Use application ID directly
+      studentId: selectedStudent.id,
       studentName: selectedStudent.name || selectedStudent.fullName,
       applicationId: selectedStudent.id,
       semester: assignFormData.semester,
@@ -111,9 +98,6 @@ export default function AdminFeesPage() {
     });
 
     alert('Fee assigned successfully!');
-
-    // Automatically generate invoice for the assigned fee
-    handleGenerateInvoice(newAssignment);
   };
 
   const handleDeleteClick = (assignment) => {
@@ -170,47 +154,9 @@ export default function AdminFeesPage() {
     alert(`Invoice ${invoice.id} generated successfully!`);
   };
 
-  const stats = useMemo(() => {
-    const totalAssigned = feeAssignments.length;
-    const paidCount = feeAssignments.filter((fee) => fee.paymentStatus?.toLowerCase() === 'paid').length;
-    const pendingCount = feeAssignments.filter((fee) => fee.paymentStatus?.toLowerCase() === 'pending').length;
-    const totalRevenue = feeAssignments
-      .filter((fee) => fee.paymentStatus?.toLowerCase() === 'paid')
-      .reduce((sum, fee) => sum + (fee.totalFee || 0), 0);
-
-    return { totalAssigned, paidCount, pendingCount, totalRevenue };
-  }, [feeAssignments]);
-
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            icon="assign"
-            label="Total Assigned"
-            value={stats.totalAssigned}
-            color="blue"
-          />
-          <StatCard
-            icon="check_circle"
-            label="Paid Fees"
-            value={stats.paidCount}
-            color="green"
-          />
-          <StatCard
-            icon="schedule"
-            label="Pending Fees"
-            value={stats.pendingCount}
-            color="orange"
-          />
-          <StatCard
-            icon="trending_up"
-            label="Total Revenue"
-            value={`₹${stats.totalRevenue.toLocaleString()}`}
-            color="purple"
-          />
-        </div>
         {/* All Fee Assignments Cards */}
         <div>
           <div className="mb-6">
@@ -291,12 +237,19 @@ export default function AdminFeesPage() {
                   {/* Action Buttons */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleDeleteClick(assignment)}
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
-                      title="Delete Assignment"
+                      onClick={() => handleGenerateInvoice(assignment)}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                      title="Generate Invoice"
                     >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                      Delete
+                      <span className="material-symbols-outlined text-sm">receipt</span>
+                      Generate Invoice
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(assignment)}
+                      className="p-1.5 hover:bg-red-100 text-red-600 rounded transition border border-red-200"
+                      title="Delete"
+                    >
+                      <span className="material-symbols-outlined text-base">delete</span>
                     </button>
                   </div>
                 </div>
@@ -359,7 +312,6 @@ export default function AdminFeesPage() {
                 <span className="font-semibold">Course:</span> {selectedStudent.course}
               </p>
             </div>
-
 
             <div className="space-y-4 mb-8">
               <div>

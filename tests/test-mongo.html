@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MongoDB Test</title>
+</head>
+<body>
+    <h1>MongoDB Analytics Test</h1>
+    <button onclick="initializeData()">Initialize MongoDB Data</button>
+    <button onclick="testConnection()">Test Connection</button>
+    <div id="output"></div>
+
+    <script>
+        async function initializeData() {
+            const output = document.getElementById('output');
+            output.innerHTML = 'Initializing...';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/analytics/init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const result = await response.json();
+                output.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                output.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        async function testConnection() {
+            const output = document.getElementById('output');
+            output.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/analytics/2025/2');
+                const result = await response.json();
+                output.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                output.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

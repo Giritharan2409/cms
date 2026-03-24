@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createExamSession, updateExamSession } from '../../api/examsApi';
+import { getAllExamSessions, addExamSession, updateExamSession } from '../../data/examData';
 
 export default function ExamSessionModal({ onClose, onSave, editSession = null }) {
   const [formData, setFormData] = useState({
@@ -25,7 +25,7 @@ export default function ExamSessionModal({ onClose, onSave, editSession = null }
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     if (!formData.name || !formData.startDate || !formData.endDate) {
@@ -38,19 +38,15 @@ export default function ExamSessionModal({ onClose, onSave, editSession = null }
       return;
     }
 
-    try {
-      if (editSession) {
-        await updateExamSession(editSession.id, formData);
-        alert('Exam session updated successfully');
-      } else {
-        await createExamSession(formData);
-        alert('Exam session created successfully');
-      }
-
-      onSave();
-    } catch (err) {
-      alert(err?.message || 'Failed to save exam session');
+    if (editSession) {
+      updateExamSession(editSession.id, formData);
+      alert('Exam session updated successfully');
+    } else {
+      addExamSession(formData);
+      alert('Exam session created successfully');
     }
+    
+    onSave();
   };
 
   const getStatusColor = (status) => {

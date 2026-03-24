@@ -16,22 +16,6 @@ export default function InvoicePage() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  // Save to localStorage whenever invoices change
-  React.useEffect(() => {
-    localStorage.setItem('admin_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
-  // Listen for real-time invoice updates (when students make payments or admin updates invoices)
-  React.useEffect(() => {
-    const handleInvoiceUpdate = (event) => {
-      const updatedInvoices = event.detail || JSON.parse(localStorage.getItem('admin_invoices') || '[]');
-      setInvoices(updatedInvoices);
-    };
-
-    window.addEventListener('invoiceUpdated', handleInvoiceUpdate);
-    return () => window.removeEventListener('invoiceUpdated', handleInvoiceUpdate);
-  }, []);
-
   // Filter invoices for current student
   const studentInvoices = useMemo(() => {
     let filtered = invoices;

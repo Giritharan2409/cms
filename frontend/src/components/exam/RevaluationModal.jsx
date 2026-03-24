@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { createRevaluation } from '../../api/examsApi';
+import { applyForRevaluation } from '../../data/examData';
 
 export default function RevaluationModal({ isOpen, onClose, exam, studentId, studentName }) {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     if (!reason.trim()) {
@@ -14,21 +14,17 @@ export default function RevaluationModal({ isOpen, onClose, exam, studentId, stu
     }
 
     setSubmitting(true);
-    try {
-      await createRevaluation({
-        examId: exam._id || exam.id,
-        studentId,
-        studentName,
-        reason,
-      });
+    const result = applyForRevaluation(exam.id, studentId, studentName, reason);
+    
+    if (result.success) {
       alert('Revaluation request submitted successfully!');
       setReason('');
       onClose();
-    } catch (err) {
-      alert(err?.message || 'Failed to submit revaluation request');
-    } finally {
-      setSubmitting(false);
+    } else {
+      alert(result.message);
     }
+    
+    setSubmitting(false);
   };
 
   if (!isOpen) return null;

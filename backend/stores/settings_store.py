@@ -1,4 +1,3 @@
-from typing import Optional, Union
 from copy import deepcopy
 from datetime import datetime, timezone
 
@@ -7,7 +6,7 @@ def _utc_now() -> str:
     return datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _student_seed(overrides: Optional[dict] = None) -> dict:
+def _student_seed(overrides: dict | None = None) -> dict:
     data = {
         "profile": {
             "name": "Arun Kumar",
@@ -51,7 +50,7 @@ def _student_seed(overrides: Optional[dict] = None) -> dict:
     return data
 
 
-def _faculty_seed(overrides: Optional[dict] = None) -> dict:
+def _faculty_seed(overrides: dict | None = None) -> dict:
     data = {
         "profile": {
             "name": "Dr. Ravi",
@@ -180,7 +179,7 @@ SETTINGS_DB = {
 }
 
 
-def normalize_role(role: Optional[str]) -> Optional[str]:
+def normalize_role(role: str | None) -> str | None:
     if not role:
         return None
     lowered = role.lower()
@@ -191,7 +190,7 @@ def normalize_role(role: Optional[str]) -> Optional[str]:
     return None
 
 
-def infer_role_by_user_id(user_id: str) -> Optional[str]:
+def infer_role_by_user_id(user_id: str) -> str | None:
     if user_id in SETTINGS_DB["students"]:
         return "student"
     if user_id in SETTINGS_DB["faculty"]:
@@ -199,7 +198,7 @@ def infer_role_by_user_id(user_id: str) -> Optional[str]:
     return None
 
 
-def get_user_record(role: Optional[str], user_id: str) -> Optional[dict]:
+def get_user_record(role: str | None, user_id: str) -> dict | None:
     resolved_role = normalize_role(role) or infer_role_by_user_id(user_id)
     if not resolved_role:
         return None
@@ -210,7 +209,7 @@ def get_user_record(role: Optional[str], user_id: str) -> Optional[dict]:
     return {"role": resolved_role, "record": record}
 
 
-def get_section(role: Optional[str], user_id: str, section: str) -> Union[dict, Optional[list]]:
+def get_section(role: str | None, user_id: str, section: str) -> dict | list | None:
     user = get_user_record(role, user_id)
     if not user:
         return None
@@ -218,7 +217,7 @@ def get_section(role: Optional[str], user_id: str, section: str) -> Union[dict, 
     return deepcopy(value) if value is not None else None
 
 
-def update_section(role: Optional[str], user_id: str, section: str, payload: dict) -> Optional[dict]:
+def update_section(role: str | None, user_id: str, section: str, payload: dict) -> dict | None:
     user = get_user_record(role, user_id)
     if not user:
         return None
@@ -228,7 +227,7 @@ def update_section(role: Optional[str], user_id: str, section: str, payload: dic
     return deepcopy(merged)
 
 
-def get_credential(user_id: str) -> Optional[str]:
+def get_credential(user_id: str) -> str | None:
     return SETTINGS_DB["credentials"].get(user_id)
 
 
@@ -250,7 +249,7 @@ def get_login_history(user_id: str) -> list[dict]:
     return deepcopy(SETTINGS_DB["loginHistory"].get(user_id, []))
 
 
-def create_delete_request(user_id: str, role: str, reason: Optional[str] = None) -> dict:
+def create_delete_request(user_id: str, role: str, reason: str | None = None) -> dict:
     entry = {
         "id": f"DEL-{int(datetime.now(tz=timezone.utc).timestamp())}",
         "userId": user_id,
@@ -263,7 +262,7 @@ def create_delete_request(user_id: str, role: str, reason: Optional[str] = None)
     return deepcopy(entry)
 
 
-def export_user_data(user_id: str) -> Optional[dict]:
+def export_user_data(user_id: str) -> dict | None:
     role = infer_role_by_user_id(user_id)
     if not role:
         return None

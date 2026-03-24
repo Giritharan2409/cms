@@ -1,15 +1,16 @@
-from typing import Optional
 import os
-from pymongo import MongoClient
-from dotenv import load_dotenv
 from urllib.parse import urlsplit
+
+from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
 
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/cms")
+DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
+MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)
 
 
-def mask_mongodb_uri(uri: Optional[str]) -> str:
+def mask_mongodb_uri(uri: str | None) -> str:
     if not uri:
         return "<not configured>"
 
@@ -21,41 +22,64 @@ def mask_mongodb_uri(uri: Optional[str]) -> str:
     except Exception:
         return "<configured>"
 
+
+def resolve_database_name(uri: str | None) -> str:
+    try:
+        parts = urlsplit(uri or "")
+        db_name = (parts.path or "").lstrip("/")
+        if db_name:
+            return db_name
+    except Exception:
+        pass
+
+    return "College_db"
+
+
+def get_database(client: MongoClient):
+    try:
+        db = client.get_default_database()
+        if db.name != "test":
+            return db
+    except Exception:
+        pass
+
+    return client[resolve_database_name(MONGODB_URI)]
+
+
 def seed():
     print(f"Connecting to {mask_mongodb_uri(MONGODB_URI)}...")
-    client = MongoClient(MONGODB_URI)
-    db = client["cms"] if "mongodb.net" in MONGODB_URI else client.get_database()
-    
-    # 1. Seed Staff Details
-    print("Seeding staff_details collection...")
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=30000)
+    db = get_database(client)
+
+    try:
+        print(f"Using database: {db.name}")
         print("Retrieving staff_details from MongoDB...")
         staff_details = list(db.staff_details.find())
         print(f"Retrieved {len(staff_details)} staff from staff_details collection.")
-        # Create payroll entries for each staff
+
         payroll_entries = []
         for staff in staff_details:
-            payroll_entry = {
-                "staffId": staff.get("staffId"),
-                "staffName": staff.get("staffName"),
-                "designation": staff.get("designation"),
-                "department": staff.get("department"),
-                "category": staff.get("category"),
-                # Add payroll fields as needed
-                "salary": 0,
-                "createdAt": "2026-03-16"
-            }
-            payroll_entries.append(payroll_entry)
+            payroll_entries.append(
+                {
+                    "staffId": staff.get("staffId"),
+                    "staffName": staff.get("staffName"),
+                    "designation": staff.get("designation"),
+                    "department": staff.get("department"),
+                    "category": staff.get("category"),
+                    "salary": 0,
+                    "createdAt": "2026-03-16",
+                }
+            )
+
         if payroll_entries:
             db.payroll.insert_many(payroll_entries)
             print(f"SUCCESS: Seeded {len(payroll_entries)} payroll entries into payroll collection.")
         else:
             print("No staff found to create payroll entries.")
-    
-    # 2. Seed Payroll
-    print("Seeding payroll collection...")
-    
-    print("Database seeded successfully!")
-    client.close()
+
+        print("Database seeded successfully!")
+    finally:
+        client.close()
 
 if __name__ == "__main__":
     seed()

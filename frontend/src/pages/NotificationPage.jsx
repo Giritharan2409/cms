@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cmsRoles, getValidRole, roleMenuGroups } from '../data/roleConfig';
-import { destroyUserSession } from '../auth/sessionController';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const Icon = {
@@ -222,8 +221,9 @@ export default function NotificationsPage({ role: propRole }) {
   }, [role]);
 
   function handleLogout() {
-    destroyUserSession();
-    navigate('/', { replace: true });
+    localStorage.removeItem('cmsRole');
+    localStorage.removeItem('cmsUserId');
+    navigate('/');
   }
 
   // ── Derived

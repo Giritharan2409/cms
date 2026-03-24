@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import MarksEntryModal from '../components/exam/MarksEntryModal'
 import HallTicket from '../components/exam/HallTicket'
 import ExamSessionModal from '../components/exam/ExamSessionModal'
-import TimetableScheduleWizard from '../components/exam/TimetableScheduleWizard'
+import TimetableDraftForm from '../components/exam/TimetableDraftForm'
 import InvigilatorAssignModal from '../components/exam/InvigilatorAssignModal'
 import RevaluationModal from '../components/exam/RevaluationModal'
 import ExamReportModal from '../components/exam/ExamReportModal'
@@ -15,14 +15,11 @@ import InternalMarksModal from '../components/exam/InternalMarksModal'
 import TimetableApprovalModal from '../components/exam/TimetableApprovalModal'
 import NotificationPanel from '../components/exam/NotificationPanel'
 import {
-  listExams,
-  createExam,
-  updateExamById,
-  deleteExamById,
-  listRegistrations,
-  registerExam,
-  listMarks,
-} from '../api/examsApi'
+  initializeExamData,
+  getAllExams,
+  getRegistrationsByStudent,
+  registerForExam,
+} from '../data/examData'
 import { getStudentById } from '../data/studentData'
 
 export default function ExamsPage({ noLayout = false }) {
@@ -52,7 +49,7 @@ export default function ExamsPage({ noLayout = false }) {
   const [showHallTicket, setShowHallTicket] = useState(false)
   const [hallTicketMode, setHallTicketMode] = useState('all')
   const [showExamSessionModal, setShowExamSessionModal] = useState(false)
-  const [showScheduleWizard, setShowScheduleWizard] = useState(false)
+  const [showTimetableDraftForm, setShowTimetableDraftForm] = useState(false)
   const [showInvigilatorModal, setShowInvigilatorModal] = useState(false)
   const [showRevaluationModal, setShowRevaluationModal] = useState(false)
   const [showExamReportModal, setShowExamReportModal] = useState(false)
@@ -62,55 +59,50 @@ export default function ExamsPage({ noLayout = false }) {
   const [showTimetableApprovalModal, setShowTimetableApprovalModal] = useState(false)
   const [showNotificationPanel, setShowNotificationPanel] = useState(false)
   const [selectedExam, setSelectedExam] = useState(null)
-  const [studentRegistrations, setStudentRegistrations] = useState([])
   
+  // Initialize exam data on mount
+  useEffect(() => {
+    initializeExamData()
+  }, [])
+
   // Handle exam registration
-  const handleRegister = async (examId) => {
+  const handleRegister = (examId) => {
     if (!session?.userId) {
       alert('Please sign in to register for exams.')
       return
     }
 
-    try {
-      await registerExam({
-        examId,
-        studentId: session.userId,
-        studentName: studentRecordForHallTicket?.name || session.userId,
-      })
-      await fetchExams()
-      alert('Successfully registered for the exam!')
-    } catch (err) {
-      const message = err?.message || 'Registration failed.'
+    const result = registerForExam(
+      examId,
+      session.userId,
+      studentRecordForHallTicket?.name || session.userId
+    )
 
-      // If backend says the student is already registered, treat it as a
-      // non-fatal case: refresh state so the row shows as registered.
-      if (message.toLowerCase().includes('already registered')) {
-        await fetchExams()
-        alert('You are already registered for this exam.')
-        return
-      }
-
-      alert(message)
+    if (!result.success) {
+      alert(result.message || 'Registration failed.')
+      return
     }
-  }
 
-  const getRegisteredExams = () => {
-    const registeredIds = new Set(studentRegistrations.map((reg) => String(reg.examId)))
-    return exams.filter((exam) => registeredIds.has(String(exam._id || exam.id)))
+    setExams(exams.map(exam =>
+      (exam._id || exam.id) === examId ? { ...exam, registered: true } : exam
+    ))
+    alert('Successfully registered for the exam!')
   }
 
   // Handle opening unified hall ticket
   const handleOpenAllHallTickets = () => {
-    const registeredExams = getRegisteredExams()
+    // Get all registered exams
+    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
+    const registeredIds = new Set(registrations.map(reg => reg.examId))
+    const registeredExams = exams.filter(exam => registeredIds.has(exam._id || exam.id))
     if (registeredExams.length === 0) {
-      alert('No exams registered yet.')
-      return
+      alert('No exams registered yet.');
+      return;
     }
-
     // Open hall ticket with one consolidated subject list for this student
-    setSelectedExam(registeredExams[0])
-    setHallTicketMode('all')
-    setShowHallTicket(true)
+    setSelectedExam(registeredExams[0]);
+    setHallTicketMode('all');
+    setShowHallTicket(true);
   }
 
   const buildHallTicketSubjects = ({ mode, exam } = {}) => {
@@ -125,7 +117,9 @@ export default function ExamsPage({ noLayout = false }) {
       return [mapExam(exam)]
     }
 
-    const registeredExams = getRegisteredExams()
+    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
+    const registeredIds = new Set(registrations.map((reg) => reg.examId))
+    const registeredExams = exams.filter((item) => registeredIds.has(item._id || item.id))
     return registeredExams.map(mapExam)
   }
 
@@ -134,41 +128,33 @@ export default function ExamsPage({ noLayout = false }) {
     fetchExams()
   }, [])
 
+  const applyRegistrations = (examList) => {
+    if (!session?.userId) return examList
+    const registrations = getRegistrationsByStudent(session.userId)
+    if (!registrations.length) return examList
+    const registeredIds = new Set(registrations.map((reg) => reg.examId))
+    return examList.map((exam) => ({
+      ...exam,
+      registered: registeredIds.has(exam._id || exam.id),
+    }))
+  }
+
   const fetchExams = async () => {
+    const localSampleExams = getAllExams()
+
     try {
-      const examList = await listExams()
-      if (!isStudent || !session?.userId) {
-        setExams(examList)
-        return
+      const res = await fetch('/api/exams')
+      const raw = await res.text()
+      const json = raw ? JSON.parse(raw) : null
+
+      if (res.ok && json?.success && Array.isArray(json.data) && json.data.length > 0) {
+        setExams(applyRegistrations(json.data))
+      } else {
+        setExams(applyRegistrations(localSampleExams))
       }
-
-      const [registrations, marks] = await Promise.all([
-        listRegistrations({ studentId: session.userId }),
-        listMarks({ studentId: session.userId }),
-      ])
-
-      setStudentRegistrations(registrations)
-      const registeredIds = new Set(registrations.map((reg) => String(reg.examId)))
-      const marksByExam = marks.reduce((acc, item) => {
-        const key = String(item.examId)
-        if (!acc[key]) acc[key] = item
-        return acc
-      }, {})
-
-      const merged = examList.map((exam) => {
-        const examId = String(exam._id || exam.id)
-        const mark = marksByExam[examId]
-        return {
-          ...exam,
-          registered: registeredIds.has(examId),
-          marks: mark?.marks,
-          grade: mark?.grade,
-        }
-      })
-      setExams(merged)
     } catch (err) {
       console.error('Failed to fetch exams:', err)
-      setExams([])
+      setExams(applyRegistrations(localSampleExams))
     } finally {
       setLoading(false)
     }
@@ -245,11 +231,27 @@ export default function ExamsPage({ noLayout = false }) {
     
     try {
       if (editingExam) {
-        await updateExamById(editingExam._id || editingExam.id, payload)
+        const res = await fetch(`/api/exams/${editingExam._id || editingExam.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        const json = await res.json()
+        if (json.success) {
+          const editingId = editingExam._id || editingExam.id
+          setExams(exams.map(exam => (exam._id || exam.id) === editingId ? json.data : exam))
+        }
       } else {
-        await createExam(payload)
+        const res = await fetch('/api/exams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        const json = await res.json()
+        if (json.success) {
+          setExams([...exams, json.data])
+        }
       }
-      await fetchExams()
     } catch (err) {
       console.error('Failed to save exam:', err)
     }
@@ -260,8 +262,11 @@ export default function ExamsPage({ noLayout = false }) {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this exam?')) {
       try {
-        await deleteExamById(id)
-        await fetchExams()
+        const res = await fetch(`/api/exams/${id}`, { method: 'DELETE' })
+        const json = await res.json()
+        if (json.success) {
+          setExams(exams.filter(exam => (exam._id || exam.id) !== id))
+        }
       } catch (err) {
         console.error('Failed to delete exam:', err)
       }
@@ -329,7 +334,19 @@ export default function ExamsPage({ noLayout = false }) {
   const inner = (
     <>
       <div className="flex flex-col gap-4 mb-6">
+        <div>
+          <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
+          {(isAdmin || isFaculty) && (
+            <button 
+              onClick={openAddModal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
+            >
+              <span className="material-symbols-outlined text-lg">calendar_add_on</span>
+              Schedule Exam
+            </button>
+          )}
           {isStudent && (
             <button 
               onClick={handleOpenAllHallTickets}
@@ -342,18 +359,25 @@ export default function ExamsPage({ noLayout = false }) {
           {isAdmin && (
             <>
               <button 
-                onClick={() => setShowScheduleWizard(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-200 transition-all"
+                onClick={() => setShowExamSessionModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">edit_calendar</span>
-                Create Schedule
+                <span className="material-symbols-outlined text-lg">calendar_month</span>
+                Manage Sessions
+              </button>
+              <button 
+                onClick={() => setShowTimetableDraftForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+              >
+                <span className="material-symbols-outlined text-lg">draft</span>
+                Create Timetable
               </button>
               <button 
                 onClick={() => setShowTimetableApprovalModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">verified_user</span>
-                Approve Schedules
+                <span className="material-symbols-outlined text-lg">approval</span>
+                Approve Timetables
               </button>
             </>
           )}
@@ -476,7 +500,7 @@ export default function ExamsPage({ noLayout = false }) {
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {exam.resultsPublished ? (
+                        {exam.status === 'Completed' && exam.resultsPublished ? (
                           <button
                             onClick={() => handleOpenRevaluation(exam)}
                             className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-semibold hover:bg-orange-600 transition-all"
@@ -714,13 +738,14 @@ export default function ExamsPage({ noLayout = false }) {
         />
       )}
 
-      <TimetableScheduleWizard
-        isOpen={showScheduleWizard}
-        onClose={() => setShowScheduleWizard(false)}
-        onSave={() => {
-          setShowScheduleWizard(false);
-        }}
-      />
+      {showTimetableDraftForm && (
+        <TimetableDraftForm
+          onClose={() => setShowTimetableDraftForm(false)}
+          onSave={() => {
+            setShowTimetableDraftForm(false);
+          }}
+        />
+      )}
 
       {showInvigilatorModal && selectedExam && (
         <InvigilatorAssignModal

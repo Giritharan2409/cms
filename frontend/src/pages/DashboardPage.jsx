@@ -33,30 +33,6 @@ export default function DashboardPage() {
     navigate(`/students${roleQuery}`);
   }
 
-  function handlePrimaryAction() {
-    if (role === 'faculty') {
-      navigate(`/attendance${roleQuery}`);
-    } else if (role === 'admin') {
-      navigate(`/admissions${roleQuery}`);
-    } else if (role === 'finance') {
-      navigate(`/invoices${roleQuery}`);
-    } else if (role === 'student') {
-      navigate(`/timetable${roleQuery}`);
-    }
-  }
-
-  function handleSecondaryAction() {
-    if (role === 'faculty') {
-      navigate(`/exams${roleQuery}`);
-    } else if (role === 'admin') {
-      navigate(`/administration${roleQuery}`);
-    } else if (role === 'finance') {
-      navigate(`/payroll${roleQuery}`);
-    } else if (role === 'student') {
-      navigate(`/attendance${roleQuery}`);
-    }
-  }
-
   useEffect(() => {
     if (!sessionRole || !sessionUserId) {
       navigate('/', { replace: true });
@@ -132,16 +108,10 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button 
-                      onClick={handlePrimaryAction}
-                      className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
-                    >
+                    <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
                       {data.primaryAction}
                     </button>
-                    <button 
-                      onClick={handleSecondaryAction}
-                      className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
-                    >
+                    <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
                       {data.secondaryAction}
                     </button>
                   </div>

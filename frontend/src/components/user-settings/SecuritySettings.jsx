@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { userSettingsApi } from '../../api/userSettingsApi';
 import { useSettingsContext } from '../../context/SettingsContext';
-import { destroyUserSession } from '../../auth/sessionController';
 import { SaveToast, SectionError, SectionLoader } from './SettingsCommon';
 
 export default function SecuritySettings({ role, userId }) {
-  const navigate = useNavigate();
   const { markSectionDirty } = useSettingsContext();
   const [sessions, setSessions] = useState([]);
   const [loginHistory, setLoginHistory] = useState([]);
@@ -50,11 +47,6 @@ export default function SecuritySettings({ role, userId }) {
       const response = await userSettingsApi.logoutAllDevices(role, userId);
       setSessions(response.data || []);
       setToast('All active sessions were logged out.');
-      // Clear local session and navigate to login after successful logout
-      setTimeout(() => {
-        destroyUserSession();
-        navigate('/', { replace: true });
-      }, 500);
     } catch (actionError) {
       setError(actionError.message);
     } finally {

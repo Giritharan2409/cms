@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
-import StatCard from '../components/StatCard';
 import { jsPDF } from 'jspdf';
 import { getUserSession } from '../auth/sessionController';
 
@@ -280,30 +279,42 @@ export default function AdminInvoicePage() {
       <div className="space-y-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            icon="description"
-            label="Total Invoices"
-            value={stats.totalInvoices}
-            color="blue"
-          />
-          <StatCard
-            icon="check_circle"
-            label="Paid Invoices"
-            value={stats.paidInvoices}
-            color="green"
-          />
-          <StatCard
-            icon="schedule"
-            label="Pending Invoices"
-            value={stats.pendingInvoices}
-            color="orange"
-          />
-          <StatCard
-            icon="trending_up"
-            label="Total Revenue"
-            value={`₹${stats.totalRevenue.toLocaleString()}`}
-            color="purple"
-          />
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalInvoices}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-blue-500">description</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Paid Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.paidInvoices}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-green-500">check_circle</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Pending Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingInvoices}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-orange-500">schedule</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalRevenue.toLocaleString()}</p>
+              </div>
+              <span className="material-symbols-outlined text-4xl text-purple-500">trending_up</span>
+            </div>
+          </div>
         </div>
 
         {/* Main Table */}

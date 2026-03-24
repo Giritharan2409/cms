@@ -16,7 +16,6 @@ const iconMap = {
   Fees: 'payments',
   Reports: 'assessment',
   Admission: 'person_add',
-  'Admin Dashboard': 'admin_panel_settings',
   Payroll: 'receipt_long',
   Invoices: 'description',
   Analytics: 'query_stats',
@@ -38,7 +37,6 @@ const routeMap = {
   Fees: '/fees',
   Reports: '/reports',
   Admission: '/admission',
-  'Admin Dashboard': '/admin-administration',
   Payroll: '/payroll',
   Invoices: '/invoices',
   Analytics: '/analytics',
@@ -57,21 +55,14 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
   const menuGroups = roleMenuGroups[role] || []
 
   function getRoute(item) {
-    if (item === 'Department') {
-      return role === 'admin' ? '/admin-department' : '/department'
+    if (item === 'Settings') {
+      return `/${role}/settings`
     }
     if (item === 'Fees') {
       return role === 'admin' ? '/admin-fees' : '/fees'
     }
     if (item === 'Invoices') {
-      if (role === 'admin') return '/admin-invoices'
-      // Remove invoice for finance role
-      if (role === 'finance') return null
-      return '/invoices'
-    }
-    // Remove Payroll for admin role
-    if (item === 'Payroll' && role === 'admin') {
-      return null
+      return role === 'admin' ? '/admin-invoices' : '/invoices'
     }
     return routeMap[item] || '/dashboard'
   }
@@ -115,6 +106,12 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
     }
   }, [location.pathname])
 
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log('[AcademicSidebar] location.pathname:', location.pathname)
+    }
+  }, [location.pathname])
+
   return (
     <aside className={`w-64 border-r border-slate-200 bg-white flex flex-col fixed h-full overflow-y-auto z-50 transition-transform duration-300 ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="p-5 flex items-center justify-between border-b border-slate-100/60 mb-2">
@@ -145,7 +142,6 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
             <div className="space-y-1">
               {group.items.map((item) => {
                 const route = getRoute(item)
-                if (route === null) return null // Hide Invoices for finance role, Payroll for admin
                 const to = withRoleQuery(route)
                 return (
                   <NavLink

@@ -3,6 +3,9 @@ dist/
 .DS_Store
 *.log
 
+# Build cache
+frontend/.vite/
+
 # Backend
 backend/node_modules/
 backend/.env
@@ -15,4 +18,3 @@ __pycache__/
 *.py[cod]
 .env/
 venv/
-backend/.venv/

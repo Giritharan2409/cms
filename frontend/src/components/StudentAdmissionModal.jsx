@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_BASE } from '../api/apiBase';
+import { useAdmission } from '../context/AdmissionContext';
 
 const steps = [
   { number: 1, title: 'Personal' },
@@ -13,6 +13,7 @@ const steps = [
 ];
 
 export default function StudentAdmissionModal({ isOpen, onClose }) {
+  const { addStudentApp } = useAdmission();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Step 1: Personal
@@ -46,7 +47,6 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
 
   const [paymentDone, setPaymentDone] = useState(false);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
     cardHolderName: '',
     cardNumber: '',
@@ -133,18 +133,15 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const handlePayment = () => {
-    // Open the payment modal to let user select payment method
-    setShowPaymentDetails(true);
-  };
-
-  const handleCompletePayment = () => {
-    // First validate that payment method is selected
     if (!formData.paymentMethod) {
       alert('Please select a payment method');
       return;
     }
+    setShowPaymentDetails(true);
+  };
 
-    // Then validate payment details based on payment method
+  const handleCompletePayment = () => {
+    // Validate payment details based on payment method
     if (formData.paymentMethod === 'Credit Card' || formData.paymentMethod === 'Debit Card') {
       if (!paymentDetails.cardHolderName || !paymentDetails.cardNumber || !paymentDetails.expiryDate || !paymentDetails.cvv) {
         alert('Please fill all card details');
@@ -175,12 +172,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     });
   };
 
-  const handleSubmit = async () => {
-    // Prevent multiple submissions
-    if (isSubmitting) {
-      return;
-    }
-
+  const handleSubmit = () => {
     const studentData = {
       name: formData.name,
       email: formData.email,
@@ -199,70 +191,31 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       paymentStatus: 'Paid',
     };
 
-    setIsSubmitting(true);
-    try {
-      console.log('Submitting student data:', studentData);
-      // Save to backend MongoDB
-      const response = await fetch(`${API_BASE}/admissions/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(studentData),
-      });
-
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || `HTTP ${response.status}: Failed to save admission`);
-        } catch (parseError) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText || 'Failed to save admission'}`);
-        }
-      }
-
-      let result;
-      try {
-        result = await response.json();
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error('Invalid response from server');
-      }
-      
-      console.log('Admission saved to MongoDB:', result);
-
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        dateOfBirth: '',
-        gender: '',
-        previousSchool: '',
-        board: '',
-        yearOfPassing: '',
-        marksPercentage: '',
-        courseCategory: '',
-        course: '',
-        quota: '',
-        accommodation: '',
-        roomType: '',
-        passportPhoto: null,
-        aadhaarCard: null,
-        marksheet: null,
-        transferCertificate: null,
-        paymentMethod: '',
-      });
-      setPaymentDone(false);
-      setCurrentStep(1);
-      onClose();
-    } catch (error) {
-      console.error('Error saving admission:', error);
-      alert(`Error: ${error.message}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+    addStudentApp(studentData);
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      dateOfBirth: '',
+      gender: '',
+      previousSchool: '',
+      board: '',
+      yearOfPassing: '',
+      marksPercentage: '',
+      courseCategory: '',
+      course: '',
+      quota: '',
+      accommodation: '',
+      roomType: '',
+      passportPhoto: null,
+      aadhaarCard: null,
+      marksheet: null,
+      transferCertificate: null,
+      paymentMethod: '',
+    });
+    setPaymentDone(false);
+    setCurrentStep(1);
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -891,12 +844,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : currentStep === 7 && !paymentDone ? (
               <button
                 onClick={handlePayment}
-                disabled={!formData.paymentMethod}
-                className={`px-6 py-2 rounded-lg font-medium transition ${
-                  !formData.paymentMethod
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-500 text-white hover:bg-green-600'
-                }`}
+                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition"
               >
                 💳 Proceed to Payment
               </button>
@@ -910,14 +858,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !paymentDone}
-                className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition ${
-                  isSubmitting || !paymentDone
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    : 'bg-green-500 text-white hover:bg-green-600'
-                }`}
+                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition flex items-center gap-2"
               >
-                {isSubmitting ? '⏳ Submitting...' : '✓ Submit Application'}
+                ✓ Submit Application
               </button>
             )}
           </div>

@@ -69,13 +69,13 @@ export default function StudentTable({ students, onEdit, onDelete }) {
                    <p className="text-xs text-slate-500">{s.year ? `${s.year}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year` : '1st Year'}</p>
                 </td>
                 <td className="px-6 py-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[(s.status || 'Active').toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>
-                    {s.status || 'Active'}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[s.status.toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>
+                    {s.status}
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${feeStyles[(s.feeStatus || 'Pending').toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>
-                    {s.feeStatus || 'Pending'}
+                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${feeStyles[(s.feeStatus || 'PENDING').toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>
+                    {s.feeStatus || 'PENDING'}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>

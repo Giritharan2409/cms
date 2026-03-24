@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import './NotificationBell.css';
-import { buildApiUrl } from '../api/apiBase';
 
 export default function NotificationBell({ role = 'student', onBellClick }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -10,8 +9,7 @@ export default function NotificationBell({ role = 'student', onBellClick }) {
     // Fetch unread count
     const fetchUnreadCount = async () => {
       try {
-        const response = await fetch(buildApiUrl(`/notifications/${role}/unread`));
-        if (!response.ok) throw new Error(`Failed to fetch unread count (${response.status})`);
+        const response = await fetch(`/api/notifications/${role}/unread`);
         const data = await response.json();
         setUnreadCount(data.unreadCount || 0);
         setLoading(false);
