@@ -1,3 +1,7 @@
+"""
+PAYROLL STORAGE NOTE:
+Payroll details are stored in the MongoDB database named 'College_db', in the collection named 'payroll'.
+"""
 from typing import List
 from copy import deepcopy
 from uuid import uuid4
