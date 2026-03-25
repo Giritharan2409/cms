@@ -480,8 +480,44 @@ async def get_student(student_id: str):
     row = await db["students"].find_one(
         {"$or": [{"id": student_id}, {"rollNumber": student_id}]}
     )
+    
     if not row:
-        raise HTTPException(status_code=404, detail="Student not found")
+        # Fallback: check approved admissions
+        # This handles cases where an admission was recently approved but maybe not fully synced,
+        # or legacy approved admissions.
+        adm = await db["admissions"].find_one({
+            "$and": [
+                {"$or": [{"id": student_id}, {"admission_id": student_id}, {"rollNumber": student_id}]},
+                {"status": "Approved"}
+            ]
+        })
+        if adm:
+            # Map admission to student-like record for the profile page
+            serialized_adm = serialize_doc(adm)
+            row = {
+                "id": serialized_adm.get("id"),
+                "rollNumber": serialized_adm.get("id") or serialized_adm.get("rollNumber") or str(serialized_adm.get("_id")),
+                "name": serialized_adm.get("name") or serialized_adm.get("fullName") or "N/A",
+                "email": serialized_adm.get("email") or "",
+                "phone": serialized_adm.get("phone") or "",
+                "department": serialized_adm.get("course") or serialized_adm.get("department") or "N/A",
+                "year": serialized_adm.get("year", "1st Year"),
+                "semester": serialized_adm.get("semester", 1),
+                "section": serialized_adm.get("section", "A"),
+                "status": "Active",
+                "feeStatus": serialized_adm.get("payment_status") or "Pending",
+                "enrollDate": serialized_adm.get("updated_at") or serialized_adm.get("created_at"),
+                "address": (serialized_adm.get("personal") or {}).get("address", ""),
+                "guardian": serialized_adm.get("guardian", (serialized_adm.get("personal") or {}).get("parent_name", "")),
+                "guardianPhone": (serialized_adm.get("personal") or {}).get("phone", serialized_adm.get("phone", "")),
+                "gender": serialized_adm.get("gender") or (serialized_adm.get("personal") or {}).get("gender", ""),
+                "avatar": f"https://ui-avatars.com/api/?name={serialized_adm.get('name', 'S')}&background=2563eb&color=fff&size=128",
+                "attendancePct": 0,
+                "is_admission_fallback": True
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Student not found")
+            
     return serialize_doc(row)
 
 

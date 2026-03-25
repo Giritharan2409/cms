@@ -5,6 +5,7 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 
 from backend.db import get_db
+from backend.dev_store import DEV_STORE, save_dev_store
 from backend.schemas.admission_schema import AdmissionCreate
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
@@ -226,16 +227,24 @@ async def create_admission(payload: dict[str, Any]):
     try:
         admissions_collection = _admissions_collection()
         admission = _normalize_payload(payload)
-
         result = await admissions_collection.insert_one(admission)
-
         return {
             "message": "Admission created successfully",
             "mongo_id": str(result.inserted_id),
             "id": admission.get("id"),
             "admission_id": admission.get("admission_id"),
         }
-    except HTTPException:
+    except HTTPException as e:
+        if e.status_code == 503:
+            admission = _normalize_payload(payload)
+            if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
+            DEV_STORE["admissions"].append(admission)
+            save_dev_store()
+            return {
+                "message": "Admission created successfully (Dev Store)",
+                "id": admission.get("id"),
+                "admission_id": admission.get("admission_id"),
+            }
         raise
     except Exception as e:
         print(f"Error creating admission: {str(e)}")
@@ -255,14 +264,22 @@ async def get_all_admissions():
 
 @router.get("/students")
 async def get_student_admissions():
-    admissions_collection = _admissions_collection()
-    data: list[dict[str, Any]] = []
-
-    query = {"$or": [{"role": "student"}, {"type": "student"}]}
-    async for item in admissions_collection.find(query).sort("created_at", -1):
-        data.append(_serialize_admission(item))
-
-    return data
+    try:
+        admissions_collection = _admissions_collection()
+        data: list[dict[str, Any]] = []
+        query = {"$or": [{"role": "student"}, {"type": "student"}]}
+        async for item in admissions_collection.find(query).sort("created_at", -1):
+            data.append(_serialize_admission(item))
+        return data
+    except HTTPException as e:
+        if e.status_code == 503:
+            if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
+            data = [
+                _serialize_admission(item) for item in DEV_STORE["admissions"]
+                if item.get("role") == "student" or item.get("type") == "student"
+            ]
+            return sorted(data, key=lambda x: x.get("created_at", ""), reverse=True)
+        raise
 
 
 @router.get("/students/approved-for-fees")
@@ -341,34 +358,108 @@ async def purge_invalid_approved():
 
 @router.put("/approve/{admission_id}")
 async def approve_admission(admission_id: str):
-    admissions_collection = _admissions_collection()
-    
-    # First, fetch the admission to check if it has an ID
-    admission = await admissions_collection.find_one(_build_lookup_query(admission_id))
-    if not admission:
-        raise HTTPException(status_code=404, detail="Admission not found")
-    
-    # Ensure the admission has an ID field (for fee assignment lookup)
-    update_data = {
-        "status": "Approved",
-        "updated_at": _utc_now_iso()
-    }
-    
-    # If no ID field exists, generate one
-    if not admission.get("id") and not admission.get("admission_id"):
-        new_id = f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
-        update_data["id"] = new_id
-        update_data["admission_id"] = new_id
-    
-    result = await admissions_collection.update_one(
-        _build_lookup_query(admission_id),
-        {"$set": update_data},
-    )
+    try:
+        admissions_collection = _admissions_collection()
+        # First, fetch the admission to check if it has an ID
+        admission = await admissions_collection.find_one(_build_lookup_query(admission_id))
+        if not admission:
+            raise HTTPException(status_code=404, detail="Admission not found")
+        
+        # Ensure the admission has an ID field (for fee assignment lookup)
+        update_data = {
+            "status": "Approved",
+            "updated_at": _utc_now_iso()
+        }
+        
+        # If no ID field exists, generate one
+        if not admission.get("id") and not admission.get("admission_id"):
+            new_id = f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+            update_data["id"] = new_id
+            update_data["admission_id"] = new_id
+        
+        result = await admissions_collection.update_one(
+            _build_lookup_query(admission_id),
+            {"$set": update_data},
+        )
 
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Admission not found")
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Admission not found")
 
-    return {"message": "Admission approved successfully", "id": admission_id}
+        # Sync to official 'students' collection
+        try:
+            db = get_db()
+            # Fetch the updated admission with the ID
+            adm = await admissions_collection.find_one(_build_lookup_query(admission_id))
+            if adm:
+                # Map admission data to student structure
+                student_data = {
+                    "id": adm.get("id") or str(adm.get("_id")),
+                    "rollNumber": adm.get("id") or adm.get("rollNumber") or str(adm.get("_id")),
+                    "name": adm.get("name") or adm.get("fullName") or "N/A",
+                    "email": adm.get("email") or "",
+                    "phone": adm.get("phone") or "",
+                    "department": adm.get("course") or adm.get("department") or "N/A",
+                    "year": "1st Year",
+                    "semester": 1,
+                    "section": "A",
+                    "status": "Active",
+                    "feeStatus": adm.get("payment_status") or "Pending",
+                    "enrollDate": adm.get("updated_at") or _utc_now_iso(),
+                    "address": (adm.get("personal") or {}).get("address", ""),
+                    "guardian": adm.get("guardian", (adm.get("personal") or {}).get("parent_name", "")),
+                    "gender": adm.get("gender") or (adm.get("personal") or {}).get("gender", ""),
+                    "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128"
+                }
+                
+                # Upsert into students collection
+                await db["students"].update_one(
+                    {"$or": [{"id": student_data["id"]}, {"rollNumber": student_data["rollNumber"]}]},
+                    {"$set": student_data},
+                    upsert=True
+                )
+        except Exception as e:
+            print(f"[SYNC ERROR] Failed to sync admission to students: {str(e)}")
+
+        return {"message": "Admission approved successfully", "id": admission_id}
+
+    except HTTPException as e:
+        if e.status_code == 503:
+            if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
+            # Find and update in DEV_STORE
+            found = False
+            for adm in DEV_STORE["admissions"]:
+                if adm.get("id") == admission_id or adm.get("admission_id") == admission_id:
+                    adm["status"] = "Approved"
+                    adm["updated_at"] = _utc_now_iso()
+                    # Sync to DEV_STORE students
+                    if "students" not in DEV_STORE: DEV_STORE["students"] = []
+                    student_data = {
+                        "id": adm.get("id"),
+                        "rollNumber": adm.get("id"),
+                        "name": adm.get("name") or adm.get("fullName"),
+                        "email": adm.get("email"),
+                        "phone": adm.get("phone"),
+                        "department": adm.get("course"),
+                        "year": "1st Year",
+                        "semester": 1,
+                        "status": "Active",
+                        "feeStatus": adm.get("payment_status") or "Pending",
+                        "enrollDate": adm.get("updated_at"),
+                        "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128"
+                    }
+                    # Upsert in dev students
+                    idx = next((i for i, s in enumerate(DEV_STORE["students"]) if s.get("id") == student_data["id"]), None)
+                    if idx is not None:
+                        DEV_STORE["students"][idx].update(student_data)
+                    else:
+                        DEV_STORE["students"].insert(0, student_data)
+                    found = True
+                    break
+            if not found:
+                raise HTTPException(status_code=404, detail="Admission not found in Dev Store")
+            save_dev_store()
+            return {"message": "Admission approved successfully (Dev Store)", "id": admission_id}
+        raise
 
 
 @router.put("/reject/{admission_id}")
