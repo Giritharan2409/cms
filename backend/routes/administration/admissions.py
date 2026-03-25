@@ -1,14 +1,24 @@
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.db import get_db
 from backend.dev_store import DEV_STORE, save_dev_store
 from backend.schemas.admission_schema import AdmissionCreate
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
+
+COURSES_BY_CATEGORY: dict[str, list[dict[str, str]]] = {
+    "Engineering": [
+        {"code": "CSE", "name": "Computer Science Engineering"},
+        {"code": "ECE", "name": "Electronics and Communication Engineering"},
+        {"code": "MECH", "name": "Mechanical Engineering"},
+        {"code": "CIVIL", "name": "Civil Engineering"},
+        {"code": "IT", "name": "Information Technology"},
+    ],
+}
 
 
 def _admissions_collection():
@@ -51,6 +61,28 @@ def _utc_now_iso() -> str:
 
 def _today_ymd() -> str:
     return datetime.now(timezone.utc).date().isoformat()
+
+
+def _normalize_academic_year(value: Any) -> str:
+    year_text = str(value or "").strip().replace("–", "-")
+    if not year_text:
+        raise HTTPException(status_code=422, detail="academicYear is required")
+
+    if "-" not in year_text:
+        raise HTTPException(status_code=422, detail="academicYear must be in YYYY-YYYY format")
+
+    start, end = [part.strip() for part in year_text.split("-", 1)]
+    if len(start) != 4 or len(end) != 4 or not start.isdigit() or not end.isdigit():
+        raise HTTPException(status_code=422, detail="academicYear must be in YYYY-YYYY format")
+
+    if int(end) != int(start) + 1:
+        raise HTTPException(status_code=422, detail="academicYear must represent consecutive years")
+
+    return f"{start}-{end}"
+
+
+def _derive_admission_year(academic_year: str) -> int:
+    return int(academic_year.split("-", 1)[0])
 
 
 def _build_lookup_query(admission_id: str) -> dict[str, Any]:
@@ -98,6 +130,8 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     phone = (payload.get("phone") or "").strip()
 
     payment_status = payload.get("paymentStatus") or payload.get("payment_status") or "Pending"
+    academic_year = _normalize_academic_year(payload.get("academicYear") or payload.get("academic_year"))
+    admission_year = _to_int(payload.get("admissionYear"), fallback=_derive_admission_year(academic_year))
 
     normalized = {
         "id": admission_id,
@@ -119,6 +153,8 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "marksPercentage": _to_float(payload.get("marksPercentage")),
         "courseCategory": payload.get("courseCategory") or "",
         "course": payload.get("course") or "",
+        "academicYear": academic_year,
+        "admissionYear": admission_year,
         "quota": payload.get("quota") or "",
         "accommodation": payload.get("accommodation") or "",
         "roomType": payload.get("roomType") or "",
@@ -161,6 +197,7 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     normalized["course_info"] = {
         "category": normalized["courseCategory"],
         "course": normalized["course"],
+        "academic_year": normalized["academicYear"],
     }
 
     return normalized
@@ -177,6 +214,8 @@ def _normalize_from_nested_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
     admission_id = personal.get("student_id") or f"STU-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
     payment_status = admission.get("payment_status") or payment.get("status") or "Pending"
+    academic_year = _normalize_academic_year(course.get("academic_year"))
+    admission_year = _derive_admission_year(academic_year)
 
     admission.update(
         {
@@ -197,11 +236,15 @@ def _normalize_from_nested_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "yearOfPassing": academic.get("year_of_passing") or 0,
             "marksPercentage": academic.get("marks_percentage") or 0,
             "courseCategory": course.get("category") or "",
+            "course": course.get("course") or "",
+            "academicYear": academic_year,
+            "admissionYear": admission_year,
             "payment_status": payment_status,
             "paymentStatus": payment_status,
             "course_info": {
                 "category": course.get("category") or "",
                 "course": course.get("course") or "",
+                "academic_year": academic_year,
             },
         }
     )
@@ -220,6 +263,11 @@ def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
         status_code=422,
         detail="Unsupported admission payload. Provide nested admission payload or student add form payload.",
     )
+
+
+@router.get("/courses")
+async def list_courses(category: str = Query(default="Engineering")):
+    return {"category": category, "data": COURSES_BY_CATEGORY.get(category, [])}
 
 
 @router.post("/create")
@@ -251,6 +299,11 @@ async def create_admission(payload: dict[str, Any]):
         raise HTTPException(status_code=500, detail=f"Error creating admission: {str(e)}")
 
 
+@router.post("")
+async def create_admission_v2(payload: dict[str, Any]):
+    return await create_admission(payload)
+
+
 @router.get("/")
 async def get_all_admissions():
     admissions_collection = _admissions_collection()
@@ -263,22 +316,98 @@ async def get_all_admissions():
 
 
 @router.get("/students")
-async def get_student_admissions():
+async def get_student_admissions(
+    academic_year: Optional[str] = Query(None, alias="academicYear"),
+    course: Optional[str] = Query(None),
+):
     try:
         admissions_collection = _admissions_collection()
         data: list[dict[str, Any]] = []
-        query = {"$or": [{"role": "student"}, {"type": "student"}]}
+        base_query: dict[str, Any] = {"$or": [{"role": "student"}, {"type": "student"}]}
+        filters: dict[str, Any] = {}
+        if academic_year:
+            filters["academicYear"] = academic_year
+        if course:
+            filters["course"] = course
+
+        query = {"$and": [base_query, filters]} if filters else base_query
         async for item in admissions_collection.find(query).sort("created_at", -1):
             data.append(_serialize_admission(item))
+
+        if filters:
+            return {"data": data, "count": len(data)}
         return data
     except HTTPException as e:
         if e.status_code == 503:
             if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
-            data = [
+            query_results = [
                 _serialize_admission(item) for item in DEV_STORE["admissions"]
                 if item.get("role") == "student" or item.get("type") == "student"
             ]
-            return sorted(data, key=lambda x: x.get("created_at", ""), reverse=True)
+
+            if academic_year:
+                query_results = [item for item in query_results if item.get("academicYear") == academic_year]
+            if course:
+                query_results = [item for item in query_results if item.get("course") == course]
+
+            data = sorted(query_results, key=lambda x: x.get("created_at", ""), reverse=True)
+            if academic_year or course:
+                return {"data": data, "count": len(data)}
+            return data
+        raise
+
+
+@router.get("/students/filter")
+async def get_filtered_students(
+    academic_year: Optional[str] = Query(None, alias="academicYear"),
+    course: Optional[str] = Query(None),
+):
+    """
+    Get students filtered by academic year and course.
+    Used for fee assignment module.
+    """
+    try:
+        admissions_collection = _admissions_collection()
+        
+        # Build query
+        query = {"$or": [{"role": "student"}, {"type": "student"}]}
+        
+        # Add filters if provided
+        filters = {}
+        if academic_year:
+            filters["academicYear"] = academic_year
+        if course:
+            filters["course"] = course
+        
+        if filters:
+            query = {"$and": [query, filters]}
+        
+        # Fetch matching students
+        data: list[dict[str, Any]] = []
+        async for item in admissions_collection.find(query).sort("created_at", -1):
+            serialized = _serialize_admission(item)
+            data.append(serialized)
+        
+        return {"data": data, "count": len(data)}
+        
+    except HTTPException as e:
+        if e.status_code == 503:
+            # Fallback to dev store
+            if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
+            
+            query_results = [
+                item for item in DEV_STORE["admissions"]
+                if item.get("role") == "student" or item.get("type") == "student"
+            ]
+            
+            # Apply filters
+            if academic_year:
+                query_results = [item for item in query_results if item.get("academicYear") == academic_year]
+            if course:
+                query_results = [item for item in query_results if item.get("course") == course]
+            
+            data = [_serialize_admission(item) for item in query_results]
+            return {"data": data, "count": len(data)}
         raise
 
 
@@ -286,74 +415,110 @@ async def get_student_admissions():
 async def get_approved_students_for_fees():
     """Get only APPROVED students with valid ID fields - ready for fee assignment.
     STRICT validation: Only returns students that can be found with exact ID match."""
-    admissions_collection = _admissions_collection()
-    data: list[dict[str, Any]] = []
+    try:
+        admissions_collection = _admissions_collection()
+        data: list[dict[str, Any]] = []
 
-    # Query: only approved students
-    query = {
-        "$and": [
-            {"$or": [{"role": "student"}, {"type": "student"}]},
-            {"status": "Approved"}
-        ]
-    }
-    
-    async for item in admissions_collection.find(query).sort("created_at", -1):
-        serialized = _serialize_admission(item)
-        student_id = serialized.get("id")
-        
-        # STRICT VALIDATION: Verify using EXACT field match (not $or queries)
-        # This prevents false positives from corrupted records
-        if student_id:
-            # Try exact match on 'id' field first (most reliable)
-            exact_match = await admissions_collection.find_one({"id": student_id})
-            
-            if exact_match:
-                # Double-check this is the same student (compare MongoDB IDs)
-                if str(exact_match.get("_id")) == str(item.get("_id")):
-                    data.append(serialized)
+        # Query: only approved students
+        query = {
+            "$and": [
+                {"$or": [{"role": "student"}, {"type": "student"}]},
+                {"status": "Approved"}
+            ]
+        }
 
-    return {"approved_students": data, "count": len(data)}
+        async for item in admissions_collection.find(query).sort("created_at", -1):
+            serialized = _serialize_admission(item)
+            student_id = serialized.get("id")
+
+            # STRICT VALIDATION: Verify using EXACT field match (not $or queries)
+            # This prevents false positives from corrupted records
+            if student_id:
+                # Try exact match on 'id' field first (most reliable)
+                exact_match = await admissions_collection.find_one({"id": student_id})
+
+                if exact_match:
+                    # Double-check this is the same student (compare MongoDB IDs)
+                    if str(exact_match.get("_id")) == str(item.get("_id")):
+                        data.append(serialized)
+
+        return {"approved_students": data, "count": len(data)}
+    except HTTPException as e:
+        if e.status_code == 503:
+            if "admissions" not in DEV_STORE:
+                DEV_STORE["admissions"] = []
+            data = [
+                _serialize_admission(item) for item in DEV_STORE["admissions"]
+                if (item.get("role") == "student" or item.get("type") == "student")
+                and item.get("status") == "Approved"
+                and item.get("id")
+            ]
+            data = sorted(data, key=lambda x: x.get("created_at", ""), reverse=True)
+            return {"approved_students": data, "count": len(data)}
+        raise
 
 
 @router.delete("/purge-invalid-approved")
 async def purge_invalid_approved():
     """Admin endpoint: Remove approved students with invalid/non-existent IDs."""
-    admissions_collection = _admissions_collection()
-    removed_count = 0
-    to_delete = []
+    try:
+        admissions_collection = _admissions_collection()
+        removed_count = 0
+        to_delete = []
 
-    # Find all approved students
-    query = {
-        "$and": [
-            {"$or": [{"role": "student"}, {"type": "student"}]},
-            {"status": "Approved"}
-        ]
-    }
-    
-    async for item in admissions_collection.find(query):
-        student_id = item.get("id") or item.get("admission_id")
-        
-        if not student_id:
-            # No ID field at all - mark for deletion
-            to_delete.append(item.get("_id"))
-        else:
-            # ID exists, verify it can be found
-            exact_match = await admissions_collection.find_one({"id": student_id})
-            
-            # If ID doesn't match exactly, it's corrupted - delete
-            if not exact_match or str(exact_match.get("_id")) != str(item.get("_id")):
+        # Find all approved students
+        query = {
+            "$and": [
+                {"$or": [{"role": "student"}, {"type": "student"}]},
+                {"status": "Approved"}
+            ]
+        }
+
+        async for item in admissions_collection.find(query):
+            student_id = item.get("id") or item.get("admission_id")
+
+            if not student_id:
+                # No ID field at all - mark for deletion
                 to_delete.append(item.get("_id"))
+            else:
+                # ID exists, verify it can be found
+                exact_match = await admissions_collection.find_one({"id": student_id})
 
-    # Delete invalid records
-    if to_delete:
-        result = await admissions_collection.delete_many({"_id": {"$in": to_delete}})
-        removed_count = result.deleted_count
-        print(f"[PURGE] Removed {removed_count} invalid approved students")
+                # If ID doesn't match exactly, it's corrupted - delete
+                if not exact_match or str(exact_match.get("_id")) != str(item.get("_id")):
+                    to_delete.append(item.get("_id"))
 
-    return {
-        "message": f"Purged {removed_count} invalid records",
-        "removed_count": removed_count
-    }
+        # Delete invalid records
+        if to_delete:
+            result = await admissions_collection.delete_many({"_id": {"$in": to_delete}})
+            removed_count = result.deleted_count
+            print(f"[PURGE] Removed {removed_count} invalid approved students")
+
+        return {
+            "message": f"Purged {removed_count} invalid records",
+            "removed_count": removed_count
+        }
+    except HTTPException as e:
+        if e.status_code == 503:
+            if "admissions" not in DEV_STORE:
+                DEV_STORE["admissions"] = []
+
+            before = len(DEV_STORE["admissions"])
+            DEV_STORE["admissions"] = [
+                item for item in DEV_STORE["admissions"]
+                if not (
+                    (item.get("role") == "student" or item.get("type") == "student")
+                    and item.get("status") == "Approved"
+                    and not (item.get("id") or item.get("admission_id"))
+                )
+            ]
+            removed_count = before - len(DEV_STORE["admissions"])
+            save_dev_store()
+            return {
+                "message": f"Purged {removed_count} invalid records (Dev Store)",
+                "removed_count": removed_count,
+            }
+        raise
 
 
 @router.put("/approve/{admission_id}")
@@ -530,13 +695,26 @@ def _build_faculty_lookup_query(faculty_admission_id: str) -> dict[str, Any]:
 @router.get("/faculty")
 async def get_faculty_admissions():
     """Get all faculty admissions"""
-    faculty_admissions_collection = _faculty_admissions_collection()
-    data: list[dict[str, Any]] = []
-    
-    async for item in faculty_admissions_collection.find().sort("created_at", -1):
-        data.append(_serialize_faculty_admission(item))
-    
-    return data
+    try:
+        faculty_admissions_collection = _faculty_admissions_collection()
+        data: list[dict[str, Any]] = []
+
+        async for item in faculty_admissions_collection.find().sort("created_at", -1):
+            data.append(_serialize_faculty_admission(item))
+
+        return data
+    except HTTPException as e:
+        if e.status_code == 503:
+            if "faculty_admissions" not in DEV_STORE:
+                DEV_STORE["faculty_admissions"] = []
+            data = [dict(item) for item in DEV_STORE["faculty_admissions"]]
+            for item in data:
+                if not item.get("id"):
+                    item["id"] = item.get("admission_id") or str(item.get("_id", ""))
+                if not item.get("admission_id"):
+                    item["admission_id"] = item.get("id")
+            return sorted(data, key=lambda x: x.get("created_at", ""), reverse=True)
+        raise
 
 
 @router.get("/faculty/{faculty_admission_id}")
