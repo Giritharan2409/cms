@@ -407,6 +407,9 @@ async def approve_admission(admission_id: str):
                     "enrollDate": adm.get("updated_at") or _utc_now_iso(),
                     "address": (adm.get("personal") or {}).get("address", ""),
                     "guardian": adm.get("guardian", (adm.get("personal") or {}).get("parent_name", "")),
+                    "motherName": adm.get("motherName") or (adm.get("personal") or {}).get("mother_name", ""),
+                    "bloodGroup": adm.get("bloodGroup") or "",
+                    "skills": adm.get("skills") or [],
                     "gender": adm.get("gender") or (adm.get("personal") or {}).get("gender", ""),
                     "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128"
                 }

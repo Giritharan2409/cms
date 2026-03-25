@@ -21,6 +21,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     phone: '',
     dateOfBirth: '',
     gender: '',
+    motherName: '',
+    bloodGroup: '',
+    skills: '',
     // Step 2: Academic
     previousSchool: '',
     board: '',
@@ -196,6 +199,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       quota: formData.quota,
       accommodation: formData.accommodation,
       roomType: formData.roomType,
+      motherName: formData.motherName,
+      bloodGroup: formData.bloodGroup,
+      skills: formData.skills.split(',').map(s => s.trim()).filter(s => s !== ''),
       paymentStatus: 'Paid',
     };
 
@@ -248,6 +254,9 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
         quota: '',
         accommodation: '',
         roomType: '',
+        motherName: '',
+        bloodGroup: '',
+        skills: '',
         passportPhoto: null,
         aadhaarCard: null,
         marksheet: null,
@@ -360,6 +369,48 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Mother's Name
+                    </label>
+                    <input
+                      type="text"
+                      name="motherName"
+                      value={formData.motherName}
+                      onChange={handleInputChange}
+                      placeholder="Enter mother's name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Blood Group
+                    </label>
+                    <select
+                      name="bloodGroup"
+                      value={formData.bloodGroup}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select</option>
+                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Technical Skills (Comma separated)
+                   </label>
+                   <input
+                      type="text"
+                      name="skills"
+                      value={formData.skills}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Python, React, SQL"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

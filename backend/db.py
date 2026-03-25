@@ -41,9 +41,11 @@ async def lifespan(app):
     ]
 
     for uri in uris_to_try:
-        print(f"Attempting to connect to MongoDB at {mask_mongodb_uri(uri)}...")
+        masked_uri = mask_mongodb_uri(uri)
+        print(f"DEBUG: Attempting to connect to MongoDB at {masked_uri}...")
         try:
-            temp_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=2000)
+            # Increase timeout to 5000ms for more reliable Atlas connection
+            temp_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=5000)
             await temp_client.admin.command("ping")
             
             client = temp_client
@@ -54,17 +56,18 @@ async def lifespan(app):
                     db = client.get_database()
                     if db.name == "test":
                         db = client["College_db"]
-            except Exception:
+            except Exception as e:
+                print(f"DEBUG: Setting DB name failed: {e}")
                 db = client["College_db"]
 
-            print(f"Connected to MongoDB successfully (Database: {db.name})")
+            print(f"SUCCESS: Connected to MongoDB (Database: {db.name})")
             break # Success!
         except Exception as error:
-            print(f"FAILED to connect to {mask_mongodb_uri(uri)}: {error}")
+            print(f"ERROR: FAILED to connect to {masked_uri}: {error}")
             db = None
 
     if db is None:
-        print("CRITICAL: All MongoDB connection attempts failed. The system will run in DEV mode with local persistence.")
+        print("CRITICAL: All MongoDB connection attempts failed. FALLING BACK TO DEV_STORE.")
 
     yield
 

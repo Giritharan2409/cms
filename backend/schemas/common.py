@@ -38,8 +38,11 @@ class StudentRecord(BaseModel):
     gender: Optional[str] = None
     address: Optional[str] = None
     guardian: Optional[str] = None
+    motherName: Optional[str] = None
     guardianName: Optional[str] = None  # Alias from frontend
     guardianPhone: Optional[str] = None
+    bloodGroup: Optional[str] = None
+    skills: list[str] = Field(default_factory=list)
     subjects: list[dict[str, Any]] = Field(default_factory=list)
     fees: list[dict[str, Any]] = Field(default_factory=list)
     documents: list[dict[str, Any]] = Field(default_factory=list)
