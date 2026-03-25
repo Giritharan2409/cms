@@ -29,7 +29,7 @@ from backend.routes.payroll import router as payroll_router
 from backend.routes.payroll_and_development import router as payroll_dev_router
 from backend.routes.settings import router as settings_router
 from backend.routes.staff import router as staff_router
-from backend.routes.faculty import router as faculty_router
+from backend.routes.administration.faculty import router as faculty_router
 from backend.routes.faculty_management import router as faculty_mgmt_router
 from backend.routes.faculty_360_feedback import router as faculty_feedback_router
 from backend.routes.faculty_skills import router as faculty_skills_router
@@ -40,9 +40,11 @@ from backend.routes.faculty_okr import router as faculty_okr_router
 from backend.routes.faculty_publications import router as faculty_publications_router
 from backend.routes.departments import router as departments_router
 from backend.routes.students import router as students_router
+from backend.routes.administration.courses import router as courses_router
 from backend.routes.administration.admissions import router as admissions_router
 from backend.routes.administration.fees import router as fees_router
 from backend.routes.administration.invoices import router as invoices_router
+from backend.routes.administration.payments import router as payments_router
 PORT = int(os.getenv("PORT", 8000))
 
 app = FastAPI(title="CMS API", lifespan=lifespan)
@@ -113,10 +115,15 @@ app.include_router(facility_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
 app.include_router(students_router)
+app.include_router(courses_router)
+app.include_router(courses_router, prefix="/api")
 app.include_router(admissions_router)
 app.include_router(admissions_router, prefix="/api")
 app.include_router(fees_router)
+app.include_router(fees_router, prefix="/api")
 app.include_router(invoices_router)
+app.include_router(payments_router)
+app.include_router(payments_router, prefix="/api")
 
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):

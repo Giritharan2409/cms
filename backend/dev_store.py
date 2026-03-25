@@ -31,6 +31,7 @@ DEFAULT_STORE = {
     ],
     "notifications": [],
     "students": [],
+    "admissions": [],
     "od_requests": [],
 }
 

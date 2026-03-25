@@ -15,6 +15,8 @@ class ExamBase(BaseModel):
     duration: str
     maxMarks: str
     senderRole: Optional[str] = "faculty"
+    department: Optional[str] = None
+    semester: Optional[str] = None
 
 
 class ExamCreate(ExamBase):
@@ -32,6 +34,8 @@ class ExamUpdate(BaseModel):
     duration: Optional[str] = None
     maxMarks: Optional[str] = None
     senderRole: Optional[str] = None
+    department: Optional[str] = None
+    semester: Optional[str] = None
 
 
 class TimetableEntry(BaseModel):

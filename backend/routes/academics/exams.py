@@ -43,16 +43,51 @@ def _dev_get(key: str, item_id: str):
     return next((item for item in _dev_list(key) if str(item.get("id")) == str(item_id)), None)
 
 
+def _time_to_minutes(raw: str) -> Optional[int]:
+    try:
+        parts = str(raw).split(":")
+        if len(parts) < 2:
+            return None
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        return (hours * 60) + minutes
+    except (TypeError, ValueError):
+        return None
+
+
+def _compute_duration(start_time: str, end_time: str) -> str:
+    start = _time_to_minutes(start_time)
+    end = _time_to_minutes(end_time)
+    if start is None or end is None:
+        return "120"
+    delta = end - start
+    if delta <= 0:
+        return "120"
+    return str(delta)
+
+
 @router.get("")
-async def list_exams():
+async def list_exams(department: Optional[str] = None, semester: Optional[str] = None):
     try:
         db = get_db()
     except HTTPException as error:
         if error.status_code == 503:
-            return {"success": True, "data": list_items("exams")}
+            items = list_items("exams")
+            if department:
+                items = [item for item in items if str(item.get("department", "")).lower() == str(department).lower()]
+            if semester:
+                items = [item for item in items if str(item.get("semester", "")).lower() == str(semester).lower()]
+            return {"success": True, "data": items}
         raise
+    
+    query = {}
+    if department:
+        query["department"] = {"$regex": f"^{department}$", "$options": "i"}
+    if semester:
+        query["semester"] = str(semester)
+    
     exams = []
-    async for exam in db["exams"].find().sort("date", 1):
+    async for exam in db["exams"].find(query).sort("date", 1):
         exams.append(serialize_doc(exam))
     return {"success": True, "data": exams}
 
@@ -152,7 +187,7 @@ async def create_registration(payload: dict):
         raise HTTPException(status_code=400, detail="Already registered for this exam")
 
     await db["exam_registrations"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.get("/marks")
@@ -405,7 +440,7 @@ async def assign_invigilator(payload: dict):
         raise HTTPException(status_code=400, detail="Faculty already assigned to this exam")
 
     await db["exam_invigilators"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.delete("/invigilators/{assignment_id}")
@@ -487,7 +522,7 @@ async def create_revaluation(payload: dict):
         raise HTTPException(status_code=400, detail="Already applied for revaluation")
 
     await db["exam_revaluations"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.get("/halls")
@@ -666,7 +701,7 @@ async def create_exam_session(payload: dict):
         raise
 
     await db["exam_sessions"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.put("/sessions/{session_id}")
@@ -718,6 +753,7 @@ async def create_timetable_draft(payload: dict):
         "exams": payload.get("exams") or [],
         "createdBy": payload.get("createdBy", ""),
         "status": payload.get("status") or "Draft",
+        "department": payload.get("department", ""),
         "createdAt": payload.get("createdAt") or _now_iso(),
     }
     try:
@@ -728,8 +764,10 @@ async def create_timetable_draft(payload: dict):
             return {"success": True, "data": data}
         raise
 
+    # Motor inserts may add an ObjectId _id into the same dict instance.
+    # Serialize it to avoid a false 500 during JSON encoding.
     await db["exam_timetable_drafts"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.patch("/timetable-drafts/{draft_id}/status")
@@ -748,6 +786,41 @@ async def update_timetable_draft_status(draft_id: str, payload: dict):
             if not item:
                 raise HTTPException(status_code=404, detail="Draft not found")
             item.update(patch)
+
+            if str(patch.get("status", "")).lower() == "approved":
+                existing_external_ids = set(item.get("publishedExternalIds") or [])
+                existing_exam_ids = set(item.get("publishedExamIds") or [])
+                created_exam_ids = []
+                created_external_ids = []
+                for idx, exam in enumerate(item.get("exams") or []):
+                    external_id = f"draft_{draft_id}_{idx}"
+                    if external_id in existing_external_ids:
+                        continue
+
+                    created = create_dev_exam({
+                        "externalId": external_id,
+                        "code": exam.get("subjectCode") or f"EX-{idx + 1}",
+                        "name": exam.get("subject") or "Scheduled Exam",
+                        "date": exam.get("date") or "",
+                        "time": exam.get("startTime") or "09:00",
+                        "room": exam.get("room") or "TBA",
+                        "type": item.get("session") or "Scheduled",
+                        "status": "Upcoming",
+                        "duration": _compute_duration(exam.get("startTime"), exam.get("endTime")),
+                        "maxMarks": "100",
+                        "senderRole": "admin",
+                        "sourceDraftId": draft_id,
+                        "department": item.get("department"),
+                        "semester": item.get("semester"),
+                    })
+                    created_exam_ids.append(created.get("id"))
+                    created_external_ids.append(external_id)
+
+                if created_exam_ids:
+                    item["publishedExamIds"] = list(existing_exam_ids.union(set(created_exam_ids)))
+                if created_external_ids:
+                    item["publishedExternalIds"] = list(existing_external_ids.union(set(created_external_ids)))
+
             return {"success": True, "data": item}
         raise
 
@@ -758,6 +831,47 @@ async def update_timetable_draft_status(draft_id: str, payload: dict):
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Draft not found")
+
+    if str(patch.get("status", "")).lower() == "approved":
+        existing_external_ids = set(updated.get("publishedExternalIds") or [])
+        existing_exam_ids = set(updated.get("publishedExamIds") or [])
+        created_exam_ids = []
+        created_external_ids = []
+
+        for idx, exam in enumerate(updated.get("exams") or []):
+            external_id = f"draft_{draft_id}_{idx}"
+            if external_id in existing_external_ids:
+                continue
+
+            exam_payload = {
+                "externalId": external_id,
+                "code": exam.get("subjectCode") or f"EX-{idx + 1}",
+                "name": exam.get("subject") or "Scheduled Exam",
+                "date": exam.get("date") or "",
+                "time": exam.get("startTime") or "09:00",
+                "room": exam.get("room") or "TBA",
+                "type": updated.get("session") or "Scheduled",
+                "status": "Upcoming",
+                "duration": _compute_duration(exam.get("startTime"), exam.get("endTime")),
+                "maxMarks": "100",
+                "senderRole": "admin",
+                "sourceDraftId": draft_id,
+                "department": updated.get("department"),
+                "semester": updated.get("semester"),
+            }
+            result = await db["exams"].insert_one(exam_payload)
+            created_exam_ids.append(str(result.inserted_id))
+            created_external_ids.append(external_id)
+
+        if created_exam_ids or created_external_ids:
+            all_exam_ids = list(existing_exam_ids.union(set(created_exam_ids)))
+            all_external_ids = list(existing_external_ids.union(set(created_external_ids)))
+            updated = await db["exam_timetable_drafts"].find_one_and_update(
+                _id_query(draft_id),
+                {"$set": {"publishedExamIds": all_exam_ids, "publishedExternalIds": all_external_ids}},
+                return_document=ReturnDocument.AFTER,
+            ) or updated
+
     return {"success": True, "data": serialize_doc(updated)}
 
 
@@ -803,7 +917,7 @@ async def create_exam_notification(payload: dict):
         raise
 
     await db["exam_notifications"].insert_one(data)
-    return {"success": True, "data": data}
+    return {"success": True, "data": serialize_doc(data)}
 
 
 @router.patch("/notifications/{notification_id}/read")

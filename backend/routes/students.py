@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Optional
 import time
 
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
 from pymongo import ReturnDocument
 
@@ -19,6 +20,29 @@ _students_list_cache = {}
 
 def _clear_students_list_cache() -> None:
     _students_list_cache.clear()
+
+
+def _build_student_query(student_id: str) -> dict:
+    """Build a query that matches a student by id, rollNumber, or _id (ObjectId)."""
+    conditions = [
+        {"id": student_id},
+        {"rollNumber": student_id},
+    ]
+    if ObjectId.is_valid(student_id):
+        conditions.append({"_id": ObjectId(student_id)})
+    return {"$or": conditions}
+
+
+def _build_admission_query(student_id: str) -> dict:
+    """Build a query that matches an admission by id, admission_id, rollNumber, or _id (ObjectId)."""
+    conditions = [
+        {"id": student_id},
+        {"admission_id": student_id},
+        {"rollNumber": student_id},
+    ]
+    if ObjectId.is_valid(student_id):
+        conditions.append({"_id": ObjectId(student_id)})
+    return {"$and": [{"$or": conditions}, {"status": "Approved"}]}
 
 
 def _seed_dev_students() -> None:
@@ -477,11 +501,38 @@ async def get_student(student_id: str):
             return deepcopy(row)
         raise
 
-    row = await db["students"].find_one(
-        {"$or": [{"id": student_id}, {"rollNumber": student_id}]}
-    )
+    row = await db["students"].find_one(_build_student_query(student_id))
+    
     if not row:
-        raise HTTPException(status_code=404, detail="Student not found")
+        # Fallback: check approved admissions
+        adm = await db["admissions"].find_one(_build_admission_query(student_id))
+        if adm:
+            # Map admission to student-like record for the profile page
+            serialized_adm = serialize_doc(adm)
+            row = {
+                "id": serialized_adm.get("id"),
+                "rollNumber": serialized_adm.get("id") or serialized_adm.get("rollNumber") or str(serialized_adm.get("_id")),
+                "name": serialized_adm.get("name") or serialized_adm.get("fullName") or "N/A",
+                "email": serialized_adm.get("email") or "",
+                "phone": serialized_adm.get("phone") or "",
+                "department": serialized_adm.get("course") or serialized_adm.get("department") or "N/A",
+                "year": serialized_adm.get("year", "1st Year"),
+                "semester": serialized_adm.get("semester", 1),
+                "section": serialized_adm.get("section", "A"),
+                "status": "Active",
+                "feeStatus": serialized_adm.get("payment_status") or "Pending",
+                "enrollDate": serialized_adm.get("updated_at") or serialized_adm.get("created_at"),
+                "address": (serialized_adm.get("personal") or {}).get("address", ""),
+                "guardian": serialized_adm.get("guardian", (serialized_adm.get("personal") or {}).get("parent_name", "")),
+                "guardianPhone": (serialized_adm.get("personal") or {}).get("phone", serialized_adm.get("phone", "")),
+                "gender": serialized_adm.get("gender") or (serialized_adm.get("personal") or {}).get("gender", ""),
+                "avatar": f"https://ui-avatars.com/api/?name={serialized_adm.get('name', 'S')}&background=2563eb&color=fff&size=128",
+                "attendancePct": 0,
+                "is_admission_fallback": True
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Student not found")
+            
     return serialize_doc(row)
 
 
@@ -551,12 +602,24 @@ async def update_student(student_id: str, payload: dict):
         raise
 
     result = await db["students"].find_one_and_update(
-        {"$or": [{"id": student_id}, {"rollNumber": student_id}]},
+        _build_student_query(student_id),
         {"$set": payload},
         return_document=ReturnDocument.AFTER,
     )
+    
     if not result:
+        # Fallback: update approved admissions
+        adm_result = await db["admissions"].find_one_and_update(
+            _build_admission_query(student_id),
+            {"$set": payload},
+            return_document=ReturnDocument.AFTER,
+        )
+        if adm_result:
+            _clear_students_list_cache()
+            return serialize_doc(adm_result)
+        
         raise HTTPException(status_code=404, detail="Student not found")
+        
     _clear_students_list_cache()
     return serialize_doc(result)
 
@@ -580,9 +643,7 @@ async def delete_student(student_id: str):
             return {"message": "Student deleted"}
         raise
 
-    result = await db["students"].delete_one(
-        {"$or": [{"id": student_id}, {"rollNumber": student_id}]}
-    )
+    result = await db["students"].delete_one(_build_student_query(student_id))
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Student not found")
     _clear_students_list_cache()
@@ -611,7 +672,7 @@ async def add_student_subject(student_id: str, subject: dict):
         raise
 
     result = await db["students"].find_one_and_update(
-        {"$or": [{"id": student_id}, {"rollNumber": student_id}]},
+        _build_student_query(student_id),
         {"$push": {"subjects": subject}},
         return_document=ReturnDocument.AFTER
     )
