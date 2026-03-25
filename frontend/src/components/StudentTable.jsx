@@ -24,9 +24,9 @@ export default function StudentTable({ students, onEdit, onDelete }) {
           <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
             <th className="px-6 py-4">Student Information</th>
             <th className="px-6 py-4">Department</th>
-            <th className="px-6 py-4">Semester</th>
+            <th className="px-6 py-4">Academic</th>
             <th className="px-6 py-4">Status</th>
-            <th className="px-6 py-4">Fee Status</th>
+            <th className="px-6 py-4">Fee</th>
             <th className="px-6 py-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -65,8 +65,12 @@ export default function StudentTable({ students, onEdit, onDelete }) {
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600 font-medium">{s.departmentId || s.department}</td>
                 <td className="px-6 py-4">
-                   <p className="text-sm font-medium text-slate-900">Sem {s.semester || '1'}</p>
-                   <p className="text-xs text-slate-500">{s.year ? `${s.year}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year` : '1st Year'}</p>
+                   <p className="text-sm font-medium text-slate-900">
+                     {s.cgpa ? `CGPA: ${s.cgpa.toFixed(2)}` : 'Sem ' + (s.semester || '1')}
+                   </p>
+                   <p className="text-xs text-slate-500">
+                     {s.dob ? new Date(s.dob).toLocaleDateString('en-IN', { year: '2-digit', month: 'short' }) : `${s.year || 1}${s.year === 1 ? 'st' : s.year === 2 ? 'nd' : s.year === 3 ? 'rd' : 'th'} Year`}
+                   </p>
                 </td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[(s.status || 'Active').toUpperCase()] || 'bg-slate-100 text-slate-700'}`}>

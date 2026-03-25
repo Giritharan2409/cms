@@ -4,11 +4,12 @@ import StatCard from '../components/StatCard';
 import FacultyTable from '../components/FacultyTable';
 import SearchFilter from '../components/SearchFilter';
 import AddEditFacultyModal from '../components/AddEditFacultyModal';
+import { useAdmission } from '../context/AdmissionContext';
 import { API_BASE } from '../api/apiBase';
 import '../styles.css';
 
 export default function FacultyPage() {
-  const [facultyList, setFacultyList] = useState([]);
+  const { facultyApps } = useAdmission();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,71 +20,19 @@ export default function FacultyPage() {
   const ITEMS_PER_PAGE = 8;
 
   useEffect(() => {
-    const cached = localStorage.getItem('faculty_list_cache');
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          setFacultyList(parsed);
-          setLoading(false);
-        }
-      } catch {
-        // ignore invalid local cache and fetch fresh data
-      }
-    }
-
-    fetchFaculty(Boolean(cached));
-  }, []);
-
-  const fetchFaculty = async (background = false) => {
-    if (!background) {
-      setLoading(true);
-    }
-    try {
-    const response = await fetch(`${API_BASE}/faculty?limit=120`);
-      if (!response.ok) throw new Error('Failed to fetch faculty');
-      const data = await response.json();
-      setFacultyList(data);
-      localStorage.setItem('faculty_list_cache', JSON.stringify(data));
+    // Load admission data
+    if (facultyApps && facultyApps.length > 0) {
       setError(null);
-    } catch (err) {
-      console.error('Error fetching faculty:', err);
-      setError(err.message);
-      if (!background) {
-        setFacultyList([]);
-      }
-    } finally {
-      if (!background) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const seedFacultyData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE}/faculty/seed/data`, {
-        method: 'POST'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        alert(`${data.message}`);
-        await fetchFaculty();
-      } else {
-        alert('Failed to seed faculty data');
-      }
-    } catch (err) {
-      console.error('Error seeding data:', err);
-      alert('Error seeding data');
-    } finally {
+      setLoading(false);
+    } else {
       setLoading(false);
     }
-  };
+  }, [facultyApps]);
 
   // Filter faculty based on search query
-  const filteredFaculty = facultyList.filter(faculty =>
+  const filteredFaculty = (facultyApps || []).filter(faculty =>
+    faculty.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     faculty.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faculty.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     faculty.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -108,16 +57,15 @@ export default function FacultyPage() {
   };
 
   const handleDeleteFaculty = async (faculty) => {
-    if (!window.confirm(`Are you sure you want to delete ${faculty.name}?`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${faculty.fullName || faculty.name}?`)) return;
     
     try {
-      const facultyId = faculty._id || faculty.id || faculty.employeeId;
-      const response = await fetch(`${API_BASE}/faculty/${facultyId}`, {
+      const facultyId = faculty._id || faculty.id;
+      const response = await fetch(`${API_BASE}/admissions/faculty/${facultyId}`, {
         method: 'DELETE'
       });
       if (response.ok) {
-        setFacultyList(facultyList.filter(f => f._id !== faculty._id && f.employeeId !== faculty.employeeId));
-        alert('Faculty member deleted successfully');
+        alert('Faculty member deleted successfully from admission');
       } else {
         alert('Failed to delete faculty member');
       }
@@ -130,19 +78,17 @@ export default function FacultyPage() {
   const handleCloseFaculty = async () => {
     setIsModalOpen(false);
     setEditingFaculty(null);
-    await fetchFaculty();
   };
 
   const handleModalSuccess = async () => {
     setIsModalOpen(false);
     setEditingFaculty(null);
-    await fetchFaculty();
   };
 
-  // Calculate stats
-  const activeFaculty = facultyList.filter(f => f.employment_status === 'Active').length;
-  const onLeave = facultyList.filter(f => f.employment_status === 'On-Leave').length;
-  const departmentsCount = new Set(facultyList.map((f) => f.department_id || f.departmentId)).size;
+  // Calculate stats from admission data
+  const activeFaculty = (facultyApps || []).filter(f => f.status === 'Approved').length;
+  const pendingFaculty = (facultyApps || []).filter(f => f.status === 'Pending').length;
+  const totalFaculty = (facultyApps || []).length;
 
   return (
     <Layout title="Faculty Directory">
@@ -151,31 +97,27 @@ export default function FacultyPage() {
           <h1 className="text-3xl font-bold text-slate-900">Faculty</h1>
           <p className="text-slate-500 mt-1">Manage faculty profiles, subject assignments, and teaching performance records.</p>
         </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 hidden xl:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-600">March 12, 2026 • 10:25 AM</p>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <StatCard 
           icon="group" 
           label="Total Faculty" 
-          value={loading ? '...' : facultyList.length.toLocaleString()}
+          value={loading ? '...' : totalFaculty.toLocaleString()}
           color="blue"
         />
         <StatCard 
-          icon="bolt" 
-          label="Active Members" 
+          icon="check_circle" 
+          label="Approved" 
           value={loading ? '...' : activeFaculty.toLocaleString()}
-          trend={`${onLeave} on leave`}
+          trend={`${pendingFaculty} pending`}
           color="green"
         />
         <StatCard 
-          icon="domain" 
-          label="Departments" 
-          value={loading ? '...' : departmentsCount.toLocaleString()}
-          color="purple"
+          icon="person" 
+          label="Pending" 
+          value={loading ? '...' : pendingFaculty.toLocaleString()}
+          color="orange"
         />
       </div>
 
@@ -190,14 +132,8 @@ export default function FacultyPage() {
       {error ? (
         <div className="bg-red-50 border border-red-100 rounded-xl p-8 text-center">
           <span className="material-symbols-outlined text-red-400 text-5xl mb-4">cloud_off</span>
-          <h3 className="text-lg font-bold text-red-900">Connection Error</h3>
-          <p className="text-red-700 mt-1 max-w-sm mx-auto">{error}</p>
-          <button 
-            onClick={fetchFaculty}
-            className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-sm"
-          >
-            Retry Connection
-          </button>
+          <h3 className="text-lg font-bold text-red-900">No Faculty Available</h3>
+          <p className="text-red-700 mt-1 max-w-sm mx-auto">No faculty members have been added to the admission system yet. Visit the admission page to add faculty.</p>
         </div>
       ) : loading ? (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -207,24 +143,22 @@ export default function FacultyPage() {
             <div className="w-32 h-3 bg-slate-50 rounded" />
           </div>
         </div>
+      ) : filteredFaculty.length === 0 ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-12 text-center">
+          <span className="material-symbols-outlined text-slate-300 text-6xl mb-4 block">groups</span>
+          <h3 className="text-lg font-bold text-slate-900">No Faculty Found</h3>
+          <p className="text-slate-600 mt-2">
+            {searchQuery 
+              ? 'No faculty members match your search. Try different keywords.'
+              : 'No faculty members in the admission system yet.'}
+          </p>
+        </div>
       ) : (
         <FacultyTable 
           faculty={paginatedFaculty}
           onEdit={handleEditFaculty}
           onDelete={handleDeleteFaculty}
         />
-      )}
-
-      {!loading && !error && filteredFaculty.length === 0 && !searchQuery && (
-        <div className="flex justify-center mt-6">
-          <button 
-            onClick={seedFacultyData}
-            className="flex items-center gap-2 px-6 py-3 bg-[#1162d4] text-white rounded-xl font-bold hover:bg-[#0d4fa8] transition-all shadow-sm"
-          >
-            <span className="material-symbols-outlined">download</span>
-            Load Demo Data
-          </button>
-        </div>
       )}
 
       {filteredFaculty.length > 0 && (

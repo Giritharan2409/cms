@@ -26,6 +26,12 @@ class Faculty(BaseModel):
     department_id: str = Field(alias="departmentId")
     designation: str = ""
     
+    # Admission & Personal Info
+    dob: Optional[date] = None
+    gender: str = ""
+    years_of_experience: Optional[int] = Field(None, alias="yearsOfExperience")
+    highest_qualification: str = ""
+    
     # Enhanced Profile
     qualifications: List[Qualification] = []
     specializations: List[str] = []

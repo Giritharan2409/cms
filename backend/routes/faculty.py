@@ -14,6 +14,7 @@ from backend.models.faculty_activity import CourseAssignment, PerformanceMetric,
 from backend.models.faculty_leave import FacultyLeave
 from backend.models.faculty_feedback import PeerReview
 from backend.models.faculty_notification import Notification
+from backend.models.faculty_evaluation import PerformanceEvaluation
 
 router = APIRouter(prefix="/api/faculty", tags=["faculty"])
 
@@ -1536,6 +1537,65 @@ async def get_notifications(faculty_id: str):
     async for n in collection.find({"recipient_id": faculty_id}):
         notifications.append(serialize_doc(n))
     return notifications
+
+
+# -----------------
+# Performance Evaluation
+# -----------------
+
+@router.post("/{faculty_id}/evaluations")
+async def add_performance_evaluation(faculty_id: str, evaluation: PerformanceEvaluation = Body(...)):
+    """Add/save performance evaluation for faculty"""
+    try:
+        db = await get_db()
+        collection = db["faculty_performance_evaluations"]
+        
+        eval_dict = evaluation.dict(by_alias=False, exclude_none=False)
+        eval_dict["faculty_id"] = faculty_id
+        eval_dict["created_at"] = datetime.utcnow()
+        eval_dict["updated_at"] = datetime.utcnow()
+        
+        # Ensure evaluation_date is set
+        if not eval_dict.get("evaluation_date"):
+            eval_dict["evaluation_date"] = datetime.utcnow().isoformat()
+        
+        # Calculate overall rating if not provided
+        if eval_dict.get("overall_rating", 0) == 0:
+            scores = [
+                eval_dict.get("course_content", 0),
+                eval_dict.get("teaching_methodology", 0),
+                eval_dict.get("student_engagement", 0),
+                eval_dict.get("feedback_responsiveness", 0),
+                eval_dict.get("research_output", 0),
+                eval_dict.get("publication_quality", 0),
+                eval_dict.get("research_collaboration", 0),
+                eval_dict.get("meeting_attendance", 0),
+                eval_dict.get("committee_participation", 0),
+                eval_dict.get("documentation", 0),
+                eval_dict.get("student_satisfaction", 0),
+                eval_dict.get("course_effectiveness", 0),
+                eval_dict.get("availability", 0),
+            ]
+            eval_dict["overall_rating"] = round(sum(scores) / len(scores), 2) if scores else 0
+        
+        result = await collection.insert_one(eval_dict)
+        doc = await collection.find_one({"_id": result.inserted_id})
+        return serialize_doc(doc)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save evaluation: {str(e)}")
+
+
+@router.get("/{faculty_id}/evaluations")
+async def get_performance_evaluations(faculty_id: str):
+    """Get all performance evaluations for faculty"""
+    db = await get_db()
+    collection = db["faculty_performance_evaluations"]
+    
+    evaluations = []
+    async for eval_doc in collection.find({"faculty_id": faculty_id}).sort("created_at", -1):
+        evaluations.append(serialize_doc(eval_doc))
+    return evaluations
+
 
 @router.post("/check-compliance")
 async def check_compliance():

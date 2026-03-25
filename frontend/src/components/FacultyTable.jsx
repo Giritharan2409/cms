@@ -3,30 +3,6 @@ import { useNavigate } from 'react-router-dom'
 export default function FacultyTable({ faculty, onEdit, onDelete, onViewDetails }) {
   const navigate = useNavigate()
 
-  const statusStyles = {
-    Top: 'bg-yellow-100 text-yellow-800',
-    Good: 'bg-green-100 text-green-800',
-    Watch: 'bg-orange-100 text-orange-800',
-  }
-
-  const getDepartmentColors = (dept) => {
-    const colors = {
-      'CS': 'bg-blue-100 text-blue-800',
-      'ECE': 'bg-purple-100 text-purple-800',
-      'ME': 'bg-cyan-100 text-cyan-800',
-      'MATH': 'bg-green-100 text-green-800',
-      'CE': 'bg-red-100 text-red-800',
-      'BT': 'bg-pink-100 text-pink-800',
-    }
-    return colors[dept] || 'bg-slate-100 text-slate-700'
-  }
-
-  const getEmploymentStatusStyle = (status) => {
-    if (status === 'On-Leave') return 'bg-amber-100 text-amber-800'
-    if (status === 'Active') return 'bg-emerald-100 text-emerald-800'
-    return 'bg-slate-100 text-slate-700'
-  }
-
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
       <table className="w-full text-left">
@@ -34,8 +10,8 @@ export default function FacultyTable({ faculty, onEdit, onDelete, onViewDetails 
           <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
             <th className="px-6 py-4">Faculty Information</th>
             <th className="px-6 py-4">Department</th>
-            <th className="px-6 py-4">Subject</th>
-            <th className="px-6 py-4">Performance</th>
+            <th className="px-6 py-4">Experience</th>
+            <th className="px-6 py-4">Specialization</th>
             <th className="px-6 py-4">Status</th>
             <th className="px-6 py-4 text-right">Actions</th>
           </tr>
@@ -54,61 +30,69 @@ export default function FacultyTable({ faculty, onEdit, onDelete, onViewDetails 
           ) : (
             faculty.map((f) => (
               <tr
-                key={f.employeeId || f._id}
+                key={f._id || f.id}
                 className="hover:bg-blue-50/30 transition-colors cursor-pointer border-slate-100"
                 onClick={() => {
-                  const profileId = f._id || f.employeeId
+                  const profileId = f._id || f.id
                   if (!profileId) return
-                  navigate(`/faculty/${encodeURIComponent(profileId)}`)
+                  navigate(`/faculty/${profileId}`)
                 }}
               >
                 {(() => {
-                  const performanceSummary = f.performance_summary || {}
-                  const leaveSummary = f.leave_attendance_summary || {}
-                  const attendanceValue = Number(leaveSummary.attendance_rate ?? f.attendance_rate ?? f.attendance ?? 0)
-                  const passRateValue = performanceSummary.pass_rate ?? f.pass_rate ?? f.passRate ?? 0
-                  const performanceStatus = performanceSummary.overall_status || f.status || 'Good'
-                  const departmentLabel = f.departmentId || f.department_id || 'General'
-                  const departmentCode = (f.department_id || f.departmentId || '').toString().toUpperCase()
-                  const employmentStatus = leaveSummary.employment_status || f.employment_status || 'Active'
+                  const facultyName = f.fullName || f.name || 'N/A';
+                  const facultyEmail = f.email || 'N/A';
+                  const department = f.department || 'N/A';
+                  const designation = f.role || f.designation || 'Faculty';
+                  const experience = f.experience || f.yearsOfExperience || 'N/A';
+                  const specialization = f.specialization || f.specializations || 'N/A';
+                  const status = f.status || 'Pending';
+                  const qualification = f.qualification || f.highestQualification || 'N/A';
 
                   return (
                     <>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-semibold text-xs ${getDepartmentColors(departmentCode)}`}>
-                      {f.name ? f.name.split(' ').slice(0, 2).map(n => n[0]).join('') : 'FA'}
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center font-semibold text-xs bg-blue-100 text-[#1162d4]">
+                      {facultyName ? facultyName.split(' ').slice(0, 2).map(n => n[0]).join('') : 'FA'}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-slate-900 leading-tight">{f.name}</p>
-                      <p className="text-xs text-slate-500">{f.employeeId || 'N/A'}</p>
+                      <p className="text-sm font-semibold text-slate-900 leading-tight">{facultyName}</p>
+                      <p className="text-xs text-slate-500">{facultyEmail}</p>
                     </div>
                   </div>
                 </td>
 
                 <td className="px-6 py-4">
                   <div>
-                    <p className="text-sm font-medium text-slate-700">{departmentLabel}</p>
-                    <p className="text-xs text-slate-500">{f.designation || 'Faculty'}</p>
+                    <p className="text-sm font-medium text-slate-700">{department}</p>
+                    <p className="text-xs text-slate-500">{designation}</p>
                   </div>
                 </td>
                 
                 <td className="px-6 py-4">
-                  <p className="text-sm font-medium text-slate-700">{f.subject || f.specialization || 'N/A'}</p>
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">
+                      {experience !== 'N/A' ? `${experience} years` : experience}
+                    </p>
+                    <p className="text-xs text-slate-500">{qualification}</p>
+                  </div>
                 </td>
 
                 <td className="px-6 py-4">
-                  <p className="text-sm font-semibold text-slate-900">{performanceStatus}</p>
-                  <p className="text-xs text-slate-500">Attendance {attendanceValue}% • Pass {passRateValue}%</p>
+                  <p className="text-sm font-semibold text-slate-900">{specialization}</p>
+                  <p className="text-xs text-slate-500">{designation}</p>
                 </td>
 
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[performanceStatus] || 'bg-slate-100 text-slate-700'}`}>
-                      {performanceStatus}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getEmploymentStatusStyle(employmentStatus)}`}>
-                      {employmentStatus}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      status === 'Approved' 
+                        ? 'bg-green-100 text-green-800'
+                        : status === 'Rejected'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {status}
                     </span>
                   </div>
                 </td>

@@ -32,24 +32,42 @@ function OverviewTab({ student }) {
             </div>
           </div>
 
+          {/* Personal Information */}
+          <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[#1162d4] text-[20px]">badge</span>
+              Personal Details
+            </h3>
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Date of Birth</p>
+                <p className="text-sm font-medium text-slate-700">{student.dob ? new Date(student.dob).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Gender</p>
+                <p className="text-sm font-medium text-slate-700">{student.gender || 'Not specified'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Roll Number</p>
+                <p className="text-sm font-medium text-slate-700 font-mono">{student.rollNumber}</p>
+              </div>
+            </div>
+          </div>
+
           {/* Family Details */}
           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
               <span className="material-symbols-outlined text-[#1162d4] text-[20px]">family_restroom</span>
-              Family Details
+              Guardian Information
             </h3>
             <div className="space-y-5">
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Father's Name</p>
-                <p className="text-sm font-medium text-slate-700">{student.guardian}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Mother's Name</p>
-                <p className="text-sm font-medium text-slate-700">Sunita Devi</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Guardian Name</p>
+                <p className="text-sm font-medium text-slate-700">{student.guardian || 'Not provided'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Guardian Contact</p>
-                <p className="text-sm font-medium text-slate-700">{student.guardianPhone}</p>
+                <p className="text-sm font-medium text-slate-700">{student.guardianPhone || 'Not provided'}</p>
               </div>
             </div>
           </div>
@@ -86,8 +104,29 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attendance</p>
-                  <p className="text-sm font-medium text-slate-700">{student.attendancePct}%</p>
-               </div>
+                  </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Location Information */}
+        <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
+            <span className="material-symbols-outlined text-[#1162d4] text-[20px]">location_on</span>
+            Location Details
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">City</p>
+              <p className="text-sm font-medium text-slate-700">{student.city || 'Not provided'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">State</p>
+              <p className="text-sm font-medium text-slate-700">{student.state || 'Not provided'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Postal Code</p>
+              <p className="text-sm font-medium text-slate-700">{student.pincode || 'Not provided'}</p>
             </div>
           </div>
         </div>
