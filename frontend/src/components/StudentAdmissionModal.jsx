@@ -429,7 +429,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       roomType: formData.roomType,
       motherName: formData.motherName,
       bloodGroup: formData.bloodGroup,
-      skills: formData.skills.split(',').map(s => s.trim()).filter(s => s !== ''),
+      skills: (formData.skills || '').split(',').map(s => s.trim()).filter(s => s !== ''),
       paymentStatus: 'Paid',
     };
 

@@ -71,6 +71,7 @@ export default function AdminFeesPage() {
     course: '',
     breakdown: DEFAULT_BREAKDOWN,
   });
+  const [templateAmount, setTemplateAmount] = useState('');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
@@ -82,11 +83,6 @@ export default function AdminFeesPage() {
   const [courses, setCourses] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
-
-  const assignedStudentIdSet = useMemo(
-    () => new Set(feeAssignments.filter((a) => !a.isDeleted).map((a) => a.studentId)),
-    [feeAssignments]
-  );
 
   // Load courses from API when academic year changes
   React.useEffect(() => {
@@ -126,13 +122,8 @@ export default function AdminFeesPage() {
         const data = await response.json();
         const studentData = Array.isArray(data) ? data : (data.data || []);
         
-        // Filter out students that already have fee assignments
-        const studentsNotAssigned = studentData.filter(
-          s => !assignedStudentIdSet.has(s.id)
-        );
-        
         // Apply search filters
-        let filtered = studentsNotAssigned;
+        let filtered = studentData;
         if (studentFilters.studentId) {
           filtered = filtered.filter(s => String(s.id || '').toLowerCase().includes(studentFilters.studentId.toLowerCase()));
         }
@@ -150,7 +141,7 @@ export default function AdminFeesPage() {
     };
 
     loadStudents();
-  }, [studentFilters.academicYear, studentFilters.course, assignedStudentIdSet]);
+  }, [studentFilters.academicYear, studentFilters.course]);
 
   // Apply search filters only (don't reload)
   React.useEffect(() => {
@@ -494,17 +485,29 @@ export default function AdminFeesPage() {
   };
 
   const handleCreateTemplate = async () => {
-    const total = Object.values(templateForm.breakdown).reduce((sum, value) => sum + Number(value || 0), 0);
-    if (!templateForm.name || !templateForm.course || total <= 0) {
-      alert('Please fill template name, course and valid breakdown.');
+    const amount = Number(templateAmount || 0);
+    if (!templateForm.name || !templateForm.course || amount <= 0) {
+      alert('Please fill template name, course and valid amount.');
       return;
     }
+
+    const payload = {
+      name: templateForm.name,
+      course: templateForm.course,
+      // Keep backend schema compatibility while using simplified UI input.
+      breakdown: {
+        tuitionFee: amount,
+        hostelFee: 0,
+        examFee: 0,
+        miscFee: 0,
+      },
+    };
 
     try {
       const response = await fetch(`${API_BASE}/fees/templates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(templateForm),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -517,11 +520,20 @@ export default function AdminFeesPage() {
         course: '',
         breakdown: DEFAULT_BREAKDOWN,
       });
+      setTemplateAmount('');
       await loadData();
       alert('Template created successfully.');
     } catch (error) {
       alert(error.message || 'Unable to create template.');
     }
+  };
+
+  const openCreateTemplateFromAssign = () => {
+    setTemplateForm((prev) => ({
+      ...prev,
+      course: assignFormData.course || prev.course,
+    }));
+    setShowTemplateModal(true);
   };
 
   const toggleStudentSelection = (studentId, checked) => {
@@ -810,7 +822,7 @@ export default function AdminFeesPage() {
 
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-gray-800">
-                Students Awaiting Fee Assignment ({filteredStudents.length})
+                Students For Fee Assignment ({filteredStudents.length})
               </h2>
               <button
                 onClick={handleBulkAssignClick}
@@ -977,7 +989,16 @@ export default function AdminFeesPage() {
 
               {assignFormData.useTemplate ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Fee Template</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Fee Template</label>
+                    <button
+                      type="button"
+                      onClick={openCreateTemplateFromAssign}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      + Create Template
+                    </button>
+                  </div>
                   <select
                     value={assignFormData.feeTemplateId}
                     onChange={(e) => handleTemplateSelection(e.target.value)}
@@ -990,6 +1011,11 @@ export default function AdminFeesPage() {
                       </option>
                     ))}
                   </select>
+                  {feeTemplates.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      No templates available. Click "Create Template" to add one.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1063,7 +1089,7 @@ export default function AdminFeesPage() {
                 type="text"
                 value={templateForm.name}
                 onChange={(e) => setTemplateForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Template Name"
+                placeholder="Fee Name"
                 className="px-4 py-2 border border-gray-300 rounded-lg"
               />
               <input
@@ -1075,25 +1101,19 @@ export default function AdminFeesPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {['tuitionFee', 'hostelFee', 'examFee', 'miscFee'].map((field) => (
-                <input
-                  key={field}
-                  type="number"
-                  value={templateForm.breakdown[field]}
-                  onChange={(e) =>
-                    setTemplateForm((prev) => ({
-                      ...prev,
-                      breakdown: {
-                        ...prev.breakdown,
-                        [field]: Number(e.target.value || 0),
-                      },
-                    }))
-                  }
-                  placeholder={field}
-                  className="px-4 py-2 border border-gray-300 rounded-lg"
-                />
-              ))}
+            <div className="mb-2">
+              <input
+                type="number"
+                value={templateAmount}
+                onChange={(e) => setTemplateAmount(e.target.value)}
+                placeholder="Fee Amount"
+                min="0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+
+            <div className="mb-6 text-xs text-gray-500">
+              This amount will be used as the total template fee.
             </div>
 
             <div className="flex justify-end gap-3">

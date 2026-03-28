@@ -60,6 +60,29 @@ class FeePaymentCreate(BaseModel):
     date: Optional[date] = None
 
 
+class StudentFeeRecordCreate(BaseModel):
+    studentId: str
+    studentName: str
+    feeType: Literal["tuition", "exam", "hostel", "transport", "fine"]
+    amount: float = Field(gt=0)
+    dueDate: date
+    academicYear: Optional[str] = None
+    course: Optional[str] = None
+    notes: Optional[str] = None
+    lateFeePerDay: float = Field(default=0, ge=0)
+
+
+class StudentFeeRecordUpdate(BaseModel):
+    studentName: Optional[str] = None
+    feeType: Optional[Literal["tuition", "exam", "hostel", "transport", "fine"]] = None
+    amount: Optional[float] = Field(default=None, gt=0)
+    dueDate: Optional[date] = None
+    academicYear: Optional[str] = None
+    course: Optional[str] = None
+    notes: Optional[str] = None
+    lateFeePerDay: Optional[float] = Field(default=None, ge=0)
+
+
 class FeeDeleteRequest(BaseModel):
     reason: Optional[str] = None
     softDelete: bool = True

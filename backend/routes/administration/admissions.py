@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from backend.db import get_db
 from backend.dev_store import DEV_STORE, save_dev_store
 from backend.schemas.admission_schema import AdmissionCreate
+from backend.utils.auth_credentials import ensure_student_login_credential
 
 router = APIRouter(prefix="/admissions", tags=["Admissions"])
 
@@ -276,6 +277,7 @@ async def create_admission(payload: dict[str, Any]):
         admissions_collection = _admissions_collection()
         admission = _normalize_payload(payload)
         result = await admissions_collection.insert_one(admission)
+        await ensure_student_login_credential(admission.get("id") or admission.get("admission_id") or "")
         return {
             "message": "Admission created successfully",
             "mongo_id": str(result.inserted_id),
@@ -288,6 +290,7 @@ async def create_admission(payload: dict[str, Any]):
             if "admissions" not in DEV_STORE: DEV_STORE["admissions"] = []
             DEV_STORE["admissions"].append(admission)
             save_dev_store()
+            await ensure_student_login_credential(admission.get("id") or admission.get("admission_id") or "")
             return {
                 "message": "Admission created successfully (Dev Store)",
                 "id": admission.get("id"),

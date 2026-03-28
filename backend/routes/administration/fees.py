@@ -11,6 +11,8 @@ from backend.schemas.fees_schema import (
     FeeAssignLegacy,
     FeeDeleteRequest,
     FeePaymentCreate,
+    StudentFeeRecordCreate,
+    StudentFeeRecordUpdate,
     FeeTemplateCreate,
 )
 from backend.utils.fee_calculator import calculate_fee
@@ -323,6 +325,105 @@ async def create_fee_assignments(payload: FeeAssignCreate):
         raise
 
 
+@router.post("/records")
+async def create_student_fee_record(payload: StudentFeeRecordCreate):
+    """Create a single fee record for one student.
+    Multiple records for the same student are always allowed."""
+    request = FeeAssignCreate(
+        students=[{"studentId": payload.studentId, "studentName": payload.studentName}],
+        academicYear=payload.academicYear or "",
+        course=payload.course or "",
+        breakdown=None,
+        totalAmount=payload.amount,
+        dueDate=payload.dueDate,
+        lateFeePerDay=payload.lateFeePerDay,
+    )
+
+    response = await create_fee_assignments(request)
+    created = (response.get("data") or [None])[0]
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create fee record")
+
+    created["feeType"] = payload.feeType
+    created["notes"] = payload.notes
+
+    try:
+        db = get_db()
+        await db["fees_assignments"].update_one(
+            {"_id": parse_object_id(created["id"])},
+            {
+                "$set": {
+                    "feeType": payload.feeType,
+                    "notes": payload.notes,
+                    "updatedAt": datetime.utcnow(),
+                }
+            },
+        )
+
+        doc = await db["fees_assignments"].find_one({"_id": parse_object_id(created["id"])})
+        return {
+            "message": "Fee record created",
+            "data": _hydrate_assignment(doc) if doc else created,
+        }
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            for item in DEV_STORE["fees_assignments"]:
+                if str(item.get("id")) == str(created.get("id")):
+                    item["feeType"] = payload.feeType
+                    item["notes"] = payload.notes
+                    item["updatedAt"] = datetime.utcnow().isoformat()
+                    save_dev_store()
+                    return {"message": "Fee record created (Dev Store)", "data": _hydrate_assignment(item)}
+            return {"message": "Fee record created (Dev Store)", "data": created}
+        raise
+
+
+@router.get("/paid-records")
+async def list_paid_fee_records(
+    student_id: Optional[str] = Query(None),
+    academic_year: Optional[str] = Query(None),
+):
+    """List all paid fee records. Can be filtered by student_id or academic_year."""
+    db = get_db()
+    query: dict[str, Any] = {"status": "Paid"}
+    
+    if student_id:
+        query["studentId"] = student_id
+    if academic_year:
+        query["academicYear"] = academic_year
+    
+    try:
+        data = []
+        async for item in db["fees_assignments"].find(query).sort("updatedAt", -1):
+            assignment = _hydrate_assignment(item)
+            
+            # Get associated invoice if exists
+            invoice = await db["invoices"].find_one({"fee_assignment_id": assignment["id"]})
+            assignment["invoice"] = serialize_doc(invoice) if invoice else None
+            
+            data.append(assignment)
+        
+        return {
+            "count": len(data),
+            "data": data,
+        }
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            data = []
+            for item in DEV_STORE["fees_assignments"]:
+                if item.get("status") != "Paid":
+                    continue
+                if student_id and str(item.get("studentId")) != str(student_id):
+                    continue
+                if academic_year and item.get("academicYear") != academic_year:
+                    continue
+                data.append(_hydrate_assignment(item))
+            return {"count": len(data), "data": data}
+        raise
+
+
 @router.get("/assignments")
 async def list_fee_assignments(
     status: Optional[str] = Query(default=None),
@@ -375,6 +476,40 @@ async def list_fee_assignments(
         raise
 
 
+@router.get("/students/{student_id}/records")
+async def list_student_fee_records(
+    student_id: str,
+    includeDeleted: bool = Query(default=False),
+):
+    """List all fee records for a student (one-to-many relationship)."""
+    query: dict[str, Any] = {"studentId": student_id}
+    if not includeDeleted:
+        query["isDeleted"] = {"$ne": True}
+
+    try:
+        db = get_db()
+        data = []
+        async for item in db["fees_assignments"].find(query).sort("createdAt", -1):
+            assignment = _hydrate_assignment(item)
+            await _sync_assignment_state(db, assignment["id"], assignment)
+            data.append(assignment)
+
+        return {"studentId": student_id, "data": data, "count": len(data)}
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            data = []
+            for item in DEV_STORE["fees_assignments"]:
+                if str(item.get("studentId")) != str(student_id):
+                    continue
+                if not includeDeleted and item.get("isDeleted"):
+                    continue
+                data.append(_hydrate_assignment(item))
+            data = sorted(data, key=lambda x: x.get("createdAt", ""), reverse=True)
+            return {"studentId": student_id, "data": data, "count": len(data)}
+        raise
+
+
 @router.get("/assignments/{fee_id}")
 async def get_fee_assignment(fee_id: str):
     db = get_db()
@@ -387,65 +522,194 @@ async def get_fee_assignment(fee_id: str):
     return {"data": assignment}
 
 
-@router.post("/assignments/{fee_id}/payments")
-async def add_fee_payment(fee_id: str, payload: FeePaymentCreate):
-    db = get_db()
-    doc = await db["fees_assignments"].find_one({"_id": parse_object_id(fee_id)})
-    if not doc or doc.get("isDeleted"):
-        raise HTTPException(status_code=404, detail="Fee assignment not found")
+@router.put("/assignments/{fee_id}")
+async def update_fee_assignment(fee_id: str, payload: StudentFeeRecordUpdate):
+    try:
+        db = get_db()
+        doc = await db["fees_assignments"].find_one({"_id": parse_object_id(fee_id)})
+        if not doc or doc.get("isDeleted"):
+            raise HTTPException(status_code=404, detail="Fee assignment not found")
 
-    assignment = _hydrate_assignment(doc)
+        assignment = _hydrate_assignment(doc)
 
-    transaction_date = (payload.date or date.today()).isoformat()
-    transaction = {
-        "id": f"TXN-{int(datetime.utcnow().timestamp() * 1000)}",
-        "amount": round(payload.amount, 2),
-        "paymentMethod": payload.paymentMethod,
-        "transactionId": payload.transactionId,
-        "date": transaction_date,
-    }
+        updates: dict[str, Any] = {}
+        if payload.studentName is not None:
+            updates["studentName"] = payload.studentName
+        if payload.feeType is not None:
+            updates["feeType"] = payload.feeType
+        if payload.amount is not None:
+            current_paid = float(assignment.get("paidAmount") or 0)
+            if payload.amount < current_paid:
+                raise HTTPException(status_code=400, detail="Amount cannot be lower than paid amount")
+            updates["totalAmount"] = round(payload.amount, 2)
+        if payload.dueDate is not None:
+            updates["dueDate"] = payload.dueDate.isoformat()
+        if payload.academicYear is not None:
+            updates["academicYear"] = payload.academicYear
+        if payload.course is not None:
+            updates["course"] = payload.course
+        if payload.notes is not None:
+            updates["notes"] = payload.notes
+        if payload.lateFeePerDay is not None:
+            updates["lateFeePerDay"] = payload.lateFeePerDay
 
-    updated_paid = round(float(assignment.get("paidAmount", 0)) + transaction["amount"], 2)
-    total_with_late = round(float(assignment.get("totalAmount", 0)) + float(assignment.get("lateFeeAmount", 0)), 2)
-    if updated_paid > total_with_late:
-        raise HTTPException(status_code=400, detail="Payment exceeds payable amount")
+        if not updates:
+            return {"message": "No changes provided", "data": assignment}
 
-    transactions = assignment.get("transactions", [])
-    transactions.append(transaction)
-
-    assignment["transactions"] = transactions
-    assignment["paidAmount"] = updated_paid
-    assignment["dueAmount"] = round(max(total_with_late - updated_paid, 0), 2)
-
-    due_date = _normalize_date(assignment.get("dueDate"))
-    assignment["status"] = _compute_status(due_date, assignment["paidAmount"], total_with_late)
-
-    await db["fees_assignments"].update_one(
-        {"_id": parse_object_id(fee_id)},
-        {
-            "$set": {
-                "transactions": transactions,
-                "paidAmount": assignment["paidAmount"],
-                "dueAmount": assignment["dueAmount"],
-                "status": assignment["status"],
-                "updatedAt": datetime.utcnow(),
-            }
-        },
-    )
-
-    if assignment["status"] == FEE_STATUS_PAID:
-        await _create_notification(
-            db,
-            title="Payment Completed",
-            message=f"Payment completed for {assignment['studentName']} ({assignment.get('academicYear', 'N/A')})",
-            action_id=fee_id,
+        updates["updatedAt"] = datetime.utcnow()
+        await db["fees_assignments"].update_one(
+            {"_id": parse_object_id(fee_id)},
+            {"$set": updates},
         )
 
-    return {
-        "message": "Payment recorded",
-        "transaction": transaction,
-        "data": assignment,
-    }
+        refreshed = await db["fees_assignments"].find_one({"_id": parse_object_id(fee_id)})
+        if not refreshed:
+            raise HTTPException(status_code=404, detail="Fee assignment not found")
+
+        hydrated = _hydrate_assignment(refreshed)
+        await _sync_assignment_state(db, hydrated["id"], hydrated)
+        return {"message": "Fee record updated", "data": hydrated}
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            target = next(
+                (item for item in DEV_STORE["fees_assignments"] if str(item.get("id")) == str(fee_id) and not item.get("isDeleted")),
+                None,
+            )
+            if not target:
+                raise HTTPException(status_code=404, detail="Fee assignment not found")
+
+            assignment = _hydrate_assignment(target)
+            if payload.amount is not None and payload.amount < float(assignment.get("paidAmount") or 0):
+                raise HTTPException(status_code=400, detail="Amount cannot be lower than paid amount")
+
+            if payload.studentName is not None:
+                target["studentName"] = payload.studentName
+            if payload.feeType is not None:
+                target["feeType"] = payload.feeType
+            if payload.amount is not None:
+                target["totalAmount"] = round(payload.amount, 2)
+            if payload.dueDate is not None:
+                target["dueDate"] = payload.dueDate.isoformat()
+            if payload.academicYear is not None:
+                target["academicYear"] = payload.academicYear
+            if payload.course is not None:
+                target["course"] = payload.course
+            if payload.notes is not None:
+                target["notes"] = payload.notes
+            if payload.lateFeePerDay is not None:
+                target["lateFeePerDay"] = payload.lateFeePerDay
+            target["updatedAt"] = datetime.utcnow().isoformat()
+
+            save_dev_store()
+            return {"message": "Fee record updated (Dev Store)", "data": _hydrate_assignment(target)}
+        raise
+
+
+@router.post("/assignments/{fee_id}/payments")
+async def add_fee_payment(fee_id: str, payload: FeePaymentCreate):
+    try:
+        db = get_db()
+        doc = await db["fees_assignments"].find_one({"_id": parse_object_id(fee_id)})
+        if not doc or doc.get("isDeleted"):
+            raise HTTPException(status_code=404, detail="Fee assignment not found")
+
+        assignment = _hydrate_assignment(doc)
+
+        transaction_date = (payload.date or date.today()).isoformat()
+        transaction = {
+            "id": f"TXN-{int(datetime.utcnow().timestamp() * 1000)}",
+            "amount": round(payload.amount, 2),
+            "paymentMethod": payload.paymentMethod,
+            "transactionId": payload.transactionId,
+            "date": transaction_date,
+        }
+
+        updated_paid = round(float(assignment.get("paidAmount", 0)) + transaction["amount"], 2)
+        total_with_late = round(float(assignment.get("totalAmount", 0)) + float(assignment.get("lateFeeAmount", 0)), 2)
+        if updated_paid > total_with_late:
+            raise HTTPException(status_code=400, detail="Payment exceeds payable amount")
+
+        transactions = assignment.get("transactions", [])
+        transactions.append(transaction)
+
+        assignment["transactions"] = transactions
+        assignment["paidAmount"] = updated_paid
+        assignment["dueAmount"] = round(max(total_with_late - updated_paid, 0), 2)
+
+        due_date = _normalize_date(assignment.get("dueDate"))
+        assignment["status"] = _compute_status(due_date, assignment["paidAmount"], total_with_late)
+
+        await db["fees_assignments"].update_one(
+            {"_id": parse_object_id(fee_id)},
+            {
+                "$set": {
+                    "transactions": transactions,
+                    "paidAmount": assignment["paidAmount"],
+                    "dueAmount": assignment["dueAmount"],
+                    "status": assignment["status"],
+                    "updatedAt": datetime.utcnow(),
+                }
+            },
+        )
+
+        if assignment["status"] == FEE_STATUS_PAID:
+            await _create_notification(
+                db,
+                title="Payment Completed",
+                message=f"Payment completed for {assignment['studentName']} ({assignment.get('academicYear', 'N/A')})",
+                action_id=fee_id,
+            )
+
+        return {
+            "message": "Payment recorded",
+            "transaction": transaction,
+            "data": assignment,
+        }
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            target = next(
+                (item for item in DEV_STORE["fees_assignments"] if str(item.get("id")) == str(fee_id) and not item.get("isDeleted")),
+                None,
+            )
+            if not target:
+                raise HTTPException(status_code=404, detail="Fee assignment not found")
+
+            assignment = _hydrate_assignment(target)
+            transaction_date = (payload.date or date.today()).isoformat()
+            transaction = {
+                "id": f"TXN-{int(datetime.utcnow().timestamp() * 1000)}",
+                "amount": round(payload.amount, 2),
+                "paymentMethod": payload.paymentMethod,
+                "transactionId": payload.transactionId,
+                "date": transaction_date,
+            }
+
+            updated_paid = round(float(assignment.get("paidAmount", 0)) + transaction["amount"], 2)
+            total_with_late = round(float(assignment.get("totalAmount", 0)) + float(assignment.get("lateFeeAmount", 0)), 2)
+            if updated_paid > total_with_late:
+                raise HTTPException(status_code=400, detail="Payment exceeds payable amount")
+
+            transactions = assignment.get("transactions", [])
+            transactions.append(transaction)
+            target["transactions"] = transactions
+            target["paidAmount"] = updated_paid
+            target["dueAmount"] = round(max(total_with_late - updated_paid, 0), 2)
+
+            due_date = _normalize_date(target.get("dueDate"))
+            target["status"] = _compute_status(due_date, target.get("paidAmount", 0), total_with_late)
+            target["updatedAt"] = datetime.utcnow().isoformat()
+
+            save_dev_store()
+            assignment = _hydrate_assignment(target)
+
+            return {
+                "message": "Payment recorded (Dev Store)",
+                "transaction": transaction,
+                "data": assignment,
+            }
+        raise
 
 
 @router.get("/assignments/{fee_id}/transactions")
@@ -520,6 +784,75 @@ async def send_overdue_reminders():
             sent += 1
 
     return {"message": "Overdue reminders processed", "sent": sent}
+
+
+@router.get("/assignments/{fee_id}/invoice")
+async def get_fee_invoice(fee_id: str):
+    """Get the generated invoice for a paid fee assignment."""
+    db = get_db()
+    
+    # Find invoice for this fee assignment
+    invoice = await db["invoices"].find_one({"fee_assignment_id": fee_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found for this fee")
+    
+    return serialize_doc(invoice)
+
+
+@router.post("/assignments/{fee_id}/generate-invoice")
+async def generate_fee_invoice(fee_id: str):
+    """Generate an invoice for a paid fee assignment."""
+    db = get_db()
+    doc = await db["fees_assignments"].find_one({"_id": parse_object_id(fee_id)})
+    if not doc or doc.get("isDeleted"):
+        raise HTTPException(status_code=404, detail="Fee assignment not found")
+
+    assignment = _hydrate_assignment(doc)
+
+    if assignment.get("status") != FEE_STATUS_PAID:
+        raise HTTPException(status_code=400, detail="Invoice can only be generated for paid fees")
+
+    # Create invoice record
+    invoice_doc = {
+        "invoice_id": f"INV-{int(datetime.utcnow().timestamp() * 1000)}",
+        "fee_assignment_id": fee_id,
+        "student_id": assignment.get("studentId"),
+        "student_name": assignment.get("studentName"),
+        "course": assignment.get("course"),
+        "academic_year": assignment.get("academicYear"),
+        "total_amount": assignment.get("totalAmount"),
+        "items": [
+            {
+                "description": f"{key}: {assignment.get('academicYear', 'N/A')} ({assignment.get('course', 'N/A')})",
+                "amount": float(value),
+            }
+            for key, value in assignment.get("breakdown", {}).items()
+        ],
+        "payment_status": "Paid",
+        "payment_method": assignment.get("paymentMethod", "Online"),
+        "transaction_id": assignment.get("transactionId", ""),
+        "paid_date": assignment.get("paidDate", datetime.utcnow().isoformat()),
+        "generated_date": datetime.utcnow(),
+    }
+
+    result = await db["invoices"].insert_one(invoice_doc)
+    created_invoice = await db["invoices"].find_one({"_id": result.inserted_id})
+
+    # Create notification for invoice generation
+    await _create_notification(
+        db,
+        title="Invoice Generated",
+        message=f"Invoice generated for fee payment of {assignment['studentName']} ({assignment.get('course', 'N/A')})",
+        action_id=fee_id,
+        related_data={"invoice_id": created_invoice["invoice_id"]},
+    )
+
+    return {
+        "message": "Invoice generated successfully",
+        "invoice_id": str(created_invoice["_id"]),
+        "invoice_number": created_invoice["invoice_id"],
+        "data": serialize_doc(created_invoice),
+    }
 
 
 # Legacy endpoint retained for compatibility

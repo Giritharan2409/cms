@@ -23,6 +23,7 @@ from backend.routes.academics.exams import router as exams_router
 from backend.routes.academics.facility import router as facility_router
 from backend.routes.academics.placement import router as placement_router
 from backend.routes.academics.timetable import router as timetable_router
+from backend.routes.auth import router as auth_router
 from backend.routes.analytics import router as analytics_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.payroll import router as payroll_router
@@ -114,6 +115,8 @@ app.include_router(placement_router)
 app.include_router(facility_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
+app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api")
 app.include_router(students_router)
 app.include_router(courses_router)
 app.include_router(courses_router, prefix="/api")

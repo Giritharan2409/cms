@@ -66,17 +66,42 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    window.setTimeout(() => {
-      const allowedUser = demoUsers[role];
-      if (allowedUser.userId === userId.trim() && allowedUser.password === password) {
-        createUserSession(role, userId.trim());
-        navigate(`/dashboard?role=${encodeURIComponent(role)}`, { replace: true });
-        return;
-      }
-
-      setError('Invalid credentials for selected role. Check the demo hint and try again.');
-      setLoading(false);
-    }, 1000);
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        role,
+        identifier: userId.trim(),
+        password,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          let detail = 'Invalid credentials for selected role. Check the demo hint and try again.';
+          try {
+            const errorPayload = await response.json();
+            if (errorPayload?.detail) {
+              detail = errorPayload.detail;
+            }
+          } catch {
+            // Ignore JSON parsing issues and use default error.
+          }
+          throw new Error(detail);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const resolvedRole = (data?.role || role).toLowerCase();
+        const resolvedUserId = data?.userId || userId.trim();
+        createUserSession(resolvedRole, resolvedUserId);
+        navigate(`/dashboard?role=${encodeURIComponent(resolvedRole)}`, { replace: true });
+      })
+      .catch((apiError) => {
+        setError(apiError.message || 'Unable to login. Please try again.');
+        setLoading(false);
+      });
   }
 
   return (
