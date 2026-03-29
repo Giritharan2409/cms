@@ -24,6 +24,7 @@ from backend.routes.academics.facility import router as facility_router
 from backend.routes.academics.placement import router as placement_router
 from backend.routes.academics.timetable import router as timetable_router
 from backend.routes.analytics import router as analytics_router
+from backend.routes.notification_routes import router as unified_notification_router
 from backend.routes.notifications import router as notifications_router
 from backend.routes.payroll import router as payroll_router
 from backend.routes.payroll_and_development import router as payroll_dev_router
@@ -111,6 +112,7 @@ app.include_router(attendance_router)
 app.include_router(placement_router)
 app.include_router(facility_router)
 app.include_router(notifications_router)
+app.include_router(unified_notification_router)
 app.include_router(settings_router)
 app.include_router(students_router)
 app.include_router(admissions_router)

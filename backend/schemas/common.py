@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,20 @@ class NotificationCreate(BaseModel):
     actionId: Optional[str] = None
     relatedData: dict[str, Any] = Field(default_factory=dict)
     department: Optional[str] = None
+
+
+class NotificationTarget(BaseModel):
+    role: Optional[Union[str, list[str]]] = None
+    department: Optional[str] = None
+    section: Optional[str] = None
+
+
+class ManualNotificationCreate(BaseModel):
+    title: str
+    message: str
+    target: NotificationTarget = Field(default_factory=NotificationTarget)
+    user_ids: list[str] = Field(default_factory=list)
+    is_global: bool = False
 
 
 class StudentRecord(BaseModel):
