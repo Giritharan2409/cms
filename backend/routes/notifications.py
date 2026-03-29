@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pymongo import ReturnDocument
 
@@ -11,6 +12,7 @@ from backend.dev_store import mark_notification_read as mark_dev_notification_re
 from backend.dev_store import mark_role_notifications_read as mark_dev_role_notifications_read
 from backend.dev_store import unread_notifications as unread_dev_notifications
 from backend.schemas.common import NotificationCreate
+from backend.services.notification_service import create_notification as create_notification_service
 from backend.utils.mongo import parse_object_id, serialize_doc
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
@@ -101,11 +103,36 @@ async def create_notification(payload: NotificationCreate):
             created = create_dev_notification(payload.model_dump())
             return {"success": True, "message": "Notification created", "data": created}
         raise
-    doc = payload.model_dump()
-    doc["status"] = "unread"
-    result = await db["notifications"].insert_one(doc)
-    created = await db["notifications"].find_one({"_id": result.inserted_id})
-    return {"success": True, "message": "Notification created", "data": serialize_doc(created)}
+
+    body = payload.model_dump()
+    receiver_role = body.get("receiverRole")
+    target_role = receiver_role if receiver_role != "ALL" else ["student", "faculty", "admin", "finance"]
+    created = await create_notification_service(
+        db=db,
+        title=body.get("title", ""),
+        message=body.get("message", ""),
+        type="MANUAL",
+        source="manual",
+        target={
+            "role": target_role,
+            "department": body.get("department"),
+            "section": body.get("relatedData", {}).get("section") if isinstance(body.get("relatedData"), dict) else None,
+        },
+        user_ids=[],
+        is_global=receiver_role == "ALL",
+        extra_fields={
+            "status": "unread",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "senderRole": body.get("senderRole"),
+            "receiverRole": receiver_role,
+            "module": body.get("module"),
+            "priority": body.get("priority"),
+            "actionId": body.get("actionId"),
+            "relatedData": body.get("relatedData", {}),
+            "department": body.get("department"),
+        },
+    )
+    return {"success": True, "message": "Notification created", "data": created}
 
 
 @router.put("/{notification_id}/read")
