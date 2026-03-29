@@ -21,14 +21,18 @@ export default function SearchFilter({ searchQuery, onSearchChange, onAddClick, 
           <span className="material-symbols-outlined text-lg">ios_share</span>
           <span className="hidden sm:inline">Export</span>
         </button>
-        <div className="w-px h-6 bg-slate-200 mx-1 hidden lg:block" />
-        <button
-          onClick={onAddClick}
-          className="flex items-center justify-center gap-2 h-10 px-6 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 active:scale-[0.98] transition-all shadow-sm flex-1 lg:flex-none whitespace-nowrap"
-        >
-          <span className="material-symbols-outlined text-lg">add</span>
-          <span>{addButtonLabel}</span>
-        </button>
+        {onAddClick && (
+          <>
+            <div className="w-px h-6 bg-slate-200 mx-1 hidden lg:block" />
+            <button
+              onClick={onAddClick}
+              className="flex items-center justify-center gap-2 h-10 px-6 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 active:scale-[0.98] transition-all shadow-sm flex-1 lg:flex-none whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+              <span>{addButtonLabel}</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

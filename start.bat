@@ -46,7 +46,7 @@ if exist "%BACKEND_DIR%\requirements.txt" (
 echo [4/5] Starting backend server...
 
 if exist "%BACKEND_DIR%\main.py" (
-  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%ROOT_DIR%"" && python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
+  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%ROOT_DIR%"" && python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000"
 ) else (
   echo backend\main.py not found. FastAPI backend was not started.
 )
@@ -57,7 +57,7 @@ start "MIT Connect Frontend" cmd /k "cd /d ""%FRONTEND_DIR%"" && npm run dev"
 echo.
 echo Both services were started in separate terminal windows.
 echo Frontend: http://localhost:5173
-echo Backend API: http://localhost:5000
+echo Backend API: http://localhost:8000
 echo Close those windows to stop the servers.
 echo.
 

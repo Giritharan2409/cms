@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Query, Body, Path
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
+import json
+import time
+from pathlib import Path as FilePath
 from pydantic import BaseModel
 
 from backend.db import get_db
@@ -11,8 +14,312 @@ from backend.models.faculty_activity import CourseAssignment, PerformanceMetric,
 from backend.models.faculty_leave import FacultyLeave
 from backend.models.faculty_feedback import PeerReview
 from backend.models.faculty_notification import Notification
+from backend.models.faculty_evaluation import PerformanceEvaluation
 
 router = APIRouter(prefix="/api/faculty", tags=["faculty"])
+
+FACULTY_LIST_CACHE_TTL_SECONDS = 20
+_faculty_list_cache: Dict[str, Any] = {}
+
+
+def _clear_faculty_list_cache() -> None:
+    _faculty_list_cache.clear()
+
+LOCAL_FACULTY_DATA_PATH = FilePath(__file__).resolve().parent.parent / "faculty.json"
+
+
+def default_local_faculty_data() -> List[Dict[str, Any]]:
+    return [
+        {
+            "name": "Dr. Ramesh Kumar",
+            "employeeId": "FAC001",
+            "email": "ramesh.kumar@mit.edu",
+            "phone": "+91-9876543210",
+            "designation": "Professor",
+            "department_id": "CS",
+            "departmentId": "Computer Science",
+            "qualification": "Ph.D. in Computer Science",
+            "employment_status": "Active",
+            "office_location": "Building A, Room 301",
+            "status": "Top",
+            "attendance_rate": 91,
+            "pass_rate": 93,
+            "specialization": "Database Management",
+            "id": "local-fac001",
+            "leave_requests": [],
+        }
+    ]
+
+
+def load_local_faculty_data() -> List[Dict[str, Any]]:
+    if not LOCAL_FACULTY_DATA_PATH.exists():
+        return default_local_faculty_data()
+
+    try:
+        with LOCAL_FACULTY_DATA_PATH.open("r", encoding="utf-8") as faculty_file:
+            data = json.load(faculty_file)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        return default_local_faculty_data()
+
+    return default_local_faculty_data()
+
+
+def save_local_faculty_data(faculty_list: List[Dict[str, Any]]) -> None:
+    def _json_default(value: Any):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
+    tmp_path = LOCAL_FACULTY_DATA_PATH.with_suffix(".json.tmp")
+    with tmp_path.open("w", encoding="utf-8") as faculty_file:
+        json.dump(
+            faculty_list,
+            faculty_file,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            default=_json_default,
+        )
+    tmp_path.replace(LOCAL_FACULTY_DATA_PATH)
+
+
+def filter_local_faculty_data(
+    faculty_list: List[Dict[str, Any]],
+    department_id: Optional[str],
+    designation: Optional[str],
+    employment_status: Optional[str],
+    search: Optional[str],
+) -> List[Dict[str, Any]]:
+    filtered = faculty_list
+
+    if department_id:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("departmentId", "")).strip().lower() == department_id.strip().lower()
+        ]
+
+    if designation:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("designation", "")).strip().lower() == designation.strip().lower()
+        ]
+
+    if employment_status:
+        filtered = [
+            faculty
+            for faculty in filtered
+            if str(faculty.get("employment_status", "")).strip().lower() == employment_status.strip().lower()
+        ]
+
+    if search:
+        needle = search.strip().lower()
+        filtered = [
+            faculty
+            for faculty in filtered
+            if needle in str(faculty.get("name", "")).lower()
+            or needle in str(faculty.get("employeeId", "")).lower()
+            or needle in str(faculty.get("email", "")).lower()
+        ]
+
+    return filtered
+
+
+def build_local_faculty_profile(faculty: Dict[str, Any]) -> Dict[str, Any]:
+    profile = dict(faculty)
+
+    # Align local fallback shape with what the profile page expects.
+    if "qualifications" not in profile:
+        qualification = profile.get("qualification")
+        profile["qualifications"] = [
+            {"degree": qualification, "institution": "", "year": ""}
+        ] if qualification else []
+
+    if "specializations" not in profile:
+        specialization = profile.get("specialization")
+        profile["specializations"] = [specialization] if specialization else []
+
+    profile.setdefault("publications", [])
+    profile.setdefault("office_hours", [])
+    profile.setdefault("teaching_load", [])
+    profile.setdefault("performance_metrics", [])
+    profile.setdefault("professional_development", [])
+    profile.setdefault("leave_requests", [])
+    profile.setdefault("mentorships", [])
+    profile.setdefault("research_projects", [])
+    profile.setdefault("peer_reviews", [])
+
+    return profile
+
+
+def find_local_faculty_by_id(faculty_id: str) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    for faculty in load_local_faculty_data():
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized in candidate_ids:
+            return build_local_faculty_profile(faculty)
+
+    return None
+
+
+def update_local_faculty_by_id(faculty_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized not in candidate_ids:
+            continue
+
+        existing = dict(faculty)
+
+        # Keep canonical faculty ID stable in edit mode.
+        if "employeeId" in updates:
+            updates = dict(updates)
+            updates.pop("employeeId", None)
+
+        existing.update(updates)
+        local_faculty_list[idx] = existing
+        save_local_faculty_data(local_faculty_list)
+        return build_local_faculty_profile(existing)
+
+    return None
+
+
+def add_local_leave_request(faculty_id: str, leave_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    normalized = str(faculty_id).strip()
+    if not normalized:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        leave_requests.append(leave_payload)
+        updated_faculty["leave_requests"] = leave_requests
+        local_faculty_list[idx] = updated_faculty
+        save_local_faculty_data(local_faculty_list)
+        return leave_payload
+
+    return None
+
+
+def update_local_leave_request(
+    faculty_id: str,
+    leave_id: str,
+    updates: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    normalized_faculty_id = str(faculty_id).strip()
+    normalized_leave_id = str(leave_id).strip()
+    if not normalized_faculty_id or not normalized_leave_id:
+        return None
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return None
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized_faculty_id not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        for leave_idx, leave_entry in enumerate(leave_requests):
+            entry_id = str(leave_entry.get("_id") or leave_entry.get("id") or "").strip()
+            if entry_id != normalized_leave_id:
+                continue
+
+            allowed_updates = {
+                "leave_type",
+                "start_date",
+                "end_date",
+                "reason",
+                "status",
+                "applied_on",
+            }
+            sanitized_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+            updated_entry = dict(leave_entry)
+            updated_entry.update(sanitized_updates)
+            leave_requests[leave_idx] = updated_entry
+
+            updated_faculty["leave_requests"] = leave_requests
+            local_faculty_list[idx] = updated_faculty
+            save_local_faculty_data(local_faculty_list)
+            return updated_entry
+
+    return None
+
+
+def delete_local_leave_request(faculty_id: str, leave_id: str) -> bool:
+    normalized_faculty_id = str(faculty_id).strip()
+    normalized_leave_id = str(leave_id).strip()
+    if not normalized_faculty_id or not normalized_leave_id:
+        return False
+
+    local_faculty_list = load_local_faculty_data()
+    if not local_faculty_list:
+        return False
+
+    for idx, faculty in enumerate(local_faculty_list):
+        candidate_ids = {
+            str(faculty.get("id", "")).strip(),
+            str(faculty.get("_id", "")).strip(),
+            str(faculty.get("employeeId", "")).strip(),
+        }
+        if normalized_faculty_id not in candidate_ids:
+            continue
+
+        updated_faculty = dict(faculty)
+        leave_requests = list(updated_faculty.get("leave_requests") or [])
+        filtered = [
+            entry
+            for entry in leave_requests
+            if str(entry.get("_id") or entry.get("id") or "").strip() != normalized_leave_id
+        ]
+
+        if len(filtered) == len(leave_requests):
+            continue
+
+        updated_faculty["leave_requests"] = filtered
+        local_faculty_list[idx] = updated_faculty
+        save_local_faculty_data(local_faculty_list)
+        return True
+
+    return False
 
 # Helper functions
 async def get_faculty_collection():
@@ -653,6 +960,7 @@ async def seed_faculty_data():
         
         # Insert new data
         result = await collection.insert_many(faculty_data)
+        _clear_faculty_list_cache()
         
         return {
             "status": "success",
@@ -671,12 +979,23 @@ async def list_faculty(
     department_id: Optional[str] = Query(None, alias="departmentId"),
     designation: Optional[str] = None,
     employment_status: Optional[str] = Query(None, alias="employmentStatus"),
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ):
-    collection = await get_faculty_collection()
-    perf_col = await get_faculty_activity_collection("faculty_performance")
-    leave_col = await get_faculty_activity_collection("faculty_leave")
-    career_col = await get_faculty_activity_collection("career_pathways")
+    try:
+        collection = await get_faculty_collection()
+    except HTTPException as error:
+        if error.status_code == 503:
+            local_faculty = load_local_faculty_data()
+            filtered = filter_local_faculty_data(
+                local_faculty,
+                department_id=department_id,
+                designation=designation,
+                employment_status=employment_status,
+                search=search,
+            )
+            return filtered[:limit]
+        raise
     
     query = {}
     if department_id:
@@ -691,86 +1010,71 @@ async def list_faculty(
             {"employeeId": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}}
         ]
+
+    cache_key = f"{department_id}|{designation}|{employment_status}|{search}|{limit}"
+    cached = _faculty_list_cache.get(cache_key)
+    now = time.time()
+    if cached and now - cached.get("ts", 0) <= FACULTY_LIST_CACHE_TTL_SECONDS:
+        return cached["data"]
         
-    cursor = collection.find(query)
+    projection = {
+        "name": 1,
+        "employeeId": 1,
+        "email": 1,
+        "phone": 1,
+        "designation": 1,
+        "subject": 1,
+        "department_id": 1,
+        "departmentId": 1,
+        "employment_status": 1,
+        "attendance_rate": 1,
+        "pass_rate": 1,
+        "specialization": 1,
+        "status": 1,
+        "cgpa": 1,
+        "office_location": 1,
+    }
+
+    cursor = collection.find(query, projection).sort("_id", -1).limit(limit)
     faculty_list = []
     async for doc in cursor:
         faculty_doc = serialize_doc(doc)
-        emp_id = faculty_doc.get("employeeId")
+        designation_value = str(faculty_doc.get("designation", "")).lower()
+        if "assistant" in designation_value:
+            next_role = "Associate Professor"
+        elif "associate" in designation_value:
+            next_role = "Professor"
+        elif "professor" in designation_value:
+            next_role = "HOD / Dean Track"
+        else:
+            next_role = "Senior Faculty"
 
-        if emp_id:
-            performance_records = await perf_col.find({"facultyId": emp_id}).to_list(100)
-            leave_records = await leave_col.find({"facultyId": emp_id}).to_list(200)
-            career_path = await career_col.find_one(
-                {"faculty_id": emp_id, "status": "Active"}
-            )
-            if not career_path:
-                career_path = await career_col.find_one({"faculty_id": emp_id})
+        faculty_doc["performance_summary"] = {
+            "overall_status": faculty_doc.get("status", "Good"),
+            "pass_rate": faculty_doc.get("pass_rate", 0),
+            "attendance_rate": faculty_doc.get("attendance_rate", 0),
+            "avg_feedback_score": 0,
+            "records_count": 0,
+        }
 
-            avg_feedback = 0
-            if performance_records:
-                scored = [
-                    float(record.get("student_feedback_score", 0) or 0)
-                    for record in performance_records
-                ]
-                avg_feedback = round(sum(scored) / len(scored), 2)
+        faculty_doc["career_path_summary"] = {
+            "current_designation": faculty_doc.get("designation"),
+            "next_role": next_role,
+            "status": "Not Started",
+            "target_years": None,
+        }
 
-            approved_leaves = [
-                record for record in leave_records if str(record.get("status", "")).lower() == "approved"
-            ]
-            pending_leaves = [
-                record for record in leave_records if str(record.get("status", "")).lower() == "pending"
-            ]
-
-            total_leave_days = 0
-            for leave in approved_leaves:
-                try:
-                    start_date = leave.get("start_date")
-                    end_date = leave.get("end_date")
-                    if isinstance(start_date, datetime) and isinstance(end_date, datetime):
-                        total_leave_days += max((end_date - start_date).days + 1, 0)
-                    else:
-                        total_leave_days += int(leave.get("number_of_days", 0) or 0)
-                except Exception:
-                    continue
-
-            next_role = None
-            designation = str(faculty_doc.get("designation", "")).lower()
-            if designation:
-                if "assistant" in designation:
-                    next_role = "Associate Professor"
-                elif "associate" in designation:
-                    next_role = "Professor"
-                elif "professor" in designation:
-                    next_role = "HOD / Dean Track"
-                else:
-                    next_role = "Senior Faculty"
-
-            faculty_doc["performance_summary"] = {
-                "overall_status": faculty_doc.get("status", "Good"),
-                "pass_rate": faculty_doc.get("pass_rate", 0),
-                "attendance_rate": faculty_doc.get("attendance_rate", 0),
-                "avg_feedback_score": avg_feedback,
-                "records_count": len(performance_records),
-            }
-
-            faculty_doc["career_path_summary"] = {
-                "current_designation": faculty_doc.get("designation"),
-                "next_role": (career_path or {}).get("target_designation") or next_role,
-                "status": (career_path or {}).get("status") or "Not Started",
-                "target_years": (career_path or {}).get("target_years"),
-            }
-
-            faculty_doc["leave_attendance_summary"] = {
-                "employment_status": faculty_doc.get("employment_status", "Active"),
-                "attendance_rate": faculty_doc.get("attendance_rate", 0),
-                "leave_requests_count": len(leave_records),
-                "approved_leaves": len(approved_leaves),
-                "pending_leaves": len(pending_leaves),
-                "total_leave_days": total_leave_days,
-            }
+        faculty_doc["leave_attendance_summary"] = {
+            "employment_status": faculty_doc.get("employment_status", "Active"),
+            "attendance_rate": faculty_doc.get("attendance_rate", 0),
+            "leave_requests_count": 0,
+            "approved_leaves": 0,
+            "pending_leaves": 0,
+            "total_leave_days": 0,
+        }
 
         faculty_list.append(faculty_doc)
+    _faculty_list_cache[cache_key] = {"ts": now, "data": faculty_list}
     return faculty_list
 
 @router.post("")
@@ -784,6 +1088,7 @@ async def create_faculty(faculty: Faculty):
         
     faculty_dict = faculty.dict(by_alias=True)
     result = await collection.insert_one(faculty_dict)
+    _clear_faculty_list_cache()
     
     created_doc = await collection.find_one({"_id": result.inserted_id})
     return serialize_doc(created_doc)
@@ -818,7 +1123,16 @@ async def submit_faculty_admission(faculty_data: dict = Body(...)):
 
 @router.get("/{faculty_id}")
 async def get_faculty(faculty_id: str = Path(...)):
-    collection = await get_faculty_collection()
+    try:
+        collection = await get_faculty_collection()
+    except HTTPException as error:
+        if error.status_code == 503:
+            local_faculty = find_local_faculty_by_id(faculty_id)
+            if local_faculty:
+                return local_faculty
+            raise HTTPException(status_code=404, detail="Faculty not found")
+        raise
+
     try:
         obj_id = ObjectId(faculty_id)
         doc = await collection.find_one({"_id": obj_id})
@@ -833,7 +1147,12 @@ async def get_faculty(faculty_id: str = Path(...)):
     emp_id = doc_serialized.get("employeeId")
     
     # Courses
-    courses_col = await get_faculty_activity_collection("faculty_courses")
+    try:
+        courses_col = await get_faculty_activity_collection("faculty_courses")
+    except HTTPException as error:
+        if error.status_code == 503:
+            return build_local_faculty_profile(doc_serialized)
+        raise
     courses = []
     if emp_id:
         async for c in courses_col.find({"facultyId": emp_id}):
@@ -892,22 +1211,32 @@ async def get_faculty(faculty_id: str = Path(...)):
 
 @router.put("/{faculty_id}")
 async def update_faculty(faculty_id: str, updates: Dict[str, Any] = Body(...)):
-    collection = await get_faculty_collection()
+    # Prevent updating primary key fields.
+    sanitized_updates = dict(updates)
+    sanitized_updates.pop("_id", None)
+    sanitized_updates.pop("id", None)
+
     try:
-        query = {"_id": ObjectId(faculty_id)}
-    except:
-        query = {"employeeId": faculty_id}
-        
-    # Prevent updating _id or core immutable fields if needed
-    if "_id" in updates:
-        del updates["_id"]
-        
-    result = await collection.update_one(query, {"$set": updates})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Faculty not found")
-        
-    updated_doc = await collection.find_one(query)
-    return serialize_doc(updated_doc)
+        collection = await get_faculty_collection()
+        try:
+            query = {"_id": ObjectId(faculty_id)}
+        except Exception:
+            query = {"employeeId": faculty_id}
+
+        result = await collection.update_one(query, {"$set": sanitized_updates})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Faculty not found")
+
+        updated_doc = await collection.find_one(query)
+        _clear_faculty_list_cache()
+        return serialize_doc(updated_doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated_local_faculty = update_local_faculty_by_id(faculty_id, sanitized_updates)
+            if not updated_local_faculty:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return updated_local_faculty
+        raise
 
 @router.delete("/{faculty_id}")
 async def delete_faculty(faculty_id: str):
@@ -920,6 +1249,7 @@ async def delete_faculty(faculty_id: str):
     result = await collection.delete_one(query)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Faculty not found")
+    _clear_faculty_list_cache()
         
     return {"status": "success", "message": "Faculty deleted"}
 
@@ -999,27 +1329,51 @@ async def add_development_record(faculty_id: str, dev: ProfessionalDevelopment):
 
 @router.post("/{faculty_id}/leave")
 async def request_leave(faculty_id: str, leave: FacultyLeave):
-    collection = await get_faculty_activity_collection("faculty_leave")
-    
     leave_dict = leave.dict(by_alias=True)
     if leave_dict["facultyId"] != faculty_id:
         if leave_dict["facultyId"] == "string":
             leave_dict["facultyId"] = faculty_id
         else:
             raise HTTPException(status_code=400, detail="Faculty ID mismatch")
-            
-    result = await collection.insert_one(leave_dict)
-    doc = await collection.find_one({"_id": result.inserted_id})
-    return serialize_doc(doc)
+
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+        result = await collection.insert_one(leave_dict)
+        doc = await collection.find_one({"_id": result.inserted_id})
+        return serialize_doc(doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            fallback_leave = {
+                "facultyId": leave_dict.get("facultyId", faculty_id),
+                "leave_type": leave_dict.get("leave_type"),
+                "start_date": leave_dict.get("start_date"),
+                "end_date": leave_dict.get("end_date"),
+                "reason": leave_dict.get("reason"),
+                "status": leave_dict.get("status", "Pending"),
+                "applied_on": leave_dict.get("applied_on") or datetime.utcnow().isoformat(),
+            }
+            saved = add_local_leave_request(faculty_id, fallback_leave)
+            if not saved:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return saved
+        raise
 
 @router.get("/{faculty_id}/leave")
 async def get_leave_requests(faculty_id: str):
-    collection = await get_faculty_activity_collection("faculty_leave")
-    
-    requests = []
-    async for req in collection.find({"facultyId": faculty_id}):
-        requests.append(serialize_doc(req))
-    return requests
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        requests = []
+        async for req in collection.find({"facultyId": faculty_id}):
+            requests.append(serialize_doc(req))
+        return requests
+    except HTTPException as error:
+        if error.status_code == 503:
+            faculty = find_local_faculty_by_id(faculty_id)
+            if not faculty:
+                raise HTTPException(status_code=404, detail="Faculty not found")
+            return faculty.get("leave_requests", [])
+        raise
 
 @router.put("/leave/{leave_id}")
 async def update_leave_status(leave_id: str, updates: Dict[str, Any] = Body(...)):
@@ -1034,6 +1388,71 @@ async def update_leave_status(leave_id: str, updates: Dict[str, Any] = Body(...)
         
     updated_doc = await collection.find_one({"_id": ObjectId(leave_id)})
     return serialize_doc(updated_doc)
+
+
+@router.put("/{faculty_id}/leave/{leave_id}")
+async def update_leave_request(
+    faculty_id: str,
+    leave_id: str,
+    updates: Dict[str, Any] = Body(...),
+):
+    allowed_updates = {
+        "leave_type",
+        "start_date",
+        "end_date",
+        "reason",
+        "status",
+        "applied_on",
+    }
+    sanitized_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        query: Dict[str, Any] = {"facultyId": faculty_id}
+        try:
+            query["_id"] = ObjectId(leave_id)
+        except Exception:
+            query["id"] = leave_id
+
+        result = await collection.update_one(query, {"$set": sanitized_updates})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+
+        updated_doc = await collection.find_one(query)
+        return serialize_doc(updated_doc)
+    except HTTPException as error:
+        if error.status_code == 503:
+            updated_local = update_local_leave_request(faculty_id, leave_id, sanitized_updates)
+            if not updated_local:
+                raise HTTPException(status_code=404, detail="Leave request not found")
+            return updated_local
+        raise
+
+
+@router.delete("/{faculty_id}/leave/{leave_id}")
+async def delete_leave_request(faculty_id: str, leave_id: str):
+    try:
+        collection = await get_faculty_activity_collection("faculty_leave")
+
+        query: Dict[str, Any] = {"facultyId": faculty_id}
+        try:
+            query["_id"] = ObjectId(leave_id)
+        except Exception:
+            query["id"] = leave_id
+
+        result = await collection.delete_one(query)
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Leave request not found")
+
+        return {"status": "success", "message": "Leave request deleted"}
+    except HTTPException as error:
+        if error.status_code == 503:
+            deleted_local = delete_local_leave_request(faculty_id, leave_id)
+            if not deleted_local:
+                raise HTTPException(status_code=404, detail="Leave request not found")
+            return {"status": "success", "message": "Leave request deleted"}
+        raise
 
 # -----------------
 # Mentorship
@@ -1118,6 +1537,65 @@ async def get_notifications(faculty_id: str):
     async for n in collection.find({"recipient_id": faculty_id}):
         notifications.append(serialize_doc(n))
     return notifications
+
+
+# -----------------
+# Performance Evaluation
+# -----------------
+
+@router.post("/{faculty_id}/evaluations")
+async def add_performance_evaluation(faculty_id: str, evaluation: PerformanceEvaluation = Body(...)):
+    """Add/save performance evaluation for faculty"""
+    try:
+        db = await get_db()
+        collection = db["faculty_performance_evaluations"]
+        
+        eval_dict = evaluation.dict(by_alias=False, exclude_none=False)
+        eval_dict["faculty_id"] = faculty_id
+        eval_dict["created_at"] = datetime.utcnow()
+        eval_dict["updated_at"] = datetime.utcnow()
+        
+        # Ensure evaluation_date is set
+        if not eval_dict.get("evaluation_date"):
+            eval_dict["evaluation_date"] = datetime.utcnow().isoformat()
+        
+        # Calculate overall rating if not provided
+        if eval_dict.get("overall_rating", 0) == 0:
+            scores = [
+                eval_dict.get("course_content", 0),
+                eval_dict.get("teaching_methodology", 0),
+                eval_dict.get("student_engagement", 0),
+                eval_dict.get("feedback_responsiveness", 0),
+                eval_dict.get("research_output", 0),
+                eval_dict.get("publication_quality", 0),
+                eval_dict.get("research_collaboration", 0),
+                eval_dict.get("meeting_attendance", 0),
+                eval_dict.get("committee_participation", 0),
+                eval_dict.get("documentation", 0),
+                eval_dict.get("student_satisfaction", 0),
+                eval_dict.get("course_effectiveness", 0),
+                eval_dict.get("availability", 0),
+            ]
+            eval_dict["overall_rating"] = round(sum(scores) / len(scores), 2) if scores else 0
+        
+        result = await collection.insert_one(eval_dict)
+        doc = await collection.find_one({"_id": result.inserted_id})
+        return serialize_doc(doc)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save evaluation: {str(e)}")
+
+
+@router.get("/{faculty_id}/evaluations")
+async def get_performance_evaluations(faculty_id: str):
+    """Get all performance evaluations for faculty"""
+    db = await get_db()
+    collection = db["faculty_performance_evaluations"]
+    
+    evaluations = []
+    async for eval_doc in collection.find({"faculty_id": faculty_id}).sort("created_at", -1):
+        evaluations.append(serialize_doc(eval_doc))
+    return evaluations
+
 
 @router.post("/check-compliance")
 async def check_compliance():

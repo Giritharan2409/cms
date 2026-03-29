@@ -68,8 +68,8 @@ export default function PayrollPage({ noLayout = false }) {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetch(`${API_BASE}/faculty`);
-            if (!res.ok) throw new Error('Failed to fetch faculty');
+            const res = await fetch(`${API_BASE}/staff`);
+            if (!res.ok) throw new Error('Failed to fetch staff');
             const data = await res.json();
             setStaffList(data);
         } catch (err) {

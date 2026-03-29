@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
+import StatCard from '../components/StatCard';
 import { getUserSession } from '../auth/sessionController';
 import { jsPDF } from 'jspdf';
 
@@ -7,9 +8,9 @@ export default function FeesPage() {
   const session = getUserSession();
   const studentId = session?.userId;
 
-  const [feeAssignments, setFeeAssignments] = useState(
-    JSON.parse(localStorage.getItem('fee_assignments') || '[]')
-  );
+  const [feeAssignments, setFeeAssignments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showProcessing, setShowProcessing] = useState(false);
@@ -26,46 +27,73 @@ export default function FeesPage() {
     cvv: '',
     upiId: '',
   });
+  
+  const getFeeDisplayName = (fee) => fee?.feeTemplateName || fee?.course || 'Fee';
 
-  // Save to localStorage whenever fees change
-  React.useEffect(() => {
-    localStorage.setItem('fee_assignments', JSON.stringify(feeAssignments));
-  }, [feeAssignments]);
+  // Fetch fees from backend API
+  const fetchStudentFees = async () => {
+    if (!studentId) {
+      setIsLoading(false);
+      return;
+    }
 
-  // Listen for fee assignment updates from admin side
-  React.useEffect(() => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const response = await fetch(`/api/fees/students/${studentId}/records`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch fees: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      setFeeAssignments(result.data || []);
+    } catch (error) {
+      console.error('Error fetching fees:', error);
+      setLoadError(error.message);
+      setFeeAssignments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch fees on component mount and setup auto-refresh
+  useEffect(() => {
+    fetchStudentFees();
+
+    // Auto-refresh fees every 10 seconds to show real-time updates
+    const refreshInterval = setInterval(fetchStudentFees, 10000);
+    
+    // Listen for manual fee assignment updates from admin side
     const handleFeeUpdate = () => {
-      const updatedFees = JSON.parse(localStorage.getItem('fee_assignments') || '[]');
-      setFeeAssignments(updatedFees);
+      fetchStudentFees();
     };
 
     window.addEventListener('feeAssignmentUpdated', handleFeeUpdate);
-    return () => window.removeEventListener('feeAssignmentUpdated', handleFeeUpdate);
-  }, []);
-
-  // Listen for invoice updates that might affect fee status
-  React.useEffect(() => {
-    const handleInvoiceUpdate = () => {
-      // Refresh fee assignments to sync with latest invoice data
-      const updatedFees = JSON.parse(localStorage.getItem('fee_assignments') || '[]');
-      setFeeAssignments(updatedFees);
+    
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('feeAssignmentUpdated', handleFeeUpdate);
     };
+  }, [studentId]);
 
-    window.addEventListener('invoiceUpdated', handleInvoiceUpdate);
-    return () => window.removeEventListener('invoiceUpdated', handleInvoiceUpdate);
-  }, []);
-
-  // Filter fees for current student
+  // No need to filter - backend already returns student's fees
   const studentFees = useMemo(() => {
-    let fees = feeAssignments;
+    return feeAssignments;
+  }, [feeAssignments]);
 
-    // Filter by student ID
-    if (studentId) {
-      fees = fees.filter((fee) => fee.studentId === studentId);
-    }
+  // Calculate statistics for student
+  const stats = useMemo(() => {
+    const totalAssigned = studentFees.length;
+    const paidCount = studentFees.filter((fee) => fee.status === 'Paid').length;
+    const pendingCount = studentFees.filter((fee) => fee.status === 'Assigned' || fee.status === 'Overdue' || fee.status === 'Partially Paid').length;
+    const totalAmount = studentFees.reduce((sum, fee) => sum + (fee.totalAmount || 0), 0);
+    const paidAmount = studentFees
+      .filter((fee) => fee.status === 'Paid')
+      .reduce((sum, fee) => sum + (fee.totalAmount || 0), 0);
 
-    return fees;
-  }, [feeAssignments, studentId]);
+    return { totalAssigned, paidCount, pendingCount, totalAmount, paidAmount };
+  }, [studentFees]);
 
   const handlePayClick = (fee) => {
     setSelectedFee(fee);
@@ -112,7 +140,7 @@ export default function FeesPage() {
     setShowPaymentForm(true);
   };
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     // Validate payment details based on payment method
     if (paymentMethod === 'Debit Card' || paymentMethod === 'Credit Card') {
       if (!paymentDetails.cardHolderName || !paymentDetails.cardNumber || !paymentDetails.expiryDate || !paymentDetails.cvv) {
@@ -130,60 +158,89 @@ export default function FeesPage() {
     setShowPaymentModal(false);
     setShowProcessing(true);
 
-    // Simulate payment processing with 90% success rate
-    const paymentSuccess = Math.random() > 0.1; // 90% success
+    try {
+      // Generate transaction ID
+      const txnId = `TXN${Math.random().toString().slice(2, 8)}`;
+      setTransactionId(txnId);
 
-    setTimeout(() => {
-      setShowProcessing(false);
+      // Normalize payment method for backend (backend expects "Card" not "Debit Card"/"Credit Card")
+      const normalizedMethod = paymentMethod === 'Debit Card' || paymentMethod === 'Credit Card' ? 'Card' : paymentMethod;
+      console.log('Original method:', paymentMethod, '-> Normalized:', normalizedMethod);
 
-      if (paymentSuccess) {
-        // Generate transaction ID
-        const txnId = `TXN${Math.random().toString().slice(2, 8)}`;
-        setTransactionId(txnId);
-
-        // 1️⃣ Update fee_assignments status
-        const updatedFeeAssignments = feeAssignments.map((fee) =>
-          fee.id === selectedFee.id
-            ? {
-                ...fee,
-                paymentStatus: 'paid',
-                paidDate: new Date().toISOString().split('T')[0],
-                transactionId: txnId,
-                paymentMethod: paymentMethod,
-              }
-            : fee
-        );
-        setFeeAssignments(updatedFeeAssignments);
-        localStorage.setItem('fee_assignments', JSON.stringify(updatedFeeAssignments));
-
-        // Dispatch event to notify admin and other components about fee update
-        window.dispatchEvent(new CustomEvent('feeAssignmentUpdated', { detail: updatedFeeAssignments }));
-
-        // 2️⃣ CRITICAL: Update corresponding invoice in admin_invoices
-        const invoices = JSON.parse(localStorage.getItem('admin_invoices') || '[]');
-        const existingInvoice = invoices.find((inv) => inv.generatedFrom === selectedFee.id);
-
-        if (existingInvoice) {
-          // Update status to Paid (capital P)
-          existingInvoice.paymentStatus = 'Paid';
-          existingInvoice.status = 'Paid';
-          existingInvoice.paidDate = new Date().toISOString().split('T')[0];
-          existingInvoice.paymentMethod = paymentMethod;
-          existingInvoice.transactionId = txnId;
-        }
-
-        localStorage.setItem('admin_invoices', JSON.stringify(invoices));
-
-        // Dispatch custom event for real-time updates in other components
-        window.dispatchEvent(new CustomEvent('invoiceUpdated', { detail: invoices }));
-
-        setShowSuccess(true);
-      } else {
-        // Payment failed
-        alert('Payment failed. Please try again.');
-        setSelectedFee(null);
+      // Step 1: Record payment via backend API
+      const paymentBody = {
+        amount: selectedFee.dueAmount || selectedFee.totalAmount,
+        paymentMethod: normalizedMethod,
+        transactionId: txnId,
+      };
+      
+      // Validate amount
+      if (!paymentBody.amount || paymentBody.amount <= 0) {
+        throw new Error(`Invalid amount: ${paymentBody.amount}. Amount must be greater than 0.`);
       }
-    }, 2000);
+      
+      console.log('Sending payment request:', JSON.stringify(paymentBody, null, 2));
+      
+      const paymentResponse = await fetch(`/api/fees/assignments/${selectedFee.id}/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentBody),
+      });
+
+      if (!paymentResponse.ok) {
+        const errorData = await paymentResponse.json().catch(() => ({}));
+        let errorMsg = paymentResponse.statusText;
+        
+        console.log('Full error data:', JSON.stringify(errorData, null, 2));
+        
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMsg = errorData.detail;
+          } else if (Array.isArray(errorData.detail)) {
+            // Handle Pydantic validation errors (array of error objects)
+            errorMsg = errorData.detail.map(err => {
+              console.log('Individual error:', err);
+              return `${err.loc?.[1] || 'field'}: ${err.msg}`;
+            }).join('; ');
+          } else if (typeof errorData.detail === 'object') {
+            errorMsg = JSON.stringify(errorData.detail);
+          }
+        }
+        console.log('Formatted error message:', errorMsg);
+        throw new Error(`Payment recording failed: ${errorMsg}`);
+      }
+
+      const paymentData = await paymentResponse.json();
+      console.log('Payment recorded successfully:', paymentData);
+
+      // Step 2: Generate invoice if payment is complete
+      if (paymentData.data.status === 'Paid') {
+        const invoiceResponse = await fetch(`/api/fees/assignments/${selectedFee.id}/generate-invoice`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (invoiceResponse.ok) {
+          const invoiceData = await invoiceResponse.json();
+          console.log('Invoice generated:', invoiceData);
+        }
+      }
+
+      // Step 3: Refresh fees list to get updated status
+      await fetchStudentFees();
+
+      setShowProcessing(false);
+      setShowSuccess(true);
+    } catch (error) {
+      setShowProcessing(false);
+      console.error('Payment error:', error);
+      alert(`Payment processing failed: ${error.message}`);
+      setSelectedFee(null);
+    }
   };
 
   const handleViewInvoice = (fee) => {
@@ -324,117 +381,152 @@ export default function FeesPage() {
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Fee Management</h1>
-          <p className="text-blue-100">Track and pay semester fees</p>
+        {/* Statistics Cards - Same as Admin */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard
+            icon="assign"
+            label="Total Assigned"
+            value={stats.totalAssigned}
+            color="blue"
+          />
+          <StatCard
+            icon="check_circle"
+            label="Paid Fees"
+            value={stats.paidCount}
+            color="green"
+          />
+          <StatCard
+            icon="schedule"
+            label="Pending Fees"
+            value={stats.pendingCount}
+            color="orange"
+          />
+          <StatCard
+            icon="trending_up"
+            label="Total Amount"
+            value={`₹${stats.totalAmount.toLocaleString()}`}
+            color="purple"
+          />
         </div>
 
-        {/* Fee Cards Grid */}
-        <div className="bg-white rounded-lg shadow p-6">
+        {/* All Fee Assignments Cards - Exact same structure as Admin */}
+        <div>
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-gray-800">My Fee Assignments</h2>
+          </div>
+
           {studentFees.length === 0 ? (
-            <div className="text-center py-12">
-              <span className="material-symbols-outlined text-6xl text-gray-300 block mb-4">
-                receipt_long
+            <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">receipt_long</span>
+              <p className="font-medium">No fee assignments yet</p>
+              <p className="text-sm">Your fees will appear here once assigned by the admin</p>
+            </div>
+          ) : isLoading ? (
+            <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-gray-400 animate-spin">
+                refresh
               </span>
-              <p className="text-gray-500 text-lg">No fees assigned yet</p>
+              <p className="font-medium">Loading your fees...</p>
+            </div>
+          ) : loadError ? (
+            <div className="bg-red-50 rounded-lg shadow p-12 text-center border border-red-200">
+              <span className="material-symbols-outlined text-4xl block mb-4 text-red-400">
+                error
+              </span>
+              <p className="font-medium text-red-700">{loadError}</p>
+              <button
+                onClick={fetchStudentFees}
+                className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+              >
+                Retry
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {studentFees.map((fee) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {studentFees.map((assignment) => (
                 <div
-                  key={fee.id}
-                  className={`rounded-lg shadow border-l-4 p-6 ${
-                    fee.paymentStatus === 'paid'
-                      ? 'bg-green-50 border-l-green-500'
-                      : 'bg-orange-50 border-l-orange-500'
-                  }`}
+                  key={assignment.id}
+                  className="bg-green-50 border-2 border-green-100 rounded-lg p-4 shadow hover:shadow-md transition"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="material-symbols-outlined text-3xl text-orange-500">
-                      receipt_long
-                    </span>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        fee.paymentStatus === 'paid'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-orange-100 text-orange-800'
-                      }`}
-                    >
-                      {fee.paymentStatus === 'paid' ? 'Paid' : 'Pending'}
+                  {/* Badge - Status Based */}
+                  <div className="mb-2">
+                    <span className={`text-white text-xs font-bold px-2 py-1 rounded-full ${
+                      assignment.status === 'Paid'
+                        ? 'bg-green-500'
+                        : assignment.status === 'Overdue'
+                        ? 'bg-red-500'
+                        : assignment.status === 'Partially Paid'
+                        ? 'bg-yellow-500'
+                        : 'bg-blue-500'
+                    }`}>
+                      {assignment.status}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-gray-800 text-lg mb-4">{fee.studentName}</h3>
+                  {/* Course and Academic Year */}
+                  <h3 className="text-base font-bold text-gray-900 mb-2">
+                    {getFeeDisplayName(assignment)}
+                  </h3>
 
-                  <div className="space-y-2 text-sm text-gray-700 mb-4">
-                    <p>
-                      <span className="font-semibold">Application ID:</span> {fee.applicationId}
+                  {/* Basic Info */}
+                  <div className="text-xs text-gray-600 mb-2 space-y-1">
+                    <p><span className="font-semibold">Academic Year:</span> {assignment.academicYear}</p>
+                    <p><span className="font-semibold">Due Date:</span> {assignment.dueDate}</p>
+                  </div>
+
+                  {/* Total Fee (Prominent) */}
+                  <div className="bg-white rounded-lg p-2 mb-2 border border-green-200">
+                    <p className="text-2xl font-bold text-orange-600 mb-1">
+                      ₹{(assignment.totalAmount || 0).toLocaleString()}
                     </p>
-                    <p>
-                      <span className="font-semibold">Semester:</span> {fee.semester}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Course:</span> {fee.course}
-                    </p>
-                    <p className="text-2xl font-bold text-orange-600 mt-3">
-                      Total Fee: ₹{fee.totalFee}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Assigned Date:</span> {fee.assignedDate}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Payment Status:</span> {fee.paymentStatus}
-                    </p>
+                    <p className="text-xs text-gray-600">Total Fee</p>
+                  </div>
+
+                  {/* Assigned and Payment Info */}
+                  <div className="text-xs text-gray-600 mb-2 space-y-1">
+                    <p><span className="font-semibold">Assigned:</span> {assignment.assignedDate}</p>
+                    <p><span className="font-semibold">Paid:</span> ₹{(assignment.paidAmount || 0).toLocaleString()}</p>
+                    <p><span className="font-semibold">Remaining:</span> ₹{(assignment.dueAmount || 0).toLocaleString()}</p>
                   </div>
 
                   {/* Fee Breakdown */}
-                  <div className="bg-white rounded p-4 mb-4">
-                    <p className="font-bold text-gray-800 mb-2">Fee Breakdown:</p>
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        • Semester Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.semesterFee}</span>
-                      </p>
-                      <p>
-                        • Book Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.bookFee}</span>
-                      </p>
-                      <p>
-                        • Exam Fee:{' '}
-                        <span className="font-semibold float-right">₹{fee.examFee}</span>
-                      </p>
-                      {fee.hostelFee > 0 && (
-                        <p>
-                          • Hostel Fee:{' '}
-                          <span className="font-semibold float-right">₹{fee.hostelFee}</span>
-                        </p>
+                  <div className="bg-white rounded-lg p-2 mb-3">
+                    <p className="text-xs font-bold text-gray-800 mb-1">Fee Details:</p>
+                    <ul className="text-xs text-gray-700 space-y-0.5">
+                      {assignment.breakdown && typeof assignment.breakdown === 'object' ? (
+                        Object.entries(assignment.breakdown).map(([key, value]) => (
+                          <li key={key}>
+                            • {key}: <span className="float-right font-semibold">₹{(value || 0).toLocaleString()}</span>
+                          </li>
+                        ))
+                      ) : (
+                        <li>• Fee Amount: <span className="float-right font-semibold">₹{(assignment.totalAmount || 0).toLocaleString()}</span></li>
                       )}
-                      {fee.miscFee > 0 && (
-                        <p>
-                          • Misc Fee:{' '}
-                          <span className="font-semibold float-right">₹{fee.miscFee}</span>
-                        </p>
-                      )}
-                    </div>
+                    </ul>
                   </div>
 
-                  {/* Action Button */}
-                  {fee.paymentStatus === 'pending' ? (
-                    <button
-                      onClick={() => handlePayClick(fee)}
-                      className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition font-medium"
-                    >
-                      Pay Now
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleViewInvoice(fee)}
-                      className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition font-medium"
-                    >
-                      View Invoice
-                    </button>
-                  )}
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    {assignment.status !== 'Paid' ? (
+                      <button
+                        onClick={() => handlePayClick(assignment)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                        title="Pay Fee"
+                      >
+                        <span className="material-symbols-outlined text-sm">payments</span>
+                        Pay
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleViewInvoice(assignment)}
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 text-sm rounded-lg transition flex items-center justify-center gap-1"
+                        title="View Invoice"
+                      >
+                        <span className="material-symbols-outlined text-sm">receipt</span>
+                        View Invoice
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -446,14 +538,17 @@ export default function FeesPage() {
       {showPaymentModal && selectedFee && !showPaymentForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl">
-            <h2 className="text-2xl font-bold mb-6">Pay {selectedFee.semester} Fee</h2>
+            <h2 className="text-2xl font-bold mb-6">Pay Fee for {getFeeDisplayName(selectedFee)}</h2>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-600 mb-2">
-                <span className="font-semibold">Amount:</span> ₹{selectedFee.totalFee.toLocaleString()}
+                <span className="font-semibold">Amount Due:</span> ₹{(selectedFee.dueAmount || selectedFee.totalAmount || 0).toLocaleString()}
               </p>
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">Course:</span> {selectedFee.course}
+                <span className="font-semibold">Fee Name:</span> {getFeeDisplayName(selectedFee)}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold">Academic Year:</span> {selectedFee.academicYear}
               </p>
             </div>
 
@@ -501,12 +596,12 @@ export default function FeesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl my-8">
             <h2 className="text-2xl font-bold mb-6">
-              Complete Payment - ₹{selectedFee.totalFee.toLocaleString()}
+              Complete Payment - ₹{(selectedFee.dueAmount || selectedFee.totalAmount || 0).toLocaleString()}
             </h2>
 
             <div className="bg-gray-100 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">Amount:</span> ₹{selectedFee.totalFee.toLocaleString()}
+                <span className="font-semibold">Amount:</span> ₹{(selectedFee.dueAmount || selectedFee.totalAmount || 0).toLocaleString()}
               </p>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">Payment Method:</span> {paymentMethod}
@@ -660,7 +755,7 @@ export default function FeesPage() {
         </div>
       )}
 
-      {/* Success Modal */}
+      {/* Success Modal - Exact payment container from image */}
       {showSuccess && selectedFee && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl text-center">
@@ -670,7 +765,7 @@ export default function FeesPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h2>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-left">
               <p className="text-gray-600 mb-2 text-sm">
-                <span className="font-semibold">Amount Paid:</span> ₹{selectedFee.totalFee.toLocaleString()}
+                <span className="font-semibold">Amount Paid:</span> ₹{(selectedFee.dueAmount || selectedFee.totalAmount || 0).toLocaleString()}
               </p>
               <p className="text-gray-600 text-sm">
                 <span className="font-semibold">Transaction ID:</span> {transactionId}

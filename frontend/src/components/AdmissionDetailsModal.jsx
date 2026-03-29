@@ -69,6 +69,12 @@ export default function AdmissionDetailsModal({ isOpen, onClose, application }) 
                     <p className="font-semibold text-gray-800">{application.gender}</p>
                   </div>
                 )}
+                {isStudent && application.bloodGroup && (
+                  <div>
+                    <p className="text-sm text-gray-600">Blood Group</p>
+                    <p className="font-semibold text-gray-800 text-red-600 font-bold">{application.bloodGroup}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -88,6 +94,31 @@ export default function AdmissionDetailsModal({ isOpen, onClose, application }) 
                     <p className="text-sm text-gray-600">Relationship</p>
                     <p className="font-semibold text-gray-800">{application.relationship}</p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {isStudent && application.motherName && (
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4 text-lg">Family Details</h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-gray-600">Mother's Name</p>
+                    <p className="font-semibold text-gray-800">{application.motherName}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isStudent && application.skills && application.skills.length > 0 && (
+              <div>
+                <h3 className="font-bold text-gray-800 mb-4 text-lg">Technical Skills</h3>
+                <div className="flex flex-wrap gap-2">
+                   {application.skills.map((skill, idx) => (
+                     <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                       {skill}
+                     </span>
+                   ))}
                 </div>
               </div>
             )}

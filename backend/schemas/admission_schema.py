@@ -25,6 +25,7 @@ class AcademicInfo(BaseModel):
 class CourseInfo(BaseModel):
     category: str
     course: str
+    academic_year: str
 
 
 class Accommodation(BaseModel):

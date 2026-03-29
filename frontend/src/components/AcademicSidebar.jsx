@@ -65,8 +65,13 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
     }
     if (item === 'Invoices') {
       if (role === 'admin') return '/admin-invoices'
-      if (role === 'finance') return '/finance-invoices'
+      // Remove invoice for finance role
+      if (role === 'finance') return null
       return '/invoices'
+    }
+    // Remove Payroll for admin role
+    if (item === 'Payroll' && role === 'admin') {
+      return null
     }
     return routeMap[item] || '/dashboard'
   }
@@ -140,6 +145,7 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
             <div className="space-y-1">
               {group.items.map((item) => {
                 const route = getRoute(item)
+                if (route === null) return null // Hide Invoices for finance role, Payroll for admin
                 const to = withRoleQuery(route)
                 return (
                   <NavLink

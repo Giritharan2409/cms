@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
+const QUALITATIVE_RATING_OPTIONS = [
+  { label: 'Excellent', value: 5 },
+  { label: 'Good', value: 4 },
+  { label: 'Average', value: 3 },
+  { label: 'Below Average', value: 2 },
+  { label: 'Poor', value: 1 },
+];
+
 export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess, facultyId, facultyName }) {
   const [formData, setFormData] = useState({
     semester: '',
@@ -27,6 +35,28 @@ export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const formatApiError = (detail) => {
+    if (!detail) return 'Failed to save evaluation';
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (item?.msg) {
+            const field = Array.isArray(item?.loc) ? item.loc[item.loc.length - 1] : null;
+            return field ? `${field}: ${item.msg}` : item.msg;
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
+    if (typeof detail === 'object') {
+      return detail.message || JSON.stringify(detail);
+    }
+    return String(detail);
+  };
+
   if (!isOpen) return null;
 
   const handleChange = (e) => {
@@ -43,16 +73,22 @@ export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess,
     setError(null);
     
     try {
+      const payload = {
+        ...formData,
+        facultyId,
+        evaluation_date: new Date().toISOString(),
+      };
+
       const response = await fetch(`/api/faculty/${facultyId}/evaluations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to save evaluation');
+        throw new Error(formatApiError(data?.detail));
       }
       
       onSuccess();
@@ -79,6 +115,29 @@ export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess,
           className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
         />
         <span className="w-12 text-center font-semibold text-blue-600">{value.toFixed(1)}/5</span>
+      </div>
+    </div>
+  );
+
+  const QualitativeRatingInput = ({ label, name, value }) => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <select
+          name={name}
+          value={value}
+          onChange={handleChange}
+          className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+        >
+          {QUALITATIVE_RATING_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <div className="px-3 py-2 rounded-xl bg-slate-100 text-sm font-semibold text-slate-600 flex items-center justify-center">
+          {Number(value).toFixed(1)}/5
+        </div>
       </div>
     </div>
   );
@@ -115,8 +174,14 @@ export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess,
                   className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                 >
                   <option value="">Select Semester</option>
-                  <option value="Fall">Fall</option>
-                  <option value="Spring">Spring</option>
+                  {Array.from({ length: 8 }, (_, index) => {
+                    const semesterNumber = String(index + 1);
+                    return (
+                      <option key={semesterNumber} value={semesterNumber}>
+                        Semester {semesterNumber}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -137,10 +202,10 @@ export default function PerformanceEvaluationModal({ isOpen, onClose, onSuccess,
             <div className="bg-slate-50 p-4 rounded-xl">
               <h3 className="font-semibold text-slate-900 mb-4">Teaching Quality</h3>
               <div className="space-y-4">
-                <RatingInput label="Course Content" name="course_content" value={formData.course_content} />
-                <RatingInput label="Teaching Methodology" name="teaching_methodology" value={formData.teaching_methodology} />
-                <RatingInput label="Student Engagement" name="student_engagement" value={formData.student_engagement} />
-                <RatingInput label="Feedback Responsiveness" name="feedback_responsiveness" value={formData.feedback_responsiveness} />
+                <QualitativeRatingInput label="Course Content" name="course_content" value={formData.course_content} />
+                <QualitativeRatingInput label="Teaching Methodology" name="teaching_methodology" value={formData.teaching_methodology} />
+                <QualitativeRatingInput label="Student Engagement" name="student_engagement" value={formData.student_engagement} />
+                <QualitativeRatingInput label="Feedback Responsiveness" name="feedback_responsiveness" value={formData.feedback_responsiveness} />
               </div>
             </div>
 

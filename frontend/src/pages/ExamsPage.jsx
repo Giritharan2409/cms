@@ -136,7 +136,22 @@ export default function ExamsPage({ noLayout = false }) {
 
   const fetchExams = async () => {
     try {
-      const examList = await listExams()
+      // Build query parameters for department/semester filtering
+      let queryParams = {}
+      
+      if (isStudent && studentRecordForHallTicket) {
+        queryParams.department = studentRecordForHallTicket.department
+        queryParams.semester = studentRecordForHallTicket.semester
+      } else if (isFaculty && session?.userId) {
+        // For faculty, we'd need to look up their department from faculty data
+        // For now, fetch from user data or session
+        const userDepartment = session?.department || studentRecordForHallTicket?.department
+        if (userDepartment) {
+          queryParams.department = userDepartment
+        }
+      }
+      
+      const examList = await listExams(queryParams)
       if (!isStudent || !session?.userId) {
         setExams(examList)
         return
@@ -339,7 +354,7 @@ export default function ExamsPage({ noLayout = false }) {
               Download Hall Tickets
             </button>
           )}
-          {isAdmin && (
+          {(isAdmin || isFaculty) && (
             <>
               <button 
                 onClick={() => setShowScheduleWizard(true)}
@@ -348,6 +363,7 @@ export default function ExamsPage({ noLayout = false }) {
                 <span className="material-symbols-outlined text-lg">edit_calendar</span>
                 Create Schedule
               </button>
+              {isAdmin && (
               <button 
                 onClick={() => setShowTimetableApprovalModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition-all"
@@ -355,6 +371,7 @@ export default function ExamsPage({ noLayout = false }) {
                 <span className="material-symbols-outlined text-lg">verified_user</span>
                 Approve Schedules
               </button>
+              )}
             </>
           )}
         </div>
@@ -782,8 +799,9 @@ export default function ExamsPage({ noLayout = false }) {
       {showTimetableApprovalModal && (
         <TimetableApprovalModal
           onClose={() => setShowTimetableApprovalModal(false)}
-          onApprove={() => {
+          onApprove={async () => {
             setShowTimetableApprovalModal(false);
+            await fetchExams();
           }}
         />
       )}

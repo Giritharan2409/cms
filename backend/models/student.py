@@ -16,6 +16,9 @@ class Student(BaseModel):
     gender: str = ""
     dob: Optional[date] = None
     address: str = ""
+    city: str = ""
+    state: str = ""
+    pincode: str = ""
     avatar: str = ""
     section: str = ""
     cgpa: float = 0

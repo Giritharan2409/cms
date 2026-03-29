@@ -40,7 +40,7 @@ if exist "%BACKEND_DIR%\requirements.txt" (
 echo [4/4] Starting backend and frontend servers...
 
 if exist "%BACKEND_DIR%\main.py" (
-  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%PROJECT_DIR%"" && py -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 5000"
+  start "MIT Connect Backend (FastAPI)" cmd /k "cd /d ""%PROJECT_DIR%"" && py -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000"
 ) else (
   echo backend\main.py not found. FastAPI backend was not started.
 )

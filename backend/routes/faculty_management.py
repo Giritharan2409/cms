@@ -202,6 +202,18 @@ async def create_evaluation(
     
     result = await collection.insert_one(eval_dict)
     created = await collection.find_one({"_id": result.inserted_id})
+
+    # Keep legacy performance tab in sync by writing a summary metric row.
+    perf_collection = await get_collection("faculty_performance")
+    await perf_collection.insert_one({
+        "facultyId": faculty_id,
+        "semester": str(evaluation.semester),
+        "academic_year": evaluation.academic_year,
+        "student_feedback_score": round(overall, 2),
+        "course_completion_rate": round(max(min(evaluation.course_effectiveness * 20, 100), 0), 2),
+        "attendance_rate": round(max(min(evaluation.availability * 20, 100), 0), 2),
+        "recorded_date": datetime.utcnow(),
+    })
     
     # Create notification
     notif_collection = await get_collection("notifications")

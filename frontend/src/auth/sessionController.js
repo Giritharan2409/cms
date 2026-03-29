@@ -1,4 +1,4 @@
-import { demoUsers, getValidRole } from '../data/roleConfig';
+import { cmsRoles, getValidRole } from '../data/roleConfig';
 
 const AUTH_KEYS = ['cmsRole', 'cmsUserId', 'cmsAuthenticated'];
 
@@ -42,7 +42,7 @@ export function getUserSession() {
     return null;
   }
 
-  if (!Object.prototype.hasOwnProperty.call(demoUsers, role) || demoUsers[role].userId !== userId) {
+  if (!Object.prototype.hasOwnProperty.call(cmsRoles, role)) {
     return null;
   }
 

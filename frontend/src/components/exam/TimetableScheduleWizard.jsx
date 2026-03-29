@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { createTimetableDraft, listExamHalls } from '../../api/examsApi';
+import { createTimetableDraft, listExamHalls, listTimetableDrafts } from '../../api/examsApi';
 import { getUserSession } from '../../auth/sessionController';
+import { getStudentById } from '../../data/studentData';
 
 function CloseIcon() {
   return (
@@ -13,6 +14,7 @@ function CloseIcon() {
 
 export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
   const session = getUserSession();
+  const userRecord = getStudentById(session?.userId);
   const [wizardStep, setWizardStep] = useState(1);
   const [halls, setHalls] = useState([]);
 
@@ -114,7 +116,8 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
       academicYear,
       exams,
       createdBy: session?.username || 'Unknown',
-      status: 'Draft'
+      status: 'Draft',
+      department: userRecord?.department || 'Unknown',
     };
 
     try {
@@ -123,7 +126,10 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
       resetWizard();
       onSave();
     } catch (err) {
-      alert(err?.message || 'Failed to save timetable draft');
+      const recovered = await recoverIfDraftPersisted(draft, 'Timetable draft saved successfully');
+      if (!recovered) {
+        alert(err?.message || 'Failed to save timetable draft');
+      }
     }
   };
 
@@ -134,7 +140,8 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
       academicYear,
       exams,
       createdBy: session?.username || 'Unknown',
-      status: 'Submitted'
+      status: 'Submitted',
+      department: userRecord?.department || 'Unknown',
     };
 
     try {
@@ -143,8 +150,48 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
       resetWizard();
       onSave();
     } catch (err) {
-      alert(err?.message || 'Failed to submit timetable');
+      const recovered = await recoverIfDraftPersisted(draft, 'Timetable submitted for approval');
+      if (!recovered) {
+        alert(err?.message || 'Failed to submit timetable');
+      }
     }
+  };
+
+  const normalizeExam = (exam) => ({
+    subject: String(exam?.subject || '').trim(),
+    subjectCode: String(exam?.subjectCode || '').trim(),
+    date: String(exam?.date || '').trim(),
+    startTime: String(exam?.startTime || '').trim(),
+    endTime: String(exam?.endTime || '').trim(),
+    room: String(exam?.room || '').trim(),
+  });
+
+  const isSameDraft = (left, right) => {
+    if (!left || !right) return false;
+    if (String(left.session || '').trim() !== String(right.session || '').trim()) return false;
+    if (String(left.semester || '').trim() !== String(right.semester || '').trim()) return false;
+    if (String(left.academicYear || '').trim() !== String(right.academicYear || '').trim()) return false;
+    if (String(left.status || '').trim() !== String(right.status || '').trim()) return false;
+
+    const leftExams = Array.isArray(left.exams) ? left.exams.map(normalizeExam) : [];
+    const rightExams = Array.isArray(right.exams) ? right.exams.map(normalizeExam) : [];
+    return JSON.stringify(leftExams) === JSON.stringify(rightExams);
+  };
+
+  const recoverIfDraftPersisted = async (draft, successMessage) => {
+    try {
+      const drafts = await listTimetableDrafts();
+      const persisted = drafts.some((item) => isSameDraft(item, draft));
+      if (persisted) {
+        alert(successMessage);
+        resetWizard();
+        onSave();
+        return true;
+      }
+    } catch (recoveryErr) {
+      console.error('Draft recovery check failed:', recoveryErr);
+    }
+    return false;
   };
 
   const resetWizard = () => {

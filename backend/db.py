@@ -11,8 +11,8 @@ from urllib.parse import urlsplit
 # Always load .env from the backend folder, independent of process CWD.
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
-# Use Atlas connection string
-MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb+srv://priyadharshini:Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
+# Use Atlas connection string from environment; fallback to local Mongo for development.
+MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb://localhost:27017/College_db"
 
 client: Optional[AsyncIOMotorClient] = None
 db = None
@@ -35,24 +35,39 @@ def mask_mongodb_uri(uri: Optional[str]) -> str:
 async def lifespan(app):
     global client, db
 
-    print(f"Connecting to MongoDB at {mask_mongodb_uri(MONGODB_URI)}...")
-    try:
-        client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        await client.admin.command("ping")
+    uris_to_try = [
+        MONGODB_URI,
+        "mongodb://localhost:27017/College_db"
+    ]
 
+    for uri in uris_to_try:
+        masked_uri = mask_mongodb_uri(uri)
+        print(f"DEBUG: Attempting to connect to MongoDB at {masked_uri}...")
         try:
-            db = client["College_db"] if "mongodb.net" in str(MONGODB_URI) else client.get_database()
-            if db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
+            # Increase timeout to 5000ms for more reliable Atlas connection
+            temp_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=5000)
+            await temp_client.admin.command("ping")
+            
+            client = temp_client
+            try:
+                if "mongodb.net" in str(uri):
+                    db = client["College_db"]
+                else:
+                    db = client.get_database()
+                    if db.name == "test":
+                        db = client["College_db"]
+            except Exception as e:
+                print(f"DEBUG: Setting DB name failed: {e}")
                 db = client["College_db"]
-        except Exception:
-            db = client["College_db"]
 
+            print(f"SUCCESS: Connected to MongoDB (Database: {db.name})")
+            break # Success!
+        except Exception as error:
+            print(f"ERROR: FAILED to connect to {masked_uri}: {error}")
+            db = None
 
-
-        print(f"Connected to MongoDB successfully (Database: {db.name})")
-    except Exception as error:
-        print(f"FAILED to connect to MongoDB: {error}")
-        db = None
+    if db is None:
+        print("CRITICAL: All MongoDB connection attempts failed. FALLING BACK TO DEV_STORE.")
 
     yield
 

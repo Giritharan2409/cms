@@ -32,8 +32,9 @@ export function calculateGrade(marks, maxMarks) {
   return 'F'
 }
 
-export async function listExams() {
-  const res = await fetch(`${API_BASE}/exams`)
+export async function listExams(params = {}) {
+  const query = buildQuery(params)
+  const res = await fetch(`${API_BASE}/exams${query}`)
   const json = await parseResponse(res, 'Failed to fetch exams')
   return Array.isArray(json.data) ? json.data : []
 }

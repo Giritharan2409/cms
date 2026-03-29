@@ -51,8 +51,9 @@ def serialize_doc(document: Optional[dict]) -> Optional[dict]:
     if not document:
         return document
 
-    if "_id" in document:
-        document["id"] = str(document["_id"])
-        del document["_id"]
+    doc = dict(document)  # Work on a copy to avoid in-place mutation
+    if "_id" in doc:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
 
-    return document
+    return doc

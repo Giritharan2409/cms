@@ -1,14 +1,20 @@
+import json
+import os
 from typing import Optional
 from copy import deepcopy
 from datetime import datetime
 from uuid import uuid4
+from pathlib import Path
 
+# Path for local persistence
+DATA_FILE = Path(__file__).parent / "dev_db.json"
 
 def _make_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
 
-DEV_STORE = {
+# Initial schema
+DEFAULT_STORE = {
     "exams": [],
     "timetables": {},
     "placements": [],
@@ -25,8 +31,28 @@ DEV_STORE = {
     ],
     "notifications": [],
     "students": [],
+    "admissions": [],
     "od_requests": [],
 }
+
+def load_dev_store():
+    if DATA_FILE.exists():
+        try:
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading dev_db.json: {e}")
+            return deepcopy(DEFAULT_STORE)
+    return deepcopy(DEFAULT_STORE)
+
+def save_dev_store():
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(DEV_STORE, f, indent=2, default=str)
+    except Exception as e:
+        print(f"Error saving dev_db.json: {e}")
+
+DEV_STORE = load_dev_store()
 
 
 def list_items(key: str):
@@ -40,6 +66,7 @@ def get_exam(exam_id: str):
 def create_exam(data: dict):
     item = {"id": _make_id("exam"), **deepcopy(data)}
     DEV_STORE["exams"].append(item)
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -48,6 +75,7 @@ def update_exam(exam_id: str, patch: dict):
     if not item:
         return None
     item.update(deepcopy(patch))
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -56,6 +84,7 @@ def delete_exam(exam_id: str):
     if index is None:
         return False
     del DEV_STORE["exams"][index]
+    save_dev_store()
     return True
 
 
@@ -72,6 +101,7 @@ def upsert_timetable(class_id: str, data: dict):
     payload = deepcopy(data)
     payload["classId"] = class_id
     DEV_STORE["timetables"][class_id] = payload
+    save_dev_store()
     return deepcopy(payload)
 
 
@@ -94,6 +124,7 @@ def list_placements(
 def create_placement(data: dict):
     item = {"id": _make_id("placement"), **deepcopy(data)}
     DEV_STORE["placements"].append(item)
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -102,6 +133,7 @@ def update_placement(placement_id: str, data: dict):
     if not item:
         return None
     item.update(deepcopy(data))
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -110,6 +142,7 @@ def delete_placement(placement_id: str):
     if index is None:
         return False
     del DEV_STORE["placements"][index]
+    save_dev_store()
     return True
 
 
@@ -126,6 +159,7 @@ def list_facilities(status: Optional[str] = None, search: Optional[str] = None):
 def create_facility(data: dict):
     item = {"id": _make_id("facility"), **deepcopy(data)}
     DEV_STORE["facilities"].append(item)
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -134,6 +168,7 @@ def update_facility(facility_id: str, data: dict):
     if not item:
         return None
     item.update(deepcopy(data))
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -142,6 +177,7 @@ def delete_facility(facility_id: str):
     if index is None:
         return False
     del DEV_STORE["facilities"][index]
+    save_dev_store()
     return True
 
 
@@ -170,6 +206,7 @@ def list_attendance(role: Optional[str] = None, person_id: Optional[str] = None)
 def create_attendance(data: dict):
     item = {"id": _make_id("attendance"), **deepcopy(data)}
     DEV_STORE["attendance"].append(item)
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -204,6 +241,7 @@ def upsert_attendance_marking(data: dict):
     existing = DEV_STORE["attendance_markings"].get(key)
     payload["id"] = existing.get("id") if existing else _make_id("marking")
     DEV_STORE["attendance_markings"][key] = payload
+    save_dev_store()
     return deepcopy(payload)
 
 
@@ -224,6 +262,7 @@ def create_od_request(data: dict):
     if not payload.get("createdAt"):
         payload["createdAt"] = datetime.utcnow().isoformat()
     DEV_STORE["od_requests"].append(payload)
+    save_dev_store()
     return deepcopy(payload)
 
 
@@ -241,6 +280,7 @@ def update_od_request(request_id: str, data: dict):
     item["requestId"] = item.get("requestId") or request_id
     item["id"] = item.get("id") or item["requestId"]
     item["updatedAt"] = datetime.utcnow().isoformat()
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -258,6 +298,7 @@ def update_od_request_status(request_id: str, status: str, reviewed_by: Optional
     item["reviewedBy"] = reviewed_by or item.get("reviewedBy")
     item["reviewedAt"] = datetime.utcnow().isoformat()
     item["updatedAt"] = datetime.utcnow().isoformat()
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -272,6 +313,7 @@ def delete_od_request(request_id: str):
     if index is None:
         return False
     del DEV_STORE["od_requests"][index]
+    save_dev_store()
     return True
 
 
@@ -304,6 +346,7 @@ def unread_notifications(role: str):
 def create_notification(data: dict):
     item = {"id": _make_id("notification"), "status": "unread", **deepcopy(data)}
     DEV_STORE["notifications"].append(item)
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -312,6 +355,7 @@ def mark_notification_read(notification_id: str):
     if not item:
         return None
     item["status"] = "read"
+    save_dev_store()
     return deepcopy(item)
 
 
@@ -321,6 +365,8 @@ def mark_role_notifications_read(role: str):
         if item.get("receiverRole") in {role, "ALL"} and item.get("status") == "unread":
             item["status"] = "read"
             count += 1
+    if count > 0:
+        save_dev_store()
     return count
 
 
@@ -329,6 +375,7 @@ def delete_notification(notification_id: str):
     if index is None:
         return False
     del DEV_STORE["notifications"][index]
+    save_dev_store()
     return True
 
 
@@ -338,4 +385,6 @@ def clear_notifications(role: str):
         item for item in DEV_STORE["notifications"]
         if item.get("receiverRole") not in {role, "ALL"}
     ]
+    if len(DEV_STORE["notifications"]) != before:
+        save_dev_store()
     return before - len(DEV_STORE["notifications"])
