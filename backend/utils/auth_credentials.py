@@ -8,8 +8,8 @@ from backend.db import get_db
 from backend.dev_store import DEV_STORE
 from backend.stores.settings_store import get_credential, update_credential
 
-DEFAULT_STUDENT_PASSWORD = "student 123"
-LEGACY_DEFAULT_STUDENT_PASSWORDS = ("student@123",)
+DEFAULT_STUDENT_PASSWORD = "student123"
+LEGACY_DEFAULT_STUDENT_PASSWORDS = ("student 123", "student@123")
 
 
 def is_default_student_password(password: Optional[str]) -> bool:

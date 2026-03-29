@@ -1,26 +1,3 @@
-// Delete icon for payroll row
-function DeleteIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-        </svg>
-    );
-}
-    // Delete payroll record
-    const handleDeletePayroll = async (record) => {
-        if (!window.confirm(`Are you sure you want to permanently delete payroll for ${record.staffName}?`)) return;
-        try {
-            const res = await fetch(`${API_BASE}/payroll/${record.id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to delete payroll record');
-            // Remove the deleted record from the UI immediately
-            setPayrollData(prev => prev.filter(r => r.id !== record.id));
-        } catch (err) {
-            alert('Error: ' + err.message);
-        }
-    };
 import { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -91,8 +68,8 @@ export default function PayrollPage({ noLayout = false }) {
 
     const fetchStaff = async () => {
         try {
-            const res = await fetch(`${API_BASE}/faculty`);
-            if (!res.ok) throw new Error('Failed to fetch faculty');
+            const res = await fetch(`${API_BASE}/staff`);
+            if (!res.ok) throw new Error('Failed to fetch staff');
             const data = await res.json();
             setStaffList(data);
         } catch (err) {
@@ -490,7 +467,7 @@ export default function PayrollPage({ noLayout = false }) {
                             ) : error ? (
                                 <tr>
                                     <td colSpan="6" style={{ padding: '32px 20px', textAlign: 'center', color: '#ef4444' }}>
-                                        ⚠️ {error} — Make sure the backend server is running on port 8000.
+                                        ⚠️ {error} — Make sure the backend server is running on port 5000.
                                     </td>
                                 </tr>
                             ) : paginatedData.length > 0 ? (
@@ -540,10 +517,6 @@ export default function PayrollPage({ noLayout = false }) {
                                                             <button onClick={() => handleGeneratePayslip(record)} title="Print Report"
                                                                 style={{ display: 'inline-flex', alignItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4, borderRadius: 4 }}>
                                                                 <DocumentIcon />
-                                                            </button>
-                                                            <button onClick={() => handleDeletePayroll(record)} title="Delete Payroll"
-                                                                style={{ display: 'inline-flex', alignItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 4, borderRadius: 4 }}>
-                                                                <DeleteIcon />
                                                             </button>
                                                         </>
                                                     )}
