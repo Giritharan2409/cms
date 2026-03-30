@@ -51,11 +51,11 @@ async function request(path, options = {}) {
     return payload;
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('Settings service request timed out. Ensure backend is running on http://localhost:8000.');
+      throw new Error('Settings service request timed out. Ensure backend is running on http://localhost:5000.');
     }
 
     if (error instanceof TypeError) {
-      throw new Error('Settings service is unavailable. Start backend server on http://localhost:8000 and retry.');
+      throw new Error('Settings service is unavailable. Start backend server on http://localhost:5000 and retry.');
     }
 
     throw error;
