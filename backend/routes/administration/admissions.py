@@ -159,12 +159,12 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "quota": payload.get("quota") or "",
         "accommodation": payload.get("accommodation") or "",
         "roomType": payload.get("roomType") or "",
-        "documents": {
-            "passport_photo": payload.get("passportPhoto"),
-            "aadhaar_card": payload.get("aadhaarCard"),
-            "marksheet": payload.get("marksheet"),
-            "transfer_certificate": payload.get("transferCertificate"),
-        },
+        "documents": payload.get("documents") if isinstance(payload.get("documents"), list) else [
+            {"id": f"DOC-PHOTO-{_utc_now_iso()}", "name": "Passport Photo", "data": payload.get("passportPhoto"), "type": "image/jpeg", "uploadDate": _utc_now_iso(), "category": "Identity"} if payload.get("passportPhoto") else None,
+            {"id": f"DOC-AADHAAR-{_utc_now_iso()}", "name": "Aadhaar Card", "data": payload.get("aadhaarCard"), "type": "application/pdf", "uploadDate": _utc_now_iso(), "category": "Identity"} if payload.get("aadhaarCard") else None,
+            {"id": f"DOC-MARKSHEET-{_utc_now_iso()}", "name": "Academic Marksheet", "data": payload.get("marksheet"), "type": "application/pdf", "uploadDate": _utc_now_iso(), "category": "Academic"} if payload.get("marksheet") else None,
+            {"id": f"DOC-TC-{_utc_now_iso()}", "name": "Transfer Certificate", "data": payload.get("transferCertificate"), "type": "application/pdf", "uploadDate": _utc_now_iso(), "category": "Academic"} if payload.get("transferCertificate") else None,
+        ],
         "payment": {
             "application_fee": _to_float(payload.get("applicationFee"), 500.0),
             "payment_method": payload.get("paymentMethod"),
@@ -200,6 +200,14 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "course": normalized["course"],
         "academic_year": normalized["academicYear"],
     }
+    
+    # Clean up documents if it was a list with None values from the fallback logic above
+    if isinstance(normalized["documents"], list):
+        normalized["documents"] = [d for d in normalized["documents"] if d is not None]
+        # Ensure uploadDate is present for all
+        for d in normalized["documents"]:
+            if not d.get("uploadDate"):
+                d["uploadDate"] = _utc_now_iso()
 
     return normalized
 
@@ -579,7 +587,8 @@ async def approve_admission(admission_id: str):
                     "bloodGroup": adm.get("bloodGroup") or "",
                     "skills": adm.get("skills") or [],
                     "gender": adm.get("gender") or (adm.get("personal") or {}).get("gender", ""),
-                    "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128"
+                    "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128",
+                    "documents": adm.get("documents") or []
                 }
                 
                 # Upsert into students collection

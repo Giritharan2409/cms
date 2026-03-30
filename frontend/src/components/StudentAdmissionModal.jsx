@@ -23,6 +23,28 @@ const FALLBACK_COURSES_BY_CATEGORY = {
   ],
 };
 
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  if (!bytes) return 'N/A';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 export default function StudentAdmissionModal({ isOpen, onClose }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -436,14 +458,70 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     setIsSubmitting(true);
     try {
       if (!admissionSaved) {
-        console.log('Submitting student data:', studentData);
+        // Handle documents
+        const docList = [];
+        if (formData.passportPhoto) {
+          const base64 = await fileToBase64(formData.passportPhoto);
+          docList.push({ 
+            id: 'DOC-PHOTO', 
+            name: 'Passport Photo', 
+            data: base64, 
+            type: formData.passportPhoto.type,
+            size: formatFileSize(formData.passportPhoto.size),
+            uploadDate: new Date().toISOString(),
+            category: 'Identity'
+          });
+        }
+        if (formData.aadhaarCard) {
+          const base64 = await fileToBase64(formData.aadhaarCard);
+          docList.push({ 
+            id: 'DOC-AADHAAR', 
+            name: 'Aadhaar Card', 
+            data: base64, 
+            type: formData.aadhaarCard.type,
+            size: formatFileSize(formData.aadhaarCard.size),
+            uploadDate: new Date().toISOString(),
+            category: 'Identity'
+          });
+        }
+        if (formData.marksheet) {
+          const base64 = await fileToBase64(formData.marksheet);
+          docList.push({ 
+            id: 'DOC-MARKSHEET', 
+            name: 'Academic Marksheet', 
+            data: base64, 
+            type: formData.marksheet.type,
+            size: formatFileSize(formData.marksheet.size),
+            uploadDate: new Date().toISOString(),
+            category: 'Academic'
+          });
+        }
+        if (formData.transferCertificate) {
+          const base64 = await fileToBase64(formData.transferCertificate);
+          docList.push({ 
+            id: 'DOC-TC', 
+            name: 'Transfer Certificate', 
+            data: base64, 
+            type: formData.transferCertificate.type,
+            size: formatFileSize(formData.transferCertificate.size),
+            uploadDate: new Date().toISOString(),
+            category: 'Academic'
+          });
+        }
+
+        const finalPayload = {
+          ...studentData,
+          documents: docList
+        };
+
+        console.log('Submitting student data:', finalPayload);
         // Save to backend MongoDB
         const response = await fetch(`${API_BASE}/admissions/create`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(studentData),
+          body: JSON.stringify(finalPayload),
         });
 
         console.log('Response status:', response.status);

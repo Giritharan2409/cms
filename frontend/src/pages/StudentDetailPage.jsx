@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import EditOverviewModal from '../components/EditOverviewModal'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
@@ -171,213 +172,6 @@ function OverviewTab({ student, onEdit }) {
   );
 }
 
-function EditOverviewModal({ isOpen, onClose, onSave, student }) {
-  const [formData, setFormData] = useState({
-    phone: student.phone || '',
-    email: student.email || '',
-    address: student.address || '',
-    guardian: student.guardian || '',
-    motherName: student.motherName || '',
-    guardianPhone: student.guardianPhone || '',
-    enrollDate: student.enrollDate ? new Date(student.enrollDate).toISOString().split('T')[0] : '',
-    bloodGroup: student.bloodGroup || '',
-    skills: (student.skills || []).join(', ')
-  });
-
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    try {
-      const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s !== '');
-      const studentId = student.rollNumber || student.id;
-      if (!studentId) {
-        alert('Error: Cannot determine student ID for update.');
-        setSaving(false);
-        return;
-      }
-      const updatePayload = {
-        phone: formData.phone,
-        email: formData.email,
-        address: formData.address,
-        guardian: formData.guardian,
-        motherName: formData.motherName,
-        guardianPhone: formData.guardianPhone,
-        enrollDate: formData.enrollDate,
-        bloodGroup: formData.bloodGroup,
-        skills: skillsArray
-      };
-      console.log('[EditOverviewModal] PUT /api/students/' + encodeURIComponent(studentId), updatePayload);
-      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload)
-      });
-      if (!res.ok) {
-        let errorDetail = `HTTP ${res.status}`;
-        try {
-          const errBody = await res.json();
-          errorDetail = errBody.detail || JSON.stringify(errBody);
-        } catch (_) {
-          errorDetail += ': ' + (res.statusText || 'Unknown error');
-        }
-        throw new Error(errorDetail);
-      }
-      const updatedData = await res.json();
-      console.log('[EditOverviewModal] Update successful:', updatedData);
-      alert('Profile updated successfully!');
-      onSave();
-    } catch (err) {
-      console.error('[EditOverviewModal] Update failed:', err);
-      alert('Failed to update profile.\n\nDetails: ' + err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 lg:max-h-[90vh] flex flex-col">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-3">
-                <span className="material-symbols-outlined text-[#1162d4]">edit_note</span>
-                Edit Student Overview
-             </h3>
-             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                <span className="material-symbols-outlined text-slate-400 text-[20px]">close</span>
-             </button>
-          </div>
-          
-          <div className="p-8 space-y-8 overflow-y-auto">
-             {/* Contact Section */}
-             <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-l-2 border-[#1162d4] pl-3">Contact Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Phone Number</label>
-                      <input 
-                        type="text" 
-                        value={formData.phone} 
-                        onChange={e => setFormData({...formData, phone: e.target.value})}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                      />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Personal Email</label>
-                     <input 
-                       type="email" 
-                       value={formData.email} 
-                       onChange={e => setFormData({...formData, email: e.target.value})}
-                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                     />
-                   </div>
-                   <div className="md:col-span-2 space-y-1.5">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Permanent Address</label>
-                     <textarea 
-                       rows="2"
-                       value={formData.address} 
-                       onChange={e => setFormData({...formData, address: e.target.value})}
-                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium resize-none"
-                     />
-                   </div>
-                </div>
-             </div>
-
-             {/* Family Section */}
-             <div className="space-y-4">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-l-2 border-[#1162d4] pl-3">Family Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Father's Name</label>
-                      <input 
-                        type="text" 
-                        value={formData.guardian} 
-                        onChange={e => setFormData({...formData, guardian: e.target.value})}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                      />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Mother's Name</label>
-                     <input 
-                       type="text" 
-                       value={formData.motherName} 
-                       onChange={e => setFormData({...formData, motherName: e.target.value})}
-                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                     />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Guardian Contact</label>
-                     <input 
-                       type="text" 
-                       value={formData.guardianPhone} 
-                       onChange={e => setFormData({...formData, guardianPhone: e.target.value})}
-                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                     />
-                   </div>
-                </div>
-             </div>
-
-             {/* Academic & Skills Section */}
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-l-2 border-red-400 pl-3">Academic Info</h4>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Admission Date</label>
-                         <input 
-                           type="date" 
-                           value={formData.enrollDate} 
-                           onChange={e => setFormData({...formData, enrollDate: e.target.value})}
-                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                         />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Blood Group</label>
-                        <select 
-                          value={formData.bloodGroup} 
-                          onChange={e => setFormData({...formData, bloodGroup: e.target.value})}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium cursor-pointer"
-                        >
-                          <option value="">Select</option>
-                          {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-                        </select>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="space-y-4">
-                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-l-2 border-green-400 pl-3">Technical Skills</h4>
-                   <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Skills (Comma separated)</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g., Python, React, SQL"
-                        value={formData.skills} 
-                        onChange={e => setFormData({...formData, skills: e.target.value})}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
-                      />
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
-             <button onClick={onClose} disabled={saving} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50">Cancel</button>
-             <button 
-               onClick={handleSubmit}
-               disabled={saving}
-               className="flex-1 px-4 py-3 bg-[#1162d4] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-             >
-               <span className="material-symbols-outlined text-base">{saving ? 'hourglass_top' : 'save'}</span>
-               {saving ? 'Saving...' : 'Save Changes'}
-             </button>
-          </div>
-       </div>
-    </div>
-  );
-}
 
 
 function SubjectRow({ sub, studentId, onUpdate }) {
@@ -1146,24 +940,236 @@ function FeesTab({ student, onStudentUpdate }) {
   )
 }
 
-function DocumentsTab({ student }) {
-  const docs = student.documents || []
+function DocumentViewerModal({ isOpen, onClose, document }) {
+  if (!isOpen || !document) return null;
+
+  const fileName = document.name || 'Untitled Document';
+  const isPDF = fileName.toLowerCase().endsWith('.pdf') || (document.type && document.type.includes('pdf'));
+  
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300">
+        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-xl ${isPDF ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+              <span className="material-symbols-outlined text-[24px]">
+                {isPDF ? 'picture_as_pdf' : 'image'}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">{fileName}</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                {document.size || 'Size Unknown'} • {isPDF ? 'PDF Document' : 'Image File'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                const link = window.document.createElement('a');
+                link.href = document.data;
+                link.download = document.name;
+                link.click();
+              }}
+              className="p-2.5 text-slate-500 hover:text-[#1162d4] hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+              title="Download"
+            >
+              <span className="material-symbols-outlined text-[20px]">download</span>
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 bg-slate-100/50 flex items-center justify-center overflow-hidden p-6">
+          {isPDF ? (
+            <iframe
+              src={document.data}
+              className="w-full h-full rounded-lg shadow-inner bg-white"
+              title={document.name}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <img
+                src={document.data}
+                alt={document.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  if (!bytes) return 'N/A';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const categorizeFile = (fileName) => {
+  const name = fileName.toLowerCase();
+  if (name.includes('marksheet') || name.includes('degree') || name.includes('diploma') || name.includes('tc') || name.includes('transfer') || name.includes('certificate')) {
+    return 'Academic';
+  }
+  if (name.includes('aadhaar') || name.includes('passport') || name.includes('id') || name.includes('voter') || name.includes('pan') || name.includes('license') || name.includes('badge')) {
+    return 'Identity';
+  }
+  if (name.includes('receipt') || name.includes('invoice') || name.includes('payment') || name.includes('challan') || name.includes('fee')) {
+    return 'Fees';
+  }
+  return 'Others';
+};
+
+function DocumentsTab({ student, onRefresh }) {
+  const [viewingDoc, setViewingDoc] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('All');
+
+  const fileInputRef = React.useRef(null);
+
+  const docs = Array.isArray(student.documents) ? student.documents : [];
+
+  // Dynamic Categories Calculation
+  const categories = [
+    { label: 'All', icon: 'grid_view' },
+    { label: 'Academic', icon: 'school' },
+    { label: 'Identity', icon: 'badge' },
+    { label: 'Fees', icon: 'receipt_long' },
+    { label: 'Others', icon: 'folder_open' }
+  ].map(cat => ({
+    ...cat,
+    count: cat.label === 'All' ? docs.length : docs.filter(d => (d.category || 'Others') === cat.label).length,
+    color: cat.label === 'Academic' ? 'bg-blue-50 text-[#1162d4]' : 
+           cat.label === 'Identity' ? 'bg-green-50 text-green-600' :
+           cat.label === 'Fees' ? 'bg-purple-50 text-purple-600' :
+           cat.label === 'All' ? 'bg-slate-100 text-slate-800' : 'bg-slate-50 text-slate-400'
+  }));
+
+  const filteredDocs = activeCategory === 'All' 
+    ? docs 
+    : docs.filter(d => (d.category || 'Others') === activeCategory);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const base64 = await fileToBase64(file);
+      const newDoc = {
+        id: `DOC-${Date.now()}`,
+        name: file.name,
+        data: base64,
+        type: file.type.includes('pdf') ? 'pdf' : 'image',
+        size: formatFileSize(file.size),
+        uploadDate: new Date().toISOString(),
+        category: categorizeFile(file.name)
+      };
+
+      const updatedDocs = [...docs, newDoc];
+      const studentId = student.id || student.rollNumber;
+
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documents: updatedDocs }),
+      });
+
+      if (!res.ok) throw new Error('Failed to upload document');
+      
+      if (onRefresh) onRefresh();
+      alert('Document uploaded successfully');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error uploading document: ' + err.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownload = (doc) => {
+    const link = window.document.createElement('a');
+    link.href = doc.data;
+    link.download = doc.name;
+    link.click();
+  };
+
+  const handleDelete = async (docId) => {
+    const docToDelete = docs.find(d => d.id === docId);
+    if (!window.confirm(`Are you sure you want to delete "${docToDelete?.name || 'this document'}"? \nThis action cannot be undone.`)) return;
+
+    try {
+      setIsDeleting(docId);
+      const newDocs = docs.filter(d => d.id !== docId);
+      const studentId = student.id || student.rollNumber;
+      
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documents: newDocs }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete document');
+      
+      if (onRefresh) onRefresh();
+      alert('Document deleted successfully');
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting document: ' + err.message);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleView = (doc) => {
+    setViewingDoc(doc);
+    setIsViewModalOpen(true);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Left Column - Category Cards and Helper */}
+      {/* Left Column - Category Cards and helper */}
       <div className="lg:col-span-4 space-y-8">
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">File Categories</h3>
            <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Academic', count: 12, color: 'bg-blue-50 text-[#1162d4]', icon: 'school' },
-                { label: 'Identity', count: 4, color: 'bg-green-50 text-green-600', icon: 'badge' },
-                { label: 'Fees', count: 8, color: 'bg-purple-50 text-purple-600', icon: 'receipt_long' },
-                { label: 'Others', count: 2, color: 'bg-slate-50 text-slate-400', icon: 'folder_open' }
-              ].map(cat => (
-                <div key={cat.label} className="p-4 rounded-xl border border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[#1162d4]/20 transition-all cursor-pointer group">
-                   <div className={`w-10 h-10 ${cat.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              {categories.map(cat => (
+                <div 
+                  key={cat.label} 
+                  onClick={() => setActiveCategory(cat.label)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                    activeCategory === cat.label 
+                      ? 'bg-white border-[#1162d4] shadow-md scale-[1.02]' 
+                      : 'border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[#1162d4]/20'
+                  }`}
+                >
+                   <div className={`w-10 h-10 ${cat.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
                       <span className="material-symbols-outlined text-[20px]">{cat.icon}</span>
                    </div>
                    <p className="text-xs font-semibold text-slate-900 mb-0.5">{cat.label}</p>
@@ -1173,13 +1179,27 @@ function DocumentsTab({ student }) {
            </div>
         </div>
 
-        {/* Upload Dropzone Preview */}
-        <div className="bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all">
+        {/* Upload Box */}
+        <div 
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+          className={`bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all ${isUploading ? 'opacity-50 cursor-wait' : ''}`}
+        >
+           <input 
+             type="file" 
+             ref={fileInputRef} 
+             className="hidden" 
+             onChange={handleFileChange}
+             accept=".pdf,image/*" 
+           />
            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-[#1162d4] shadow-xl shadow-[#1162d4]/10 mb-6 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
+              <span className={`material-symbols-outlined text-[32px] ${isUploading ? 'animate-bounce' : ''}`}>
+                {isUploading ? 'sync' : 'cloud_upload'}
+              </span>
            </div>
-           <h4 className="text-sm font-semibold text-[#1162d4] uppercase tracking-wider mb-2">Upload New Media</h4>
-           <p className="text-[10px] font-medium text-[#1162d4]/60 uppercase tracking-tight">Drag & drop or browse files</p>
+           <h4 className="text-sm font-semibold text-[#1162d4] uppercase tracking-wider mb-2">
+             {isUploading ? 'Uploading...' : 'Upload New Media'}
+           </h4>
+           <p className="text-[10px] font-medium text-[#1162d4]/60 uppercase tracking-tight">PDF or Image (Max 5MB)</p>
         </div>
       </div>
 
@@ -1204,7 +1224,19 @@ function DocumentsTab({ student }) {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                 {docs.map(doc => (
+                 {filteredDocs.length === 0 ? (
+                   <tr>
+                     <td colSpan="4" className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4 border border-slate-100">
+                              <span className="material-symbols-outlined text-[32px]">folder_off</span>
+                           </div>
+                           <h4 className="text-slate-900 font-bold mb-1">No {activeCategory === 'All' ? '' : activeCategory} Documents Found</h4>
+                           <p className="text-xs text-slate-400 font-medium max-w-[200px] mx-auto">Try selecting another category or upload a new document.</p>
+                        </div>
+                     </td>
+                   </tr>
+                 ) : filteredDocs.map(doc => (
                    <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
                      <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
@@ -1212,8 +1244,8 @@ function DocumentsTab({ student }) {
                               <span className="material-symbols-outlined text-[20px]">{doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}</span>
                            </div>
                            <div>
-                              <p className="text-sm font-semibold text-slate-800">{doc.name}</p>
-                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{doc.size}</p>
+                              <p className="text-sm font-semibold text-slate-800">{doc.name || 'Unnamed Document'}</p>
+                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{doc.size || 'Size Unknown'}</p>
                            </div>
                         </div>
                      </td>
@@ -1224,16 +1256,34 @@ function DocumentsTab({ student }) {
                         </div>
                      </td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-500">
-                        {new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                      </td>
                      <td className="px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                           <button className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all">
-                              <span className="material-symbols-outlined text-[18px]">download</span>
-                           </button>
-                           <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                           </button>
+                          <button 
+                            onClick={() => handleView(doc)}
+                            className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all"
+                            title="View / Preview"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDownload(doc)}
+                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                            title="Download"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">download</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(doc.id)}
+                            disabled={isDeleting === doc.id}
+                            className={`p-2 ${isDeleting === doc.id ? 'text-slate-200' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-lg transition-all`}
+                            title="Delete"
+                          >
+                            <span className={`material-symbols-outlined text-[18px] ${isDeleting === doc.id ? 'animate-spin' : ''}`}>
+                              {isDeleting === doc.id ? 'sync' : 'delete'}
+                            </span>
+                          </button>
                         </div>
                      </td>
                    </tr>
@@ -1242,6 +1292,12 @@ function DocumentsTab({ student }) {
              </table>
           </div>
         </div>
+
+        <DocumentViewerModal 
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          document={viewingDoc}
+        />
       </div>
     </div>
   )
@@ -1648,8 +1704,8 @@ export default function StudentDetailPage() {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         {activeTab === 'overview' && <OverviewTab student={student} onEdit={() => setIsEditOverviewModalOpen(true)} />}
         {activeTab === 'academics' && <AcademicsTab student={student} onRefresh={refreshData} />}
-        {activeTab === 'fees' && <FeesTab student={student} />}
-        {activeTab === 'documents' && <DocumentsTab student={student} />}
+        {activeTab === 'fees' && <FeesTab student={student} onStudentUpdate={refreshData} />}
+        {activeTab === 'documents' && <DocumentsTab student={student} onRefresh={refreshData} />}
       </div>
 
       <EditOverviewModal 
