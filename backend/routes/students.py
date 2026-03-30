@@ -528,6 +528,7 @@ async def get_student(student_id: str):
                 "gender": serialized_adm.get("gender") or (serialized_adm.get("personal") or {}).get("gender", ""),
                 "avatar": f"https://ui-avatars.com/api/?name={serialized_adm.get('name', 'S')}&background=2563eb&color=fff&size=128",
                 "attendancePct": 0,
+                "documents": serialized_adm.get("documents") or [],
                 "is_admission_fallback": True
             }
         else:

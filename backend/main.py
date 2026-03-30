@@ -17,7 +17,7 @@ PROJECT_ROOT = CURRENT_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.db import lifespan
+from backend.db import lifespan, is_connected
 from backend.routes.academics.attendance import router as attendance_router
 from backend.routes.academics.exams import router as exams_router
 from backend.routes.academics.facility import router as facility_router
@@ -94,6 +94,14 @@ async def serve_frontend():
     return {
         "message": "Frontend build not found. Run `npm run build` to serve static UI from FastAPI, or run Vite dev server for frontend development."
     }
+
+
+# ---- Health check (used by frontend auto-retry) ----
+@app.get("/api/health")
+async def health_check():
+    if is_connected():
+        return {"status": "ok", "database": "connected"}
+    return {"status": "reconnecting", "database": "disconnected"}
 
 app.include_router(staff_router)
 app.include_router(faculty_router)

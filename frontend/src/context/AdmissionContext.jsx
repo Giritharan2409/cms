@@ -67,20 +67,56 @@ export function AdmissionProvider({ children }) {
     }
   };
 
+  const [loadError, setLoadError] = useState(false);
+
   // ✅ INITIAL LOAD
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchStudentAdmissions(),
-        fetchFacultyAdmissions(),
-        fetchApprovedStudents(),
-      ]);
+      try {
+        await Promise.all([
+          fetchStudentAdmissions(),
+          fetchFacultyAdmissions(),
+          fetchApprovedStudents(),
+        ]);
+        setLoadError(false);
+      } catch {
+        setLoadError(true);
+      }
       setLoading(false);
     };
 
     loadData();
   }, []);
+
+  // Auto-retry: poll /api/health when initial load failed
+  useEffect(() => {
+    if (!loadError) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        await new Promise(r => setTimeout(r, 5000));
+        if (cancelled) break;
+        try {
+          const res = await fetch(`${API_BASE}/health`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'ok') {
+              setLoadError(false);
+              await Promise.all([
+                fetchStudentAdmissions(),
+                fetchFacultyAdmissions(),
+                fetchApprovedStudents(),
+              ]);
+              break;
+            }
+          }
+        } catch { /* still down, keep polling */ }
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [loadError]);
 
   // ✅ Delete Student
   const deleteStudentApp = async (id) => {

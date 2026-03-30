@@ -1,7 +1,7 @@
 """Analytics API - Aggregates real data from MongoDB collections"""
 
 from fastapi import APIRouter, HTTPException, Query
-from backend.db import get_db, client
+from backend.db import get_db, get_client
 from backend.utils.mongo import serialize_doc
 from datetime import datetime
 import random
@@ -18,7 +18,10 @@ async def get_dashboard_analytics(
     """Get aggregated analytics for dashboard charts with optional filters"""
     try:
         db = get_db()
-        db_cms = client["cms"] if client else None
+        try:
+            db_cms = get_client()["cms"]
+        except HTTPException:
+            db_cms = None
     except HTTPException as error:
         if error.status_code == 503:
             return get_fallback_analytics()
@@ -420,7 +423,10 @@ async def verify_collections():
     """Verify collections and their structure"""
     try:
         db = get_db()
-        db_cms = client["cms"] if client else None
+        try:
+            db_cms = get_client()["cms"]
+        except HTTPException:
+            db_cms = None
         
         result = {
             "College_db": {},

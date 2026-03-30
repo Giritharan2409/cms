@@ -1,45 +1,35 @@
-import os
+"""
+MongoDB utility helpers.
+
+Connection is managed centrally by ``backend.db``.  This module re-exports
+a thin ``get_database()`` async wrapper (for routes that still call it) and
+keeps the pure-utility functions ``parse_object_id`` / ``serialize_doc``.
+"""
+
 from typing import Optional
+
 from bson import ObjectId
 from fastapi import HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
-from pathlib import Path
 
-# Load environment variables
-load_dotenv(dotenv_path=Path(__file__).parent.parent.with_name(".env"))
+from backend.db import get_db
 
-# MongoDB connection
-MONGODB_URI = os.getenv("MONGODB_URI") or "mongodb+srv://priyadharshini:Ezhilithanya@cluster0.crvutrr.mongodb.net/College_db"
 
-_db = None
-
+# ---------------------------------------------------------------------------
+# Backwards-compatible async wrapper
+# ---------------------------------------------------------------------------
 async def get_database():
-    """Get MongoDB database connection"""
-    global _db
-    
-    if _db is not None:
-        return _db
-    
-    try:
-        client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        await client.admin.command("ping")
-        
-        # Get the database
-        if "mongodb.net" in str(MONGODB_URI):
-            _db = client["College_db"]
-        else:
-            _db = client.get_database()
-            
-        if _db.name == "test" and "mongodb.net" not in str(MONGODB_URI):
-            _db = client["College_db"]
-            
-        return _db
-    except Exception as error:
-        print(f"Failed to connect to MongoDB: {error}")
-        raise HTTPException(status_code=500, detail="Database connection failed")
+    """
+    Return the shared MongoDB database handle.
+
+    This is an async function only for API compatibility — the actual
+    connection is managed by the self-healing loop in ``backend.db``.
+    """
+    return get_db()
 
 
+# ---------------------------------------------------------------------------
+# Utility helpers (unchanged)
+# ---------------------------------------------------------------------------
 def parse_object_id(value: str) -> ObjectId:
     try:
         return ObjectId(value)

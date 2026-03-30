@@ -802,7 +802,7 @@ export default function AdminDepartmentPage() {
       console.error('Error loading departments:', fetchError);
       setDepartments([]);
       setSelectedDept(null);
-      setError('Unable to load departments from database.');
+      setError('Unable to load departments. Reconnecting automatically…');
     } finally {
       setLoading(false);
     }
@@ -811,6 +811,30 @@ export default function AdminDepartmentPage() {
   useEffect(() => {
     fetchDepartments();
   }, []);
+
+  // Auto-retry: poll /api/health when in error state, re-fetch on recovery
+  useEffect(() => {
+    if (!error) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        await new Promise(r => setTimeout(r, 5000));
+        if (cancelled) break;
+        try {
+          const res = await fetch('/api/health');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'ok') {
+              fetchDepartments();
+              break;
+            }
+          }
+        } catch { /* still down, keep polling */ }
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [error]);
 
   const handleEditSave = async (updatedData) => {
     try {
