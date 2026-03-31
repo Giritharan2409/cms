@@ -16,6 +16,7 @@ const iconMap = {
   Fees: 'payments',
   Reports: 'assessment',
   Admission: 'person_add',
+  'Admin Dashboard': 'admin_panel_settings',
   Payroll: 'receipt_long',
   Invoices: 'description',
   Analytics: 'query_stats',
@@ -37,6 +38,7 @@ const routeMap = {
   Fees: '/fees',
   Reports: '/reports',
   Admission: '/admission',
+  'Admin Dashboard': '/admin-administration',
   Payroll: '/payroll',
   Invoices: '/invoices',
   Analytics: '/analytics',
@@ -58,11 +60,22 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
     if (item === 'Settings') {
       return `/${role}/settings`
     }
+    if (item === 'Department') {
+      return role === 'admin' ? '/admin-department' : '/department'
+    }
+    }
     if (item === 'Fees') {
       return role === 'admin' ? '/admin-fees' : '/fees'
     }
     if (item === 'Invoices') {
-      return role === 'admin' ? '/admin-invoices' : '/invoices'
+      if (role === 'admin') return '/admin-invoices'
+      // Remove invoice for finance role
+      if (role === 'finance') return null
+      return '/invoices'
+    }
+    // Remove Payroll for admin role
+    if (item === 'Payroll' && role === 'admin') {
+      return null
     }
     return routeMap[item] || '/dashboard'
   }
@@ -142,6 +155,7 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
             <div className="space-y-1">
               {group.items.map((item) => {
                 const route = getRoute(item)
+                if (route === null) return null // Hide Invoices for finance role, Payroll for admin
                 const to = withRoleQuery(route)
                 return (
                   <NavLink

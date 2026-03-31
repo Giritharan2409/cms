@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import EditOverviewModal from '../components/EditOverviewModal'
 
 // ─── Tab Components ──────────────────────────────────────────────
 
-function OverviewTab({ student }) {
+function OverviewTab({ student, onEdit }) {
+  const admissionDate = student.enrollDate ? new Date(student.enrollDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
+  const skills = student.skills || ['Python', 'Java', 'SQL', 'React JS', 'Node.js'];
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
       {/* Left Column - Core Info */}
       <div className="lg:col-span-8 space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -19,15 +25,15 @@ function OverviewTab({ student }) {
             <div className="space-y-5">
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Phone Number</p>
-                <p className="text-sm font-medium text-slate-700">{student.phone}</p>
+                <p className="text-sm font-medium text-slate-700">{student.phone || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Personal Email</p>
-                <p className="text-sm font-medium text-slate-700">{student.email}</p>
+                <p className="text-sm font-medium text-slate-700">{student.email || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Permanent Address</p>
-                <p className="text-sm font-medium text-slate-700 leading-relaxed">{student.address}</p>
+                <p className="text-sm font-medium text-slate-700 leading-relaxed">{student.address || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -41,15 +47,15 @@ function OverviewTab({ student }) {
             <div className="space-y-5">
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Father's Name</p>
-                <p className="text-sm font-medium text-slate-700">{student.guardian}</p>
+                <p className="text-sm font-medium text-slate-700">{student.guardian || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Mother's Name</p>
-                <p className="text-sm font-medium text-slate-700">Sunita Devi</p>
+                <p className="text-sm font-medium text-slate-700">{student.motherName || 'Not Specified'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Guardian Contact</p>
-                <p className="text-sm font-medium text-slate-700">{student.guardianPhone}</p>
+                <p className="text-sm font-medium text-slate-700">{student.guardianPhone || 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -68,7 +74,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admission Date</p>
-                  <p className="text-sm font-medium text-slate-700">{new Date(student.enrollDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-sm font-medium text-slate-700">{admissionDate}</p>
                </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -77,7 +83,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Blood Group</p>
-                  <p className="text-sm font-medium text-slate-700">O+</p>
+                  <p className="text-sm font-medium text-slate-700">{student.bloodGroup || 'Not Set'}</p>
                </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -86,7 +92,7 @@ function OverviewTab({ student }) {
                </div>
                <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attendance</p>
-                  <p className="text-sm font-medium text-slate-700">{student.attendancePct}%</p>
+                  <p className="text-sm font-medium text-slate-700">{student.attendancePct || 0}%</p>
                </div>
             </div>
           </div>
@@ -96,8 +102,8 @@ function OverviewTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-800 mb-6 uppercase tracking-wider">Technical Skills</h3>
           <div className="flex flex-wrap gap-2">
-            {['Python', 'Java', 'SQL', 'React JS', 'Node.js'].map((skill, idx) => (
-              <span key={skill} className={`px-4 py-2 rounded-lg text-xs font-semibold ${idx === 3 ? 'bg-[#1162d4]/10 text-[#1162d4]' : 'bg-slate-100 text-slate-600'}`}>
+            {skills.map((skill, idx) => (
+              <span key={skill} className={`px-4 py-2 rounded-lg text-xs font-semibold ${idx % 2 === 0 ? 'bg-[#1162d4]/10 text-[#1162d4]' : 'bg-slate-100 text-slate-600'}`}>
                 {skill}
               </span>
             ))}
@@ -163,26 +169,260 @@ function OverviewTab({ student }) {
         </div>
       </div>
     </div>
+  );
+}
+
+
+
+function SubjectRow({ sub, studentId, onUpdate }) {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleChange = async (field, value) => {
+    setIsUpdating(true);
+    await onUpdate(sub.code, field, value);
+    setIsUpdating(false);
+  };
+
+  return (
+    <tr className="hover:bg-slate-50/80 transition-all group">
+      <td className="px-8 py-5 text-sm font-medium text-slate-500 italic">
+        Sem {sub.semester}
+      </td>
+      <td className="px-4 py-5 text-sm font-medium text-slate-400 uppercase tracking-tight">{sub.code}</td>
+      <td className="px-4 py-5 text-sm font-semibold text-slate-800">{sub.name}</td>
+      <td className="px-4 py-5 text-sm font-medium text-slate-500">4.0</td>
+      <td className="px-4 py-5">
+        <select 
+          value={sub.grade}
+          onChange={(e) => handleChange('grade', e.target.value)}
+          disabled={isUpdating}
+          className="bg-transparent text-sm font-bold text-slate-900 outline-none cursor-pointer hover:text-[#1162d4] transition-colors"
+        >
+          {['A+','A','B+','B','C+','C','D','F','Pending'].map(g => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-8 py-5 text-center">
+        <select 
+          value={sub.status || (sub.grade === 'Pending' ? 'In Progress' : 'Passed')}
+          onChange={(e) => handleChange('status', e.target.value)}
+          disabled={isUpdating}
+          className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm outline-none cursor-pointer transition-all ${
+            sub.status === 'Passed' ? 'bg-green-50 text-green-600 border border-green-100' :
+            sub.status === 'In Progress' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
+            'bg-slate-50 text-slate-500 border border-slate-100'
+          }`}
+        >
+          {['Passed', 'Failed', 'In Progress'].map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </td>
+    </tr>
+  );
+}
+
+function AddAcademicRecordModal({ isOpen, onClose, onSave, studentId }) {
+  const [formData, setFormData] = useState({
+    semester: '',
+    code: '',
+    name: '',
+    credits: '4.0',
+    grade: 'A',
+    status: 'Passed'
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+             <h3 className="text-lg font-bold text-slate-800">Add Academic Record</h3>
+             <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <span className="material-symbols-outlined text-slate-400 text-[20px]">close</span>
+             </button>
+          </div>
+          <div className="p-8 space-y-6">
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Semester</label>
+                   <select 
+                     value={formData.semester} 
+                     onChange={e => setFormData({...formData, semester: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     <option value="">Select</option>
+                     {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s.toString()}>Sem {s}</option>)}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Credits</label>
+                   <input 
+                     type="text" 
+                     value={formData.credits} 
+                     onChange={e => setFormData({...formData, credits: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   />
+                </div>
+             </div>
+             
+             <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subject Code</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., CS105"
+                  value={formData.code} 
+                  onChange={e => setFormData({...formData, code: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                />
+             </div>
+
+             <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subject Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g., Database Management"
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                />
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Grade</label>
+                   <select 
+                     value={formData.grade} 
+                     onChange={e => setFormData({...formData, grade: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     {['A+','A','B+','B','C+','C','D','F','Pending'].map(g => <option key={g} value={g}>{g}</option>)}
+                   </select>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</label>
+                   <select 
+                     value={formData.status} 
+                     onChange={e => setFormData({...formData, status: e.target.value})}
+                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-[#1162d4] transition-all font-medium"
+                   >
+                     {['Passed','Failed','In Progress'].map(s => <option key={s} value={s}>{s}</option>)}
+                   </select>
+                </div>
+             </div>
+          </div>
+          <div className="p-8 bg-slate-50 border-t border-slate-100 flex gap-3">
+             <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all active:scale-95">Cancel</button>
+             <button 
+               onClick={async () => {
+                 try {
+                   const res = await fetch(`/api/students/${studentId}/subjects`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({
+                       ...formData,
+                       semester: parseInt(formData.semester),
+                       credits: parseFloat(formData.credits) || 4.0,
+                       total: 0 // New records start at 0
+                     })
+                   });
+                   if (!res.ok) throw new Error('Failed to save record');
+                   const savedRecord = await res.json();
+                   onSave(savedRecord);
+                 } catch (err) {
+                   alert('Error: ' + err.message);
+                 }
+               }}
+               className="flex-1 px-4 py-3 bg-[#1162d4] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+             >
+               Add Record
+             </button>
+          </div>
+       </div>
+    </div>
   )
 }
 
-function AcademicsTab({ student }) {
-  const subjects = student.subjects || []
-  const totalObtained = subjects.reduce((s, sub) => s + sub.total, 0)
-  const totalMax = subjects.length * 100
-  const percentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0
+function AcademicsTab({ student, onRefresh }) {
+  const [semesterFilter, setSemesterFilter] = useState('All')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false)
+  const itemsPerPage = 8
+
+  const allSubjects = student.subjects || []
+  const filteredSubjects = semesterFilter === 'All' 
+    ? allSubjects 
+    : allSubjects.filter(s => s.semester?.toString() === semesterFilter)
+
+  const totalPages = Math.ceil(filteredSubjects.length / itemsPerPage)
+  const currentSubjects = filteredSubjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const passedSubjects = allSubjects.filter(s => s.grade !== 'Pending')
+  const totalObtained = passedSubjects.reduce((s, sub) => s + (sub.total || 0), 0)
+  const totalMax = passedSubjects.length * 100
+  const calcCGPA = totalMax > 0 ? ((totalObtained / totalMax) * 10).toFixed(2) : '0.00'
+
+  const handleUpdateSubject = async (subjectCode, field, value) => {
+    const updatedSubjects = allSubjects.map(s => 
+      s.code === subjectCode ? { ...s, [field]: value } : s
+    );
+    try {
+      const res = await fetch(`/api/students/${student.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects: updatedSubjects })
+      });
+      if (!res.ok) throw new Error('Failed to update student');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Error updating subject:', err);
+      alert('Failed to update: ' + err.message);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* Left Column - Grades Table */}
       <div className="lg:col-span-8 space-y-8">
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Semester Grades and Results</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 uppercase tracking-wider hover:bg-slate-100 transition-colors">
-              <span className="material-symbols-outlined text-[18px]">filter_list</span>
-              Filter Semester
-            </button>
+          <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-50 text-[#1162d4] rounded-xl flex items-center justify-center shadow-inner">
+                 <span className="material-symbols-outlined text-[24px]">school</span>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Semester Outcomes</h3>
+                <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">Official Academic Record</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setIsAddRecordModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                Add Record
+              </button>
+              <button 
+                onClick={() => alert('Generating Provisional Transcript...')}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[18px] text-[#1162d4]">description</span>
+                Download Transcript
+              </button>
+              <select 
+                value={semesterFilter}
+                onChange={(e) => {setSemesterFilter(e.target.value); setCurrentPage(1);}}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider outline-none cursor-pointer"
+              >
+                <option value="All">All Semesters</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                  <option key={s} value={s.toString()}>Semester {s}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="overflow-x-auto">
              <table className="w-full text-left border-collapse">
@@ -196,42 +436,66 @@ function AcademicsTab({ student }) {
                    <th className="px-8 py-4 text-center">Status</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {subjects.map(sub => (
-                   <tr key={sub.code} className="hover:bg-slate-50/50 transition-colors group">
-                     <td className="px-8 py-5 text-sm font-medium text-slate-500">Sem {student.semester}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors uppercase tracking-tight">{sub.code}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-800">{sub.name}</td>
-                     <td className="px-4 py-5 text-sm font-medium text-slate-500">4.0</td>
-                     <td className="px-4 py-5 text-sm font-bold text-slate-900">{sub.grade}</td>
-                     <td className="px-8 py-5 text-center">
-                       <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[9px] font-bold uppercase tracking-wider">Pass</span>
-                     </td>
-                   </tr>
-                 ))}
-               </tbody>
+                <tbody className="divide-y divide-slate-100">
+                  {currentSubjects.length > 0 ? currentSubjects.map(sub => (
+                    <SubjectRow key={sub.code} sub={sub} studentId={student.id} onUpdate={handleUpdateSubject} />
+                  )) : (
+                    <tr>
+                      <td colSpan="6" className="px-8 py-10 text-center text-slate-400 text-sm font-medium italic">
+                        No subjects found for this selection.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
              </table>
           </div>
           <div className="px-8 py-6 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100">
-             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Showing 1-5 of 18 subjects</p>
+             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+               Showing {filteredSubjects.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(filteredSubjects.length, currentPage * itemsPerPage)} of {filteredSubjects.length} subjects
+             </p>
              <div className="flex items-center gap-1.5">
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className={`w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg transition-all ${currentPage === 1 ? 'text-slate-200' : 'text-slate-500 hover:text-slate-900 hover:border-slate-300'}`}
+                >
                   <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                 </button>
-                <button className="w-8 h-8 flex items-center justify-center bg-[#1162d4] border border-[#1162d4] rounded-lg text-white font-semibold text-xs shadow-sm">1</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">2</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">3</button>
-                <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
+                {Array.from({length: totalPages}).map((_, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg font-semibold text-xs border transition-all ${currentPage === i + 1 ? 'bg-[#1162d4] border-[#1162d4] text-white shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button 
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className={`w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg transition-all ${currentPage === totalPages || totalPages === 0 ? 'text-slate-200' : 'text-slate-500 hover:text-slate-900 hover:border-slate-300'}`}
+                >
                   <span className="material-symbols-outlined text-[20px]">chevron_right</span>
                 </button>
              </div>
           </div>
         </div>
+
+        <AddAcademicRecordModal 
+          isOpen={isAddRecordModalOpen}
+          onClose={() => setIsAddRecordModalOpen(false)}
+          studentId={student.id}
+          onSave={(newRecord) => {
+            setIsAddRecordModalOpen(false);
+            if (onRefresh) onRefresh();
+            setSemesterFilter(newRecord.semester.toString());
+          }}
+        />
       </div>
 
       {/* Right Column - Charts & Awards */}
       <div className="lg:col-span-4 space-y-8">
-        {/* Credits Overview Radial Mock */}
+        {/* Credits Overview Card */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm flex flex-col items-center">
           <h3 className="text-sm font-semibold text-slate-800 self-start uppercase tracking-wider mb-8">Credits Overview</h3>
           <div className="relative w-48 h-48 flex items-center justify-center">
@@ -241,21 +505,21 @@ function AcademicsTab({ student }) {
                 cx="60" cy="60" r="54"
                 stroke="#1162d4" strokeWidth="12" fill="none"
                 strokeLinecap="round"
-                strokeDasharray={`${(110/145) * 339} ${339 - (110/145) * 339}`}
+                strokeDasharray={`${((passedSubjects.length * 4) / 145) * 339} ${339}`}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-               <p className="text-4xl font-bold text-slate-900 leading-none">110</p>
+               <p className="text-4xl font-bold text-slate-900 leading-none">{passedSubjects.length * 4}</p>
                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">of 145 Earned</p>
             </div>
           </div>
           <div className="grid grid-cols-2 w-full gap-4 mt-8 border-t border-slate-100 pt-8">
              <div className="text-center">
-                <p className="text-lg font-bold text-[#1162d4]">{student.cgpa}</p>
-                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Current CGPA</p>
+                <p className="text-lg font-bold text-[#1162d4]">{calcCGPA}</p>
+                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Calculated CGPA</p>
              </div>
              <div className="text-center">
-                <p className="text-lg font-bold text-slate-800">CS Eng.</p>
+                <p className="text-lg font-bold text-slate-800">{student.department === 'Computer Science' ? 'CS Eng.' : student.department || 'N/A'}</p>
                 <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Major</p>
              </div>
           </div>
@@ -287,13 +551,167 @@ function AcademicsTab({ student }) {
   )
 }
 
-function FeesTab({ student }) {
-  const fees = student.fees || []
-  const totalAmount = fees.reduce((s, f) => s + f.amount, 0)
-  const totalPaid = fees.reduce((s, f) => s + f.paid, 0)
-  const totalDue = fees.reduce((s, f) => s + f.due, 0)
+function FeesTab({ student, onStudentUpdate }) {
+  const [fees, setFees] = useState(student.fees || [])
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [isEditOverviewModalOpen, setIsEditOverviewModalOpen] = useState(false)
+  const [preselectedMethod, setPreselectedMethod] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({
+    type: 'Tuition Fee',
+    amount: '',
+    method: 'Online',
+    date: new Date().toISOString().split('T')[0],
+  })
 
+  const totalAmount = fees.reduce((s, f) => s + (f.amount || 0), 0)
+  const totalPaid = fees.reduce((s, f) => s + (f.paid || 0), 0)
+  const totalDue = fees.reduce((s, f) => s + (f.due || 0), 0)
   const fmt = (n) => `₹${n.toLocaleString('en-IN')}`
+
+  const handleOpenPayment = (method = '') => {
+    setPreselectedMethod(method)
+    setPaymentForm({
+      type: 'Tuition Fee',
+      amount: '',
+      method: method || 'Online',
+      date: new Date().toISOString().split('T')[0],
+    })
+    setShowPaymentModal(true)
+  }
+
+  const handleSubmitPayment = async () => {
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+    setIsSubmitting(true)
+    const amt = parseFloat(paymentForm.amount)
+    const newFee = {
+      id: `FEE-${Date.now().toString().slice(-6)}`,
+      type: paymentForm.type,
+      date: paymentForm.date,
+      amount: amt,
+      paid: amt,
+      due: 0,
+      status: 'Paid',
+      method: paymentForm.method,
+    }
+    const updatedFees = [...fees, newFee]
+
+    try {
+      const studentId = student.rollNumber || student.id
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fees: updatedFees }),
+      })
+      if (res.ok) {
+        setFees(updatedFees)
+        if (onStudentUpdate) onStudentUpdate({ ...student, fees: updatedFees })
+        setShowPaymentModal(false)
+        alert('Payment recorded successfully!')
+      } else {
+        alert('Failed to save payment. Please try again.')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Network error. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDownloadInvoice = () => {
+    // Dynamic import to avoid issues if jsPDF isn't loaded
+    import('jspdf').then(({ jsPDF }) => {
+      const pdf = new jsPDF()
+      const pw = pdf.internal.pageSize.getWidth()
+      let y = 20
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(20)
+      pdf.text('MIT CONNECT', pw / 2, y, { align: 'center' })
+      y += 8
+      pdf.setFontSize(12)
+      pdf.text('FEE INVOICE', pw / 2, y, { align: 'center' })
+      y += 6
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text('123 University Road, Education City | Phone: +91-9876543210', pw / 2, y, { align: 'center' })
+      y += 8
+
+      pdf.setDrawColor(180)
+      pdf.line(20, y, pw - 20, y)
+      y += 8
+
+      // Student info
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.text('Student Details', 20, y)
+      y += 6
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(9)
+      pdf.text(`Name: ${student.name}`, 20, y)
+      pdf.text(`ID: ${student.rollNumber || student.id}`, pw / 2, y)
+      y += 5
+      pdf.text(`Department: ${student.department || 'N/A'}`, 20, y)
+      pdf.text(`Semester: ${student.semester || 'N/A'}`, pw / 2, y)
+      y += 5
+      pdf.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 20, y)
+      y += 10
+
+      // Table header
+      pdf.setDrawColor(180)
+      pdf.line(20, y, pw - 20, y)
+      y += 5
+      pdf.setFont('helvetica', 'bold')
+      pdf.text('#', 22, y)
+      pdf.text('Fee Type', 30, y)
+      pdf.text('Date', 85, y)
+      pdf.text('Amount', 120, y)
+      pdf.text('Paid', 148, y)
+      pdf.text('Due', 172, y)
+      pdf.text('Status', 188, y)
+      y += 3
+      pdf.line(20, y, pw - 20, y)
+      y += 5
+
+      // Table rows
+      pdf.setFont('helvetica', 'normal')
+      fees.forEach((f, i) => {
+        pdf.text(String(i + 1), 22, y)
+        pdf.text(f.type || '', 30, y)
+        pdf.text(f.date || '', 85, y)
+        pdf.text(String(f.amount || 0), 120, y)
+        pdf.text(String(f.paid || 0), 148, y)
+        pdf.text(String(f.due || 0), 172, y)
+        pdf.text(f.status || '', 188, y)
+        y += 6
+      })
+
+      // Total
+      y += 2
+      pdf.line(20, y, pw - 20, y)
+      y += 6
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(10)
+      pdf.text('Total Fees:', 30, y)
+      pdf.text(String(totalAmount), 120, y)
+      pdf.text(String(totalPaid), 148, y)
+      pdf.text(String(totalDue), 172, y)
+      y += 10
+
+      // Footer
+      pdf.setFont('helvetica', 'italic')
+      pdf.setFontSize(8)
+      pdf.text('This is a computer-generated invoice. No signature required.', pw / 2, y, { align: 'center' })
+
+      pdf.save(`invoice_${student.rollNumber || student.id}.pdf`)
+    }).catch(() => {
+      alert('PDF library not available. Please try again.')
+    })
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -302,7 +720,10 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Fee Payment Ledger</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm">
+            <button
+              onClick={() => handleOpenPayment('')}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm"
+            >
                <span className="material-symbols-outlined text-[18px]">add</span>
                New Payment
             </button>
@@ -320,18 +741,20 @@ function FeesTab({ student }) {
                  </tr>
                </thead>
                 <tbody className="divide-y divide-slate-100">
-                 {fees.map(f => (
+                 {fees.length === 0 ? (
+                   <tr><td colSpan="6" className="px-8 py-12 text-center text-slate-400 text-sm">No fee records found</td></tr>
+                 ) : fees.map(f => (
                    <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
                      <td className="px-8 py-5 text-sm font-medium text-slate-400 group-hover:text-slate-600 transition-colors">#{f.id}</td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-800">{f.type}</td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-500">{f.date}</td>
                      <td className="px-4 py-5">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">Online</span>
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">{f.method || 'N/A'}</span>
                      </td>
                      <td className="px-4 py-5 text-sm font-bold text-slate-900 text-right">{fmt(f.amount)}</td>
                      <td className="px-8 py-5 text-center">
                         <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                           f.status === 'Paid' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'
+                           f.status === 'Paid' ? 'bg-green-50 text-green-600' : f.status === 'Partial' ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'
                         }`}>
                            {f.status}
                         </span>
@@ -352,7 +775,9 @@ function FeesTab({ student }) {
                     <span className="material-symbols-outlined text-[18px]">sticky_note_2</span>
                  </div>
                  <p className="text-xs font-medium text-slate-500 leading-relaxed">
-                   Next installment of ₹12,000 scheduled for July 15, 2024. Automated reminder has been sent to the guardian.
+                   {totalDue > 0
+                     ? `Outstanding balance of ${fmt(totalDue)} pending. Please complete the remaining payment to avoid late charges.`
+                     : 'All fees are paid. No outstanding balance.'}
                  </p>
               </div>
            </div>
@@ -382,7 +807,11 @@ function FeesTab({ student }) {
               </div>
            </div>
            
-           <button className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all">
+           <button
+             onClick={handleDownloadInvoice}
+             className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all flex items-center justify-center gap-2"
+           >
+              <span className="material-symbols-outlined text-[16px]">download</span>
               DOWNLOAD INVOICE (PDF)
            </button>
         </div>
@@ -391,37 +820,356 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">Payment Methods</h3>
            <div className="space-y-3">
-              {['HDFC Bank Summary', 'Unified Payments (UPI)', 'Credit/Debit Cards'].map(method => (
-                <div key={method} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#1162d4]/30 transition-all cursor-pointer group">
-                   <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{method}</span>
+              {[
+                { label: 'Net Banking', method: 'Net Banking', icon: 'account_balance' },
+                { label: 'Unified Payments (UPI)', method: 'UPI', icon: 'qr_code_2' },
+                { label: 'Credit/Debit Cards', method: 'Card', icon: 'credit_card' },
+              ].map(pm => (
+                <div
+                  key={pm.label}
+                  onClick={() => handleOpenPayment(pm.method)}
+                  className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#1162d4]/30 hover:bg-blue-50/30 transition-all cursor-pointer group"
+                >
+                   <div className="flex items-center gap-3">
+                     <span className="material-symbols-outlined text-slate-400 group-hover:text-[#1162d4] text-[20px]">{pm.icon}</span>
+                     <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{pm.label}</span>
+                   </div>
                    <span className="material-symbols-outlined text-slate-300 group-hover:text-[#1162d4] text-[18px]">chevron_right</span>
                 </div>
               ))}
            </div>
         </div>
       </div>
+
+      {/* New Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+            <div className="px-8 py-6 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-3">
+                <div className="p-2 bg-[#1162d4]/10 rounded-lg">
+                  <span className="material-symbols-outlined text-[#1162d4]">payments</span>
+                </div>
+                Record New Payment
+              </h2>
+              <button onClick={() => setShowPaymentModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-8 space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fee Type *</label>
+                <select
+                  value={paymentForm.type}
+                  onChange={(e) => setPaymentForm(p => ({ ...p, type: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700 bg-white"
+                >
+                  {['Tuition Fee', 'Hostel Fee', 'Exam Fee', 'Lab Fee', 'Library Fee', 'Transport Fee', 'Misc Fee'].map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Amount (₹) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm(p => ({ ...p, amount: e.target.value }))}
+                  placeholder="Enter amount"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Method</label>
+                  <select
+                    value={paymentForm.method}
+                    onChange={(e) => setPaymentForm(p => ({ ...p, method: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700 bg-white"
+                  >
+                    {['Online', 'UPI', 'Net Banking', 'Card', 'Cash', 'Cheque'].map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                  <input
+                    type="date"
+                    value={paymentForm.date}
+                    onChange={(e) => setPaymentForm(p => ({ ...p, date: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none text-slate-700"
+                  />
+                </div>
+              </div>
+
+              {paymentForm.amount && (
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-green-600">info</span>
+                  <p className="text-xs text-green-700">
+                    Recording payment of <strong>{fmt(parseFloat(paymentForm.amount) || 0)}</strong> for <strong>{paymentForm.type}</strong> via <strong>{paymentForm.method}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="px-6 py-2.5 text-xs font-bold text-slate-400 hover:text-slate-600 tracking-wider uppercase"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitPayment}
+                disabled={isSubmitting}
+                className={`px-6 py-2.5 ${isSubmitting ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'} text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2`}
+              >
+                {isSubmitting ? 'Saving...' : 'Confirm Payment'}
+                <span className="material-symbols-outlined text-base">{isSubmitting ? 'sync' : 'check_circle'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function DocumentsTab({ student }) {
-  const docs = student.documents || []
+function DocumentViewerModal({ isOpen, onClose, document }) {
+  if (!isOpen || !document) return null;
+
+  const fileName = document.name || 'Untitled Document';
+  const isPDF = fileName.toLowerCase().endsWith('.pdf') || (document.type && document.type.includes('pdf'));
+  
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-white/20 animate-in zoom-in-95 duration-300">
+        <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-xl ${isPDF ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+              <span className="material-symbols-outlined text-[24px]">
+                {isPDF ? 'picture_as_pdf' : 'image'}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 leading-tight">{fileName}</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                {document.size || 'Size Unknown'} • {isPDF ? 'PDF Document' : 'Image File'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                const link = window.document.createElement('a');
+                link.href = document.data;
+                link.download = document.name;
+                link.click();
+              }}
+              className="p-2.5 text-slate-500 hover:text-[#1162d4] hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+              title="Download"
+            >
+              <span className="material-symbols-outlined text-[20px]">download</span>
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 bg-slate-100/50 flex items-center justify-center overflow-hidden p-6">
+          {isPDF ? (
+            <iframe
+              src={document.data}
+              className="w-full h-full rounded-lg shadow-inner bg-white"
+              title={document.name}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center p-4">
+              <img
+                src={document.data}
+                alt={document.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  if (!bytes) return 'N/A';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const categorizeFile = (fileName) => {
+  const name = fileName.toLowerCase();
+  if (name.includes('marksheet') || name.includes('degree') || name.includes('diploma') || name.includes('tc') || name.includes('transfer') || name.includes('certificate')) {
+    return 'Academic';
+  }
+  if (name.includes('aadhaar') || name.includes('passport') || name.includes('id') || name.includes('voter') || name.includes('pan') || name.includes('license') || name.includes('badge')) {
+    return 'Identity';
+  }
+  if (name.includes('receipt') || name.includes('invoice') || name.includes('payment') || name.includes('challan') || name.includes('fee')) {
+    return 'Fees';
+  }
+  return 'Others';
+};
+
+function DocumentsTab({ student, onRefresh }) {
+  const [viewingDoc, setViewingDoc] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('All');
+
+  const fileInputRef = React.useRef(null);
+
+  const docs = Array.isArray(student.documents) ? student.documents : [];
+
+  // Dynamic Categories Calculation
+  const categories = [
+    { label: 'All', icon: 'grid_view' },
+    { label: 'Academic', icon: 'school' },
+    { label: 'Identity', icon: 'badge' },
+    { label: 'Fees', icon: 'receipt_long' },
+    { label: 'Others', icon: 'folder_open' }
+  ].map(cat => ({
+    ...cat,
+    count: cat.label === 'All' ? docs.length : docs.filter(d => (d.category || 'Others') === cat.label).length,
+    color: cat.label === 'Academic' ? 'bg-blue-50 text-[#1162d4]' : 
+           cat.label === 'Identity' ? 'bg-green-50 text-green-600' :
+           cat.label === 'Fees' ? 'bg-purple-50 text-purple-600' :
+           cat.label === 'All' ? 'bg-slate-100 text-slate-800' : 'bg-slate-50 text-slate-400'
+  }));
+
+  const filteredDocs = activeCategory === 'All' 
+    ? docs 
+    : docs.filter(d => (d.category || 'Others') === activeCategory);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const base64 = await fileToBase64(file);
+      const newDoc = {
+        id: `DOC-${Date.now()}`,
+        name: file.name,
+        data: base64,
+        type: file.type.includes('pdf') ? 'pdf' : 'image',
+        size: formatFileSize(file.size),
+        uploadDate: new Date().toISOString(),
+        category: categorizeFile(file.name)
+      };
+
+      const updatedDocs = [...docs, newDoc];
+      const studentId = student.id || student.rollNumber;
+
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documents: updatedDocs }),
+      });
+
+      if (!res.ok) throw new Error('Failed to upload document');
+      
+      if (onRefresh) onRefresh();
+      alert('Document uploaded successfully');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Error uploading document: ' + err.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDownload = (doc) => {
+    const link = window.document.createElement('a');
+    link.href = doc.data;
+    link.download = doc.name;
+    link.click();
+  };
+
+  const handleDelete = async (docId) => {
+    const docToDelete = docs.find(d => d.id === docId);
+    if (!window.confirm(`Are you sure you want to delete "${docToDelete?.name || 'this document'}"? \nThis action cannot be undone.`)) return;
+
+    try {
+      setIsDeleting(docId);
+      const newDocs = docs.filter(d => d.id !== docId);
+      const studentId = student.id || student.rollNumber;
+      
+      const res = await fetch(`/api/students/${encodeURIComponent(studentId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documents: newDocs }),
+      });
+
+      if (!res.ok) throw new Error('Failed to delete document');
+      
+      if (onRefresh) onRefresh();
+      alert('Document deleted successfully');
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting document: ' + err.message);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleView = (doc) => {
+    setViewingDoc(doc);
+    setIsViewModalOpen(true);
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Left Column - Category Cards and Helper */}
+      {/* Left Column - Category Cards and helper */}
       <div className="lg:col-span-4 space-y-8">
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">File Categories</h3>
            <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Academic', count: 12, color: 'bg-blue-50 text-[#1162d4]', icon: 'school' },
-                { label: 'Identity', count: 4, color: 'bg-green-50 text-green-600', icon: 'badge' },
-                { label: 'Fees', count: 8, color: 'bg-purple-50 text-purple-600', icon: 'receipt_long' },
-                { label: 'Others', count: 2, color: 'bg-slate-50 text-slate-400', icon: 'folder_open' }
-              ].map(cat => (
-                <div key={cat.label} className="p-4 rounded-xl border border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[#1162d4]/20 transition-all cursor-pointer group">
-                   <div className={`w-10 h-10 ${cat.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              {categories.map(cat => (
+                <div 
+                  key={cat.label} 
+                  onClick={() => setActiveCategory(cat.label)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                    activeCategory === cat.label 
+                      ? 'bg-white border-[#1162d4] shadow-md scale-[1.02]' 
+                      : 'border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[#1162d4]/20'
+                  }`}
+                >
+                   <div className={`w-10 h-10 ${cat.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
                       <span className="material-symbols-outlined text-[20px]">{cat.icon}</span>
                    </div>
                    <p className="text-xs font-semibold text-slate-900 mb-0.5">{cat.label}</p>
@@ -431,13 +1179,27 @@ function DocumentsTab({ student }) {
            </div>
         </div>
 
-        {/* Upload Dropzone Preview */}
-        <div className="bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all">
+        {/* Upload Box */}
+        <div 
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+          className={`bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all ${isUploading ? 'opacity-50 cursor-wait' : ''}`}
+        >
+           <input 
+             type="file" 
+             ref={fileInputRef} 
+             className="hidden" 
+             onChange={handleFileChange}
+             accept=".pdf,image/*" 
+           />
            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-[#1162d4] shadow-xl shadow-[#1162d4]/10 mb-6 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
+              <span className={`material-symbols-outlined text-[32px] ${isUploading ? 'animate-bounce' : ''}`}>
+                {isUploading ? 'sync' : 'cloud_upload'}
+              </span>
            </div>
-           <h4 className="text-sm font-semibold text-[#1162d4] uppercase tracking-wider mb-2">Upload New Media</h4>
-           <p className="text-[10px] font-medium text-[#1162d4]/60 uppercase tracking-tight">Drag & drop or browse files</p>
+           <h4 className="text-sm font-semibold text-[#1162d4] uppercase tracking-wider mb-2">
+             {isUploading ? 'Uploading...' : 'Upload New Media'}
+           </h4>
+           <p className="text-[10px] font-medium text-[#1162d4]/60 uppercase tracking-tight">PDF or Image (Max 5MB)</p>
         </div>
       </div>
 
@@ -462,7 +1224,19 @@ function DocumentsTab({ student }) {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                 {docs.map(doc => (
+                 {filteredDocs.length === 0 ? (
+                   <tr>
+                     <td colSpan="4" className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4 border border-slate-100">
+                              <span className="material-symbols-outlined text-[32px]">folder_off</span>
+                           </div>
+                           <h4 className="text-slate-900 font-bold mb-1">No {activeCategory === 'All' ? '' : activeCategory} Documents Found</h4>
+                           <p className="text-xs text-slate-400 font-medium max-w-[200px] mx-auto">Try selecting another category or upload a new document.</p>
+                        </div>
+                     </td>
+                   </tr>
+                 ) : filteredDocs.map(doc => (
                    <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
                      <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
@@ -470,8 +1244,8 @@ function DocumentsTab({ student }) {
                               <span className="material-symbols-outlined text-[20px]">{doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}</span>
                            </div>
                            <div>
-                              <p className="text-sm font-semibold text-slate-800">{doc.name}</p>
-                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{doc.size}</p>
+                              <p className="text-sm font-semibold text-slate-800">{doc.name || 'Unnamed Document'}</p>
+                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{doc.size || 'Size Unknown'}</p>
                            </div>
                         </div>
                      </td>
@@ -482,16 +1256,34 @@ function DocumentsTab({ student }) {
                         </div>
                      </td>
                      <td className="px-4 py-5 text-sm font-medium text-slate-500">
-                        {new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                      </td>
                      <td className="px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                           <button className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all">
-                              <span className="material-symbols-outlined text-[18px]">download</span>
-                           </button>
-                           <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                           </button>
+                          <button 
+                            onClick={() => handleView(doc)}
+                            className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all"
+                            title="View / Preview"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDownload(doc)}
+                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                            title="Download"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">download</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(doc.id)}
+                            disabled={isDeleting === doc.id}
+                            className={`p-2 ${isDeleting === doc.id ? 'text-slate-200' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-lg transition-all`}
+                            title="Delete"
+                          >
+                            <span className={`material-symbols-outlined text-[18px] ${isDeleting === doc.id ? 'animate-spin' : ''}`}>
+                              {isDeleting === doc.id ? 'sync' : 'delete'}
+                            </span>
+                          </button>
                         </div>
                      </td>
                    </tr>
@@ -500,6 +1292,12 @@ function DocumentsTab({ student }) {
              </table>
           </div>
         </div>
+
+        <DocumentViewerModal 
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          document={viewingDoc}
+        />
       </div>
     </div>
   )
@@ -521,12 +1319,182 @@ export default function StudentDetailPage() {
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [showQuickActionMenu, setShowQuickActionMenu] = useState(false)
+  const [isEditOverviewModalOpen, setIsEditOverviewModalOpen] = useState(false); // New state for edit modal
+
+  const refreshData = () => setRefreshKey(prev => prev + 1)
+
+  const generateStudentPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add Header
+    doc.setFillColor(17, 98, 212); // #1162d4
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text("MIT CONNECT", 20, 20);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Student Official Profile Report", 20, 30);
+    
+    // Student Core Info
+    doc.setTextColor(51, 65, 85); // Slate-700
+    doc.setFontSize(18);
+    doc.text(student.name, 20, 55);
+    doc.setFontSize(12);
+    doc.text(`Student ID: ${student.id}`, 20, 62);
+    doc.text(`Department: ${student.department}`, 20, 69);
+    doc.text(`Current Semester: ${student.semester}`, 20, 76);
+
+    // Personal Details Table
+    autoTable(doc, {
+      startY: 85,
+      head: [['Personal Information', 'Details']],
+      body: [
+        ['Full Name', student.name],
+        ['Date of Birth', student.dob || 'N/A'],
+        ['Gender', student.gender || 'N/A'],
+        ['Email', student.email],
+        ['Phone', student.phone],
+        ['Address', student.address || 'N/A'],
+      ],
+      headStyles: { fillColor: [17, 98, 212] },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Academic Details Table
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [['Academic Information', 'Details']],
+      body: [
+        ['Year of Study', student.year],
+        ['Section', student.section || 'A'],
+        ['Enrollment Date', student.enrollDate ? new Date(student.enrollDate).toLocaleDateString() : 'N/A'],
+        ['Admission Type', student.admissionType || 'Regular'],
+        ['Attendance', `${student.attendancePct}%`],
+      ],
+      headStyles: { fillColor: [17, 98, 212] },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Guardian Details Table
+    autoTable(doc, {
+      startY: doc.lastAutoTable.finalY + 10,
+      head: [['Guardian Information', 'Details']],
+      body: [
+        ['Guardian Name', student.guardian || student.guardianName || 'N/A'],
+        ['Relationship', student.relationship || 'Father'],
+        ['Contact', student.guardianPhone || 'N/A'],
+      ],
+      headStyles: { fillColor: [17, 98, 212] },
+      margin: { left: 20, right: 20 }
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text(`Generated on ${new Date().toLocaleString()} | Page ${i} of ${pageCount}`, 20, 285);
+    }
+
+    doc.save(`${student.name}_Profile_Report.pdf`);
+  }
+
+  const handleReport = () => {
+    try {
+      generateStudentPDF();
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Failed to generate PDF. Please try again.");
+    }
+  }
+
+  const handleMarkAttendance = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const payload = {
+        classId: "GEN-101", // Default generic class
+        date: today,
+        hour: "1",
+        entries: [{
+          studentId: id,
+          status: "Present"
+        }]
+      };
+
+      const res = await fetch('/api/academics/attendance/markings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('API Error');
+      
+      alert(`Attendance marked as 'Present' for ${student.name} (${today})`);
+      refreshData();
+    } catch (err) {
+      console.error("Attendance Error:", err);
+      alert("Failed to mark attendance. Please try again.");
+    }
+  }
+
+  const generateIDCardPDF = () => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [85, 55] // Standard ID card size
+    });
+
+    // Background & Border
+    doc.setFillColor(17, 98, 212); // #1162d4
+    doc.rect(0, 0, 85, 12, 'F');
+    doc.setDrawColor(17, 98, 212);
+    doc.rect(0, 0, 85, 55, 'S');
+
+    // Header Text
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text("MIT CONNECT - STUDENT ID", 42.5, 7.5, { align: 'center' });
+
+    // Student Info (Left Column)
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(9);
+    doc.text(`Name: ${student.name}`, 35, 25);
+    doc.setFontSize(7);
+    doc.text(`ID: ${student.id}`, 35, 30);
+    doc.text(`Dept: ${student.department}`, 35, 34);
+    doc.text(`Batch: 2023-27`, 35, 38);
+
+    // Placeholder for Photo (Since we can't easily embed base64/blob without more complex handling)
+    doc.setFillColor(241, 245, 249);
+    doc.rect(5, 18, 25, 30, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(5, 18, 25, 30, 'S');
+    doc.setFontSize(5);
+    doc.text("PHOTO", 17.5, 33, { align: 'center' });
+
+    // Footer
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 48, 85, 7, 'F');
+    doc.setFontSize(6);
+    doc.setTextColor(148, 163, 184);
+    doc.text("OFFICIAL UNIVERSITY IDENTITY CARD", 42.5, 52.5, { align: 'center' });
+
+    doc.save(`${student.name}_ID_Card.pdf`);
+  }
+  
+  const handleQuickAction = () => setShowQuickActionMenu(!showQuickActionMenu)
 
   useEffect(() => {
     const fetchStudent = async () => {
       try {
         setLoading(true)
-        const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(id)}`)
+        const res = await fetch(`/api/students/${encodeURIComponent(id)}`)
         if (!res.ok) {
           if (res.status === 404) throw new Error('Student not found')
           throw new Error('Failed to fetch student details')
@@ -543,7 +1511,7 @@ export default function StudentDetailPage() {
     }
 
     if (id) fetchStudent()
-  }, [id])
+  }, [id, refreshKey])
 
   if (loading) {
     return (
@@ -605,10 +1573,12 @@ export default function StudentDetailPage() {
       </div>
 
       {/* Premium Profile Card */}
-      <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative overflow-hidden group">
-        {/* Abstract background element */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-1000" />
-        <div className="absolute top-1/2 -right-12 w-32 h-32 bg-blue-50/30 rounded-full blur-3xl" />
+      <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative group">
+        {/* Abstract background elements wrapper to handle clipping separately */}
+        <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-1000" />
+          <div className="absolute top-1/2 -right-12 w-32 h-32 bg-blue-50/30 rounded-full blur-3xl" />
+        </div>
         
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
@@ -658,17 +1628,53 @@ export default function StudentDetailPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all active:scale-95 shadow-sm">
-              <span className="material-symbols-outlined text-[20px]">bolt</span>
-              <span>Quick Action</span>
-            </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm">
+          <div className="flex flex-wrap items-center justify-center gap-3 relative">
+            {activeTab === 'overview' && (
+              <button 
+                onClick={() => setIsEditOverviewModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[20px] text-[#1162d4]">edit</span>
+                <span>Edit Overview</span>
+              </button>
+            )}
+
+            <div className="relative">
+              <button 
+                onClick={handleQuickAction}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all active:scale-95 shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[20px]">bolt</span>
+                <span>Quick Action</span>
+              </button>
+              
+              {showQuickActionMenu && (
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-[110] py-2 animate-in fade-in zoom-in-95 duration-200">
+                  {[
+                    { label: 'Mark Attendance', icon: 'how_to_reg', action: handleMarkAttendance },
+                    { label: 'Generate ID Card', icon: 'badge', action: generateIDCardPDF },
+                    { label: 'Send Email', icon: 'mail', action: () => window.location.href = `mailto:${student.email}` },
+                    { label: 'Print Transcript', icon: 'print', action: () => window.print() },
+                  ].map(item => (
+                    <button
+                      key={item.label}
+                      onClick={() => { item.action(); setShowQuickActionMenu(false); }}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-[#1162d4] transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={handleReport}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm"
+            >
               <span className="material-symbols-outlined text-[20px]">description</span>
               <span>Report</span>
-            </button>
-            <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-[#1162d4] hover:border-[#1162d4] transition-all shadow-sm group/edit">
-              <span className="material-symbols-outlined text-[20px] group-hover/edit:rotate-12 transition-transform">edit</span>
             </button>
           </div>
         </div>
@@ -696,11 +1702,21 @@ export default function StudentDetailPage() {
 
       {/* Tab Content */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {activeTab === 'overview' && <OverviewTab student={student} />}
-        {activeTab === 'academics' && <AcademicsTab student={student} />}
-        {activeTab === 'fees' && <FeesTab student={student} />}
-        {activeTab === 'documents' && <DocumentsTab student={student} />}
+        {activeTab === 'overview' && <OverviewTab student={student} onEdit={() => setIsEditOverviewModalOpen(true)} />}
+        {activeTab === 'academics' && <AcademicsTab student={student} onRefresh={refreshData} />}
+        {activeTab === 'fees' && <FeesTab student={student} onStudentUpdate={refreshData} />}
+        {activeTab === 'documents' && <DocumentsTab student={student} onRefresh={refreshData} />}
       </div>
+
+      <EditOverviewModal 
+        isOpen={isEditOverviewModalOpen} 
+        onClose={() => setIsEditOverviewModalOpen(false)}
+        student={student}
+        onSave={() => {
+          setIsEditOverviewModalOpen(false);
+          refreshData();
+        }}
+      />
     </Layout>
   )
 }

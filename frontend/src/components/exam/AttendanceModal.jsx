@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getRegistrationsByExam, 
-  getAttendanceByExam, 
-  markAttendance 
-} from '../../data/examData';
+  listRegistrations,
+  listExamAttendance,
+  upsertExamAttendance,
+} from '../../api/examsApi';
 import { getUserSession } from '../../auth/sessionController';
 
 export default function AttendanceModal({ exam, onClose, onSave }) {
@@ -12,17 +12,35 @@ export default function AttendanceModal({ exam, onClose, onSave }) {
   const session = getUserSession();
 
   useEffect(() => {
-    const regs = getRegistrationsByExam(exam.id);
-    setRegistrations(regs);
+    let cancelled = false;
 
-    // Load existing attendance
-    const existingAttendance = getAttendanceByExam(exam.id);
-    const attObj = {};
-    existingAttendance.forEach(a => {
-      attObj[a.studentId] = a.status;
-    });
-    setAttendanceData(attObj);
-  }, [exam.id]);
+    async function loadData() {
+      try {
+        const examId = exam._id || exam.id;
+        const [regs, existingAttendance] = await Promise.all([
+          listRegistrations({ examId }),
+          listExamAttendance({ examId }),
+        ]);
+
+        if (cancelled) return;
+        setRegistrations(regs);
+
+        const attObj = {};
+        existingAttendance.forEach((a) => {
+          attObj[a.studentId] = a.status;
+        });
+        setAttendanceData(attObj);
+      } catch (err) {
+        console.error('Failed to load exam attendance data:', err);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [exam._id, exam.id]);
 
   const handleAttendanceChange = (studentId, status) => {
     setAttendanceData(prev => ({
@@ -39,16 +57,25 @@ export default function AttendanceModal({ exam, onClose, onSave }) {
     setAttendanceData(updated);
   };
 
-  const handleSave = () => {
-    let count = 0;
-    Object.entries(attendanceData).forEach(([studentId, status]) => {
-      if (status) {
-        markAttendance(exam.id, studentId, status, session.username);
-        count++;
-      }
-    });
-    alert(`Attendance saved for ${count} students`);
-    onSave();
+  const handleSave = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const rows = Object.entries(attendanceData).filter(([, status]) => Boolean(status));
+      await Promise.all(
+        rows.map(([studentId, status]) =>
+          upsertExamAttendance({
+            examId,
+            studentId,
+            status,
+            markedBy: session?.userId || session?.username || '',
+          })
+        )
+      );
+      alert(`Attendance saved for ${rows.length} students`);
+      onSave();
+    } catch (err) {
+      alert(err?.message || 'Failed to save attendance');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -75,7 +102,7 @@ export default function AttendanceModal({ exam, onClose, onSave }) {
             <span className="material-symbols-outlined mr-2">fact_check</span>
             Mark Attendance - {exam.name}
           </h2>
-          <p className="text-sm mt-1 opacity-90">{exam.date} | {exam.startTime}</p>
+          <p className="text-sm mt-1 opacity-90">{exam.date} | {exam.time || exam.startTime || '-'}</p>
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">

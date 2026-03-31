@@ -11,6 +11,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [studentFees, setStudentFees] = useState([]);
+  const [feesLoading, setFeesLoading] = useState(false);
 
   const session = getUserSession();
   const sessionRole = session?.role || null;
@@ -31,6 +33,30 @@ export default function DashboardPage() {
     }
 
     navigate(`/students${roleQuery}`);
+  }
+
+  function handlePrimaryAction() {
+    if (role === 'faculty') {
+      navigate(`/attendance${roleQuery}`);
+    } else if (role === 'admin') {
+      navigate(`/admissions${roleQuery}`);
+    } else if (role === 'finance') {
+      navigate(`/invoices${roleQuery}`);
+    } else if (role === 'student') {
+      navigate(`/timetable${roleQuery}`);
+    }
+  }
+
+  function handleSecondaryAction() {
+    if (role === 'faculty') {
+      navigate(`/exams${roleQuery}`);
+    } else if (role === 'admin') {
+      navigate(`/administration${roleQuery}`);
+    } else if (role === 'finance') {
+      navigate(`/payroll${roleQuery}`);
+    } else if (role === 'student') {
+      navigate(`/attendance${roleQuery}`);
+    }
   }
 
   useEffect(() => {
@@ -55,6 +81,23 @@ export default function DashboardPage() {
     window.addEventListener('pageshow', enforceSessionOnPageRestore);
     return () => window.removeEventListener('pageshow', enforceSessionOnPageRestore);
   }, [data.label, location.search, navigate, sessionRole, sessionUserId]);
+
+  // Fetch student fees if user is a student
+  useEffect(() => {
+    if (role === 'student' && sessionUserId) {
+      setFeesLoading(true);
+      fetch(`/api/fees/students/${sessionUserId}/records`)
+        .then(res => res.json())
+        .then(data => {
+          setStudentFees(data.data || []);
+        })
+        .catch(err => {
+          console.error('Error fetching fees:', err);
+          setStudentFees([]);
+        })
+        .finally(() => setFeesLoading(false));
+    }
+  }, [role, sessionUserId]);
 
   return (
     <Layout title="Dashboard">
@@ -108,10 +151,16 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
+                    <button 
+                      onClick={handlePrimaryAction}
+                      className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+                    >
                       {data.primaryAction}
                     </button>
-                    <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium">
+                    <button 
+                      onClick={handleSecondaryAction}
+                      className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                    >
                       {data.secondaryAction}
                     </button>
                   </div>
@@ -140,6 +189,70 @@ export default function DashboardPage() {
                   })}
                 </div>
               </div>
+
+              {/* Student Fees Widget - Only for Students */}
+              {role === 'student' && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-gray-900">Your Assigned Fees</h3>
+                    <button
+                      onClick={() => navigate(`/fees${roleQuery}`)}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    >
+                      View All →
+                    </button>
+                  </div>
+                  {feesLoading ? (
+                    <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+                      <p className="font-medium">Loading fees...</p>
+                    </div>
+                  ) : studentFees.length === 0 ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+                      <span className="material-symbols-outlined text-3xl text-blue-400 block mb-2">
+                        receipt_long
+                      </span>
+                      <p className="font-medium text-gray-700">No fees assigned yet</p>
+                      <p className="text-sm text-gray-600">Fees will appear here once the admin assigns them</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {studentFees.slice(0, 3).map((fee) => (
+                        <div
+                          key={fee.id}
+                          className={`rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition ${
+                            fee.status === 'Paid'
+                              ? 'bg-green-50 border-l-4 border-green-500'
+                              : fee.status === 'Overdue'
+                              ? 'bg-red-50 border-l-4 border-red-500'
+                              : 'bg-yellow-50 border-l-4 border-yellow-500'
+                          }`}
+                          onClick={() => navigate(`/fees${roleQuery}`)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-700">{fee.course}</p>
+                              <p className="text-xs text-gray-600 mt-1">{fee.academicYear}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                              fee.status === 'Paid'
+                                ? 'bg-green-200 text-green-800'
+                                : fee.status === 'Overdue'
+                                ? 'bg-red-200 text-red-800'
+                                : 'bg-yellow-200 text-yellow-800'
+                            }`}>
+                              {fee.status}
+                            </span>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-2xl font-bold text-orange-600">₹{fee.totalAmount.toLocaleString()}</p>
+                            <p className="text-xs text-gray-600">Due: {fee.dueDate}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="content-card">
                 <div className="section-header" style={{ marginBottom: 14 }}>

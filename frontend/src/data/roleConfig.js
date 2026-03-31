@@ -130,7 +130,7 @@ export const roleMenuGroups = {
     },
     {
       title: 'Administration',
-      items: ['Admission', 'Fees', 'Payroll', 'Invoices'],
+      items: ['Admin Dashboard', 'Admission', 'Fees', 'Payroll', 'Invoices'],
     },
     {
       title: 'Intelligence',
@@ -148,7 +148,7 @@ export const roleMenuGroups = {
     },
     {
       title: 'Academics',
-      items: ['Exams', 'Timetable', 'Attendance', 'Placement'],
+      items: ['Exams', 'Timetable', 'Attendance', 'Placement', 'Facility'],
     },
     {
       title: 'Intelligence',

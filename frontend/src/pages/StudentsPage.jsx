@@ -4,6 +4,7 @@ import StatCard from '../components/StatCard'
 import SearchFilter from '../components/SearchFilter'
 import StudentTable from '../components/StudentTable'
 import AddStudentModal from '../components/AddStudentModal'
+import EditOverviewModal from '../components/EditOverviewModal'
 
 export default function StudentsPage() {
   const [studentsList, setStudentsList] = useState([])
@@ -12,33 +13,79 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
   const itemsPerPage = 8
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (background = false) => {
     try {
-      setLoading(true)
-      const res = await fetch('http://localhost:5000/api/students')
+      if (!background) {
+        setLoading(true)
+      }
+      const res = await fetch('/api/students?limit=120')
       if (!res.ok) throw new Error('Failed to fetch students')
       const data = await res.json()
       setStudentsList(data)
+      localStorage.setItem('students_list_cache', JSON.stringify(data))
       setError(null)
     } catch (err) {
       console.error('Error fetching students:', err)
-      setError('Could not connect to backend. Please ensure the server is running.')
+      setError('Could not connect to backend. Reconnecting automatically…')
+      if (!background) {
+        setStudentsList([])
+      }
     } finally {
-      setLoading(false)
+      if (!background) {
+        setLoading(false)
+      }
     }
   }
 
+  // Auto-retry: poll /api/health when in error state, re-fetch on recovery
   useEffect(() => {
-    fetchStudents()
+    if (!error) return
+    let cancelled = false
+    const poll = async () => {
+      while (!cancelled) {
+        await new Promise(r => setTimeout(r, 5000))
+        if (cancelled) break
+        try {
+          const res = await fetch('/api/health')
+          if (res.ok) {
+            const data = await res.json()
+            if (data.status === 'ok') {
+              fetchStudents()
+              break
+            }
+          }
+        } catch { /* still down, keep polling */ }
+      }
+    }
+    poll()
+    return () => { cancelled = true }
+  }, [error])
+
+  useEffect(() => {
+    const cached = localStorage.getItem('students_list_cache')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed)) {
+          setStudentsList(parsed)
+          setLoading(false)
+        }
+      } catch {
+        // ignore invalid local cache and fetch fresh data
+      }
+    }
+
+    fetchStudents(Boolean(cached))
   }, [])
 
   const handleDelete = async (student) => {
     if (window.confirm(`Are you sure you want to delete ${student.name} (Roll: ${student.rollNumber})? This action cannot be undone.`)) {
       try {
-        const res = await fetch(`http://localhost:5000/api/students/${encodeURIComponent(student.rollNumber)}`, {
+        const res = await fetch(`/api/students/${encodeURIComponent(student.rollNumber)}`, {
           method: 'DELETE'
         })
         if (!res.ok) throw new Error('Failed to delete student')
@@ -53,7 +100,7 @@ export default function StudentsPage() {
 
   const handleEdit = (student) => {
     setEditingStudent(student)
-    setIsModalOpen(true)
+    setIsEditModalOpen(true)
   }
 
   const handleModalClose = () => {
@@ -98,10 +145,16 @@ export default function StudentsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Students</h1>
           <p className="text-slate-500 mt-1">Manage and monitor comprehensive student enrollment records.</p>
         </div>
-        <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 hidden xl:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Last Updated</p>
-          <p className="text-xs font-semibold text-slate-600">March 12, 2026 • 10:25 AM</p>
-        </div>
+        <button
+          onClick={() => {
+            setEditingStudent(null);
+            setIsModalOpen(true);
+          }}
+          className="flex items-center gap-2 px-6 py-3 bg-[#1162d4] text-white rounded-xl text-sm font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+        >
+          <span className="material-symbols-outlined">person_add</span>
+          Enroll Student
+        </button>
       </div>
 
       {/* Summary Cards */}
@@ -116,7 +169,6 @@ export default function StudentsPage() {
         <SearchFilter
           searchQuery={searchQuery}
           onSearchChange={handleSearch}
-          onAddClick={() => { setEditingStudent(null); setIsModalOpen(true); }}
         />
       </div>
 
@@ -126,12 +178,21 @@ export default function StudentsPage() {
           <span className="material-symbols-outlined text-red-400 text-5xl mb-4">cloud_off</span>
           <h3 className="text-lg font-bold text-red-900">Connection Error</h3>
           <p className="text-red-700 mt-1 max-w-sm mx-auto">{error}</p>
-          <button 
-            onClick={fetchStudents}
-            className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-sm"
-          >
-            Retry Connection
-          </button>
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              Auto-retrying…
+            </div>
+            <button 
+              onClick={fetchStudents}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-sm"
+            >
+              Retry Now
+            </button>
+          </div>
         </div>
       ) : loading ? (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -152,9 +213,19 @@ export default function StudentsPage() {
       {/* Add / Edit Student Modal */}
       <AddStudentModal 
         isOpen={isModalOpen} 
-        onClose={handleModalClose} 
+        onClose={() => setIsModalOpen(false)} 
         onSuccess={handleSuccess}
-        editStudent={editingStudent}
+        editStudent={null}
+      />
+
+      <EditOverviewModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingStudent(null);
+        }}
+        onSave={handleSuccess}
+        student={editingStudent}
       />
 
       {/* High-Fidelity Pagination */}

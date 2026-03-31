@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
-import { getStudentById } from '../data/studentData'
+import { buildApiUrl } from '../api/apiBase'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -38,20 +38,10 @@ const LEGEND = [
 ]
 
 const EMPTY_ENTRY = { code: '', name: '', room: '', instructor: '', credits: 1, type: 'Lecture', theme: 'blue' }
-const DEMO_STUDENT_CLASS_BY_ID = {
-  'STU-2024-1547': { department: 'Computer Science', semester: 4, section: 'A' },
-}
-
-// kept for backward compat with initialData builder below
-const C = {
-  blue:    { color: 'border-blue-500 bg-blue-50',    textColor: 'text-blue-700' },
-  emerald: { color: 'border-emerald-500 bg-emerald-50', textColor: 'text-emerald-700' },
-  orange:  { color: 'border-orange-500 bg-orange-50', textColor: 'text-orange-700' },
-  purple:  { color: 'border-purple-500 bg-purple-50', textColor: 'text-purple-700' },
-  indigo:  { color: 'border-indigo-500 bg-indigo-50', textColor: 'text-indigo-700' },
-  amber:   { color: 'border-amber-500 bg-amber-50',  textColor: 'text-amber-700' },
-  rose:    { color: 'border-rose-500 bg-rose-50',    textColor: 'text-rose-700' },
-}
+const DEFAULT_BREAK_ITEMS = [
+  { id: 'break-1', label: 'Break 11:00–11:15', afterPeriod: 3, tone: 'slate' },
+  { id: 'break-2', label: 'Lunch 13:15–14:00', afterPeriod: 5, tone: 'amber' },
+]
 
 function withTheme(entry) {
   if (!entry || !entry.code) {
@@ -65,8 +55,8 @@ function withTheme(entry) {
   }
 }
 
-function normalizeSlots(slots = []) {
-  return Array.from({ length: 7 }, (_, slotIndex) => (
+function normalizeSlots(slots = [], periodCount = TIME_SLOTS.length) {
+  return Array.from({ length: periodCount }, (_, slotIndex) => (
     Array.from({ length: 5 }, (_, dayIndex) => {
       const entry = slots?.[slotIndex]?.[dayIndex] ?? null
       return entry ? withTheme(entry) : null
@@ -74,51 +64,39 @@ function normalizeSlots(slots = []) {
   ))
 }
 
+function normalizePeriodSlots(periodSlots = []) {
+  if (!Array.isArray(periodSlots) || periodSlots.length === 0) {
+    return [...TIME_SLOTS]
+  }
+  return periodSlots.map((slot, idx) => String(slot || TIME_SLOTS[idx] || `Period ${idx + 1}`))
+}
+
+function normalizeBreakItems(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return DEFAULT_BREAK_ITEMS.map((item) => ({ ...item }))
+  }
+
+  return items
+    .map((item, index) => ({
+      id: String(item?.id || `break-${index + 1}`),
+      label: String(item?.label || `Break ${index + 1}`),
+      afterPeriod: Number(item?.afterPeriod || 1),
+      tone: ['slate', 'amber', 'emerald', 'sky'].includes(item?.tone) ? item.tone : 'slate',
+    }))
+    .filter((item) => Number.isFinite(item.afterPeriod) && item.afterPeriod >= 1 && item.afterPeriod < TIME_SLOTS.length)
+}
+
 function normalizeTimetableRecord(record) {
+  const normalizedPeriodSlots = normalizePeriodSlots(record.periodSlots)
   return {
     label: record.label,
     dept: record.dept,
     semester: record.semester,
     section: record.section,
-    slots: normalizeSlots(record.slots),
+    slots: normalizeSlots(record.slots, normalizedPeriodSlots.length),
+    periodSlots: normalizedPeriodSlots,
+    breakItems: normalizeBreakItems(record.breakItems),
   }
-}
-
-function mk(code, name, room, instructor, credits, type, theme) {
-  return { code, name, room, instructor, credits, type, theme, ...C[theme] }
-}
-
-// ── Initial timetables keyed by classId ──────────────────────────────────────
-const INITIAL_TIMETABLES = {
-  'CS-S4A': {
-    label: 'CS — Sem 4 (Sec A)',
-    dept: 'Computer Science',
-    semester: 'Semester 4',
-    section: 'Section A',
-    slots: [
-      [ mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null, mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo') ],
-      [ mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null ],
-      [ mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS403','Database Systems','Room 302','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald') ],
-      [ mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), { label:'Seminar Hour', code:'', name:'', room:'', instructor:'', credits:0, type:'', theme:'', color:'', textColor:'' }, mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue') ],
-      [ mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS401','Data Structures','Room 302','Dr. Patricia Moore',3,'Lecture','blue'), null, mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange') ],
-      [ mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS406','Operating Systems','Room 304','Dr. Fatima Noor',3,'Lecture','indigo'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber') ],
-      [ null, mk('CS401L','DS Lab','Comp Lab 4','Dr. Patricia Moore',1,'Lab','amber'), mk('HU102','Tech Writing','Room 101','Ms. Sandra Lee',2,'Lecture','purple'), mk('MA405','Discrete Math','Hall A','Prof. James Carter',3,'Lecture','emerald'), mk('CS403','Database Systems','Lab 2','Mr. Robert Hughes',4,'Lecture','orange') ],
-    ],
-  },
-  'CS-S4B': {
-    label: 'CS — Sem 4 (Sec B)',
-    dept: 'Computer Science',
-    semester: 'Semester 4',
-    section: 'Section B',
-    slots: Array(7).fill(null).map(() => Array(5).fill(null)),
-  },
-  'EC-S3A': {
-    label: 'EC — Sem 3 (Sec A)',
-    dept: 'Electronics',
-    semester: 'Semester 3',
-    section: 'Section A',
-    slots: Array(7).fill(null).map(() => Array(5).fill(null)),
-  },
 }
 
 // ── ClassCell ────────────────────────────────────────────────────────────────
@@ -357,13 +335,18 @@ export default function TimetablePage({ noLayout = false }) {
   const role    = session?.role || 'student'
   const canEdit = role === 'admin' || role === 'faculty'
 
-  const [timetables,   setTimetables]   = useState(INITIAL_TIMETABLES)
-  const [activeClass,  setActiveClass]  = useState('CS-S4A')
+  const [timetables,   setTimetables]   = useState({})
+  const [activeClass,  setActiveClass]  = useState('')
   const [editMode,     setEditMode]     = useState(false)
   const [editTarget,   setEditTarget]   = useState(null)   // { slotIdx, dayIdx }
   const [showNewClass, setShowNewClass] = useState(false)
   const [isSyncing,    setIsSyncing]    = useState(false)
   const [studentProfile, setStudentProfile] = useState(null)
+  const [periodSlots, setPeriodSlots] = useState(TIME_SLOTS)
+  const [breakItems, setBreakItems] = useState(DEFAULT_BREAK_ITEMS)
+  const [draggingBreakId, setDraggingBreakId] = useState('')
+  const [breakEditorNotice, setBreakEditorNotice] = useState('')
+  const [showPeriodEditor, setShowPeriodEditor] = useState(false)
 
   const toNormalizedText = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const toSemesterNumber = (value) => {
@@ -424,7 +407,7 @@ export default function TimetablePage({ noLayout = false }) {
 
     async function loadStudentProfile() {
       try {
-        const response = await fetch(`/api/students/${encodeURIComponent(session.userId)}`)
+        const response = await fetch(buildApiUrl(`/students/${encodeURIComponent(session.userId)}`))
         if (response.ok) {
           const profile = await response.json()
           if (isMounted) {
@@ -436,13 +419,7 @@ export default function TimetablePage({ noLayout = false }) {
         console.error('Failed to fetch student profile for timetable:', error)
       }
 
-      const localProfile = getStudentById(session.userId)
-      if (localProfile) {
-        if (isMounted) setStudentProfile(localProfile)
-        return
-      }
-
-      if (isMounted) setStudentProfile(DEMO_STUDENT_CLASS_BY_ID[session.userId] || null)
+      if (isMounted) setStudentProfile(null)
     }
 
     loadStudentProfile()
@@ -455,11 +432,18 @@ export default function TimetablePage({ noLayout = false }) {
   }, [activeClass, currentClassId])
 
   useEffect(() => {
+    if (!current) return
+    setPeriodSlots(normalizePeriodSlots(current.periodSlots))
+    setBreakItems(normalizeBreakItems(current.breakItems))
+    setBreakEditorNotice('')
+  }, [currentClassId, current])
+
+  useEffect(() => {
     let isMounted = true
 
     async function fetchTimetables() {
       try {
-        const response = await fetch('/api/academics/timetable')
+        const response = await fetch(buildApiUrl('/academics/timetable'))
         const payload = await response.json().catch(() => null)
 
         if (!response.ok || !payload?.success || !Array.isArray(payload.data) || payload.data.length === 0) {
@@ -492,7 +476,7 @@ export default function TimetablePage({ noLayout = false }) {
   async function persistTimetable(classId, timetable) {
     try {
       setIsSyncing(true)
-      await fetch(`/api/academics/timetable/${encodeURIComponent(classId)}`, {
+      await fetch(buildApiUrl(`/academics/timetable/${encodeURIComponent(classId)}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -502,6 +486,8 @@ export default function TimetablePage({ noLayout = false }) {
           semester: timetable.semester,
           section: timetable.section,
           slots: timetable.slots,
+          periodSlots: timetable.periodSlots,
+          breakItems: timetable.breakItems,
         }),
       })
     } catch (error) {
@@ -511,10 +497,25 @@ export default function TimetablePage({ noLayout = false }) {
     }
   }
 
+  function buildSlotsForPeriodCount(slots, periodCount) {
+    const safeCount = Math.max(1, Number(periodCount) || 1)
+    return Array.from({ length: safeCount }, (_, slotIdx) => (
+      Array.from({ length: 5 }, (_, dayIdx) => {
+        const entry = slots?.[slotIdx]?.[dayIdx] ?? null
+        return entry ? withTheme(entry) : null
+      })
+    ))
+  }
+
   function handleEntrySave(entry) {
     const slots = current.slots.map(row => [...row])
     slots[editTarget.slotIdx][editTarget.dayIdx] = withTheme(entry)
-    const updated = { ...current, slots }
+    const updated = {
+      ...current,
+      slots,
+      periodSlots: normalizePeriodSlots(current.periodSlots || periodSlots),
+      breakItems: normalizeBreakItems(current.breakItems || breakItems),
+    }
     setTimetables(prev => ({ ...prev, [activeClass]: updated }))
     void persistTimetable(activeClass, updated)
     setEditTarget(null)
@@ -523,7 +524,12 @@ export default function TimetablePage({ noLayout = false }) {
   function handleClearCell(slotIdx, dayIdx) {
     const slots = current.slots.map(row => [...row])
     slots[slotIdx][dayIdx] = null
-    const updated = { ...current, slots }
+    const updated = {
+      ...current,
+      slots,
+      periodSlots: normalizePeriodSlots(current.periodSlots || periodSlots),
+      breakItems: normalizeBreakItems(current.breakItems || breakItems),
+    }
     setTimetables(prev => ({ ...prev, [activeClass]: updated }))
     void persistTimetable(activeClass, updated)
   }
@@ -536,6 +542,8 @@ export default function TimetablePage({ noLayout = false }) {
         semester,
         section,
         slots: Array.from({ length: 7 }, () => Array(5).fill(null)),
+        periodSlots: [...TIME_SLOTS],
+        breakItems: DEFAULT_BREAK_ITEMS.map((item) => ({ ...item })),
       }
       setTimetables(prev => ({
         ...prev,
@@ -547,7 +555,158 @@ export default function TimetablePage({ noLayout = false }) {
     setShowNewClass(false)
   }
 
-  const tpl = '72px repeat(3, minmax(80px, 1fr)) 54px repeat(2, minmax(80px, 1fr)) 54px repeat(2, minmax(80px, 1fr))'
+  function persistEditorConfig(nextPeriodSlots, nextBreakItems) {
+    if (!current) return
+    const normalizedPeriods = normalizePeriodSlots(nextPeriodSlots)
+    const updated = {
+      ...current,
+      slots: buildSlotsForPeriodCount(current.slots, normalizedPeriods.length),
+      periodSlots: normalizedPeriods,
+      breakItems: normalizeBreakItems(nextBreakItems),
+    }
+    setTimetables((prev) => ({ ...prev, [activeClass]: updated }))
+    void persistTimetable(activeClass, updated)
+  }
+
+  function addPeriod() {
+    if (!current) return
+    const nextPeriodNumber = periodSlots.length + 1
+    const nextPeriodLabel = `Period ${nextPeriodNumber}`
+    const nextPeriods = [...periodSlots, nextPeriodLabel]
+    setPeriodSlots(nextPeriods)
+    persistEditorConfig(nextPeriods, breakItems)
+    setBreakEditorNotice('New period created. Edit the time label as needed.')
+  }
+
+  function removePeriod(periodIndex) {
+    if (!current) return
+    if (periodSlots.length <= 2) {
+      setBreakEditorNotice('At least two periods are required to keep timetable spacing and breaks valid.')
+      return
+    }
+
+    const removedPeriodNumber = periodIndex + 1
+    const nextPeriods = periodSlots.filter((_, idx) => idx !== periodIndex)
+    const maxBoundary = Math.max(1, nextPeriods.length - 1)
+
+    const nextBreaks = breakItems.map((item) => {
+      let nextAfterPeriod = item.afterPeriod
+
+      if (nextAfterPeriod > removedPeriodNumber) {
+        nextAfterPeriod -= 1
+      } else if (nextAfterPeriod === removedPeriodNumber) {
+        nextAfterPeriod = Math.max(1, removedPeriodNumber - 1)
+      }
+
+      nextAfterPeriod = Math.max(1, Math.min(nextAfterPeriod, maxBoundary))
+      return { ...item, afterPeriod: nextAfterPeriod }
+    })
+
+    setPeriodSlots(nextPeriods)
+    setBreakItems(nextBreaks)
+    persistEditorConfig(nextPeriods, nextBreaks)
+    setBreakEditorNotice(`Period ${removedPeriodNumber} removed.`)
+  }
+
+  function moveBreakToBoundary(breakId, targetBoundary) {
+    if (!breakId) return
+    if (targetBoundary < 1 || targetBoundary >= periodSlots.length) return
+
+    setBreakItems((prev) => {
+      const dragged = prev.find((item) => item.id === breakId)
+      if (!dragged || dragged.afterPeriod === targetBoundary) return prev
+
+      const occupied = prev.find((item) => item.afterPeriod === targetBoundary && item.id !== breakId)
+      const next = prev.map((item) => {
+        if (item.id === breakId) return { ...item, afterPeriod: targetBoundary }
+        if (occupied && item.id === occupied.id) return { ...item, afterPeriod: dragged.afterPeriod }
+        return item
+      })
+      persistEditorConfig(periodSlots, next)
+      return next
+    })
+  }
+
+  function getBreakToneClasses(tone) {
+    if (tone === 'amber') return { bgClass: 'bg-amber-50/50', textClass: 'text-amber-700', headerClass: 'bg-amber-50' }
+    if (tone === 'emerald') return { bgClass: 'bg-emerald-50/50', textClass: 'text-emerald-700', headerClass: 'bg-emerald-50' }
+    if (tone === 'sky') return { bgClass: 'bg-sky-50/50', textClass: 'text-sky-700', headerClass: 'bg-sky-50' }
+    return { bgClass: 'bg-slate-100/50', textClass: 'text-slate-600', headerClass: 'bg-slate-100/80' }
+  }
+
+  function updateBreakItem(itemId, patch) {
+    setBreakItems((prev) => {
+      const next = prev.map((item) => (item.id === itemId ? { ...item, ...patch } : item))
+      persistEditorConfig(periodSlots, next)
+      return next
+    })
+  }
+
+  const editableBreakBoundaries = Array.from({ length: periodSlots.length - 1 }, (_, idx) => idx + 1)
+
+  function addBreakItem() {
+    const usedBoundaries = new Set(breakItems.map((item) => item.afterPeriod))
+    const nextBoundary = editableBreakBoundaries.find((boundary) => !usedBoundaries.has(boundary))
+    if (!nextBoundary) {
+      setBreakEditorNotice('All between-period slots already have a break. Move or remove one before adding another.')
+      return
+    }
+
+    const nextLabelNumber = breakItems.length + 1
+    const createdBreak = {
+      id: `break-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      label: `Break ${nextLabelNumber}`,
+      afterPeriod: nextBoundary,
+      tone: 'sky',
+    }
+    const next = [
+      ...breakItems,
+      createdBreak,
+    ]
+    setBreakItems(next)
+    persistEditorConfig(periodSlots, next)
+    setBreakEditorNotice('New break added. Drag it to another boundary if needed.')
+  }
+
+  function removeBreakItem(itemId) {
+    setBreakItems((prev) => {
+      if (prev.length <= 1) {
+        setBreakEditorNotice('At least one break is required.')
+        return prev
+      }
+      const next = prev.filter((item) => item.id !== itemId)
+      persistEditorConfig(periodSlots, next)
+      return next
+    })
+  }
+
+  const breaksByBoundary = breakItems.reduce((accumulator, item) => {
+    const bucket = accumulator[item.afterPeriod] || []
+    bucket.push({ ...item, ...getBreakToneClasses(item.tone) })
+    accumulator[item.afterPeriod] = bucket
+    return accumulator
+  }, {})
+
+  const gridColumns = [
+    { kind: 'day', id: 'day' },
+    ...periodSlots.flatMap((_, periodIdx) => {
+      const boundary = periodIdx + 1
+      const periodColumn = [{ kind: 'period', periodIdx, id: `period-${periodIdx}` }]
+      const boundaryBreaks = breaksByBoundary[boundary] || []
+      boundaryBreaks.forEach((breakItem) => {
+        periodColumn.push({ kind: 'break', boundary, ...breakItem, id: `break-${breakItem.id}` })
+      })
+      return periodColumn
+    }),
+  ]
+
+  const tpl = gridColumns
+    .map((column) => {
+      if (column.kind === 'day') return '72px'
+      if (column.kind === 'break') return '54px'
+      return 'minmax(80px, 1fr)'
+    })
+    .join(' ')
   const headerCell = 'px-2 py-3 text-center text-[10px] font-bold text-slate-500 border-r border-slate-200 leading-tight flex flex-col items-center justify-center gap-0.5 bg-slate-50'
 
   const inner = (
@@ -582,9 +741,22 @@ export default function TimetablePage({ noLayout = false }) {
         <p className="text-slate-500">
           {current ? `${current.dept} — ${current.semester} (${current.section})` : 'No timetable found'}
         </p>
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center flex-wrap">
           {isSyncing && (
             <span className="text-xs font-medium text-slate-500">Syncing changes...</span>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setShowPeriodEditor(prev => !prev)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
+                showPeriodEditor
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-[#1162d4] hover:text-[#1162d4]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">schedule</span>
+              {showPeriodEditor ? 'Hide Periods' : 'Edit Periods'}
+            </button>
           )}
           {canEdit && (
             <button
@@ -602,6 +774,154 @@ export default function TimetablePage({ noLayout = false }) {
         </div>
       </div>
 
+      {showPeriodEditor && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Period Intervals</p>
+              <p className="text-xs text-slate-500 mt-1">Edit period timings, then drag break cards and drop them between periods to reposition or swap.</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={addPeriod}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-[#1162d4] hover:text-[#1162d4]"
+              >
+                <span className="material-symbols-outlined text-base">add</span>
+                Create Period
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {periodSlots.map((slot, idx) => (
+                <div key={idx} className="text-xs font-semibold text-slate-600">
+                  <span className="block mb-1">Period {idx + 1}</span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={slot}
+                      onChange={(e) => {
+                        const next = [...periodSlots]
+                        next[idx] = e.target.value
+                        setPeriodSlots(next)
+                        persistEditorConfig(next, breakItems)
+                      }}
+                      className="w-full px-3 pr-10 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePeriod(idx)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 rounded-md border border-red-200 text-red-600 hover:bg-red-50 bg-white"
+                      title={`Remove Period ${idx + 1}`}
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4 bg-white">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Break Labels</p>
+                <button
+                  type="button"
+                  onClick={addBreakItem}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  Add Break
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {breakItems.map((item) => (
+                  <div key={item.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                    <input
+                      type="text"
+                      value={item.label}
+                      onChange={(e) => updateBreakItem(item.id, { label: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                    />
+                    <select
+                      value={item.tone}
+                      onChange={(e) => updateBreakItem(item.id, { tone: e.target.value })}
+                      className="px-2 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 bg-white"
+                    >
+                      <option value="slate">Slate</option>
+                      <option value="amber">Amber</option>
+                      <option value="emerald">Emerald</option>
+                      <option value="sky">Sky</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeBreakItem(item.id)}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                      title="Remove break"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {breakEditorNotice && (
+                <p className="mt-2 text-xs font-medium text-slate-500">{breakEditorNotice}</p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/60">
+              <p className="text-xs font-semibold text-slate-600 mb-3 uppercase tracking-wider">Drag And Swap Break Times</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {breakItems.map((item) => {
+                  const tone = getBreakToneClasses(item.tone)
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      draggable
+                      onDragStart={() => setDraggingBreakId(item.id)}
+                      onDragEnd={() => setDraggingBreakId('')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold shadow-sm cursor-grab active:cursor-grabbing ${tone.bgClass} ${tone.textClass}`}
+                      title="Drag and drop between periods"
+                    >
+                      <span className="material-symbols-outlined text-sm">drag_indicator</span>
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {editableBreakBoundaries.map((boundary) => {
+                  const itemsAtBoundary = breakItems.filter((item) => item.afterPeriod === boundary)
+                  const badgeClass = itemsAtBoundary.length > 0
+                    ? 'bg-white border-slate-300 text-slate-700'
+                    : draggingBreakId
+                      ? 'bg-[#1162d4]/5 border-[#1162d4]/30 text-[#1162d4]'
+                      : 'bg-white border-slate-200 text-slate-400'
+
+                  return (
+                    <div
+                      key={boundary}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        if (!draggingBreakId) return
+                        moveBreakToBoundary(draggingBreakId, boundary)
+                        setDraggingBreakId('')
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${badgeClass}`}
+                    >
+                      <p className="text-[11px] text-slate-500 mb-1">After Period {boundary}</p>
+                      <p className="truncate">{itemsAtBoundary.length > 0 ? itemsAtBoundary.map((item) => item.label).join(' | ') : 'Drop break here'}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editMode && (
         <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl mb-5 text-sm text-amber-700">
           <span className="material-symbols-outlined text-amber-500">info</span>
@@ -616,71 +936,73 @@ export default function TimetablePage({ noLayout = false }) {
           {/* Header */}
           <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: tpl }}>
             <div className="bg-slate-50 border-r border-slate-200" />
-            {[0,1,2].map(si => (
-              <div key={si} className={headerCell}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
-              </div>
-            ))}
-            <div className="bg-slate-100/80 border-r border-slate-200 flex flex-col items-center justify-center py-2 gap-0.5">
-              <span className="text-base leading-none">☕</span>
-              <span className="text-[8px] font-semibold text-slate-400 uppercase tracking-wide text-center leading-tight">Break</span>
-            </div>
-            {[3,4].map(si => (
-              <div key={si} className={headerCell}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
-              </div>
-            ))}
-            <div className="bg-amber-50 border-r border-slate-200 flex flex-col items-center justify-center py-2 gap-0.5">
-              <span className="text-base leading-none">🍽</span>
-              <span className="text-[8px] font-semibold text-amber-400 uppercase tracking-wide text-center leading-tight">Lunch</span>
-            </div>
-            {[5,6].map(si => (
-              <div key={si} className={`${headerCell} ${si===6?'border-r-0':''}`}>
-                {TIME_SLOTS[si].split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
-              </div>
-            ))}
+            {gridColumns.slice(1).map((column, columnIndex, arr) => {
+              const isLast = columnIndex === arr.length - 1
+              if (column.kind === 'break') {
+                return (
+                  <div
+                    key={column.id}
+                    className={`${column.headerClass} ${isLast ? '' : 'border-r border-slate-200'}`}
+                  />
+                )
+              }
+              return (
+                <div key={column.id} className={`${headerCell} ${isLast ? 'border-r-0' : ''}`}>
+                  {String(periodSlots[column.periodIdx] || '').split('–').map((t, i) => <span key={i}>{t}{i===0 && '–'}</span>)}
+                </div>
+              )
+            })}
           </div>
 
           {/* Days */}
-          {DAYS.map((day, di) => (
-            <div key={di} className="grid border-b border-slate-100 last:border-b-0 min-h-[80px]" style={{ gridTemplateColumns: tpl }}>
-              <div className="px-1 py-2 text-sm font-bold text-slate-700 border-r border-slate-200 flex items-center justify-center bg-slate-50">
-                {day}
-              </div>
-              {[0,1,2].map(si => (
-                <div key={si} className="p-1.5 border-r border-slate-100">
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
-              ))}
-              <div className="bg-slate-100/50 border-r border-slate-100" />
-              {[3,4].map(si => (
-                <div key={si} className="p-1.5 border-r border-slate-100">
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
-              ))}
-              <div className="bg-amber-50/50 border-r border-slate-100" />
-              {[5,6].map(si => (
-                <div key={si} className={`p-1.5 border-r border-slate-100 ${si===6?'border-r-0':''}`}>
-                  <ClassCell
-                    cls={current.slots[si]?.[di]}
-                    canEdit={editMode}
-                    onEdit={() => setEditTarget({ slotIdx: si, dayIdx: di })}
-                    onClear={() => handleClearCell(si, di)}
-                  />
-                </div>
-              ))}
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-0 grid z-10" style={{ gridTemplateColumns: tpl }}>
+              <div />
+              {gridColumns.slice(1).map((column) => {
+                if (column.kind === 'break') {
+                  return (
+                    <div key={`overlay-${column.id}`} className="flex items-center justify-center">
+                      <span className={`text-[11px] font-semibold tracking-[0.2em] [writing-mode:vertical-rl] rotate-180 ${column.textClass}`}>
+                        {column.label}
+                      </span>
+                    </div>
+                  )
+                }
+                return <div key={`overlay-${column.id}`} />
+              })}
             </div>
-          ))}
+
+            {DAYS.map((day, di) => (
+              <div key={di} className="grid border-b border-slate-100 last:border-b-0 min-h-[80px]" style={{ gridTemplateColumns: tpl }}>
+                <div className="px-1 py-2 text-sm font-bold text-slate-700 border-r border-slate-200 flex items-center justify-center bg-slate-50">
+                  {day}
+                </div>
+                {gridColumns.slice(1).map((column, columnIndex, arr) => {
+                  const isLast = columnIndex === arr.length - 1
+
+                  if (column.kind === 'break') {
+                    return (
+                      <div
+                        key={`${day}-${column.id}`}
+                        className={`${column.bgClass} ${isLast ? '' : 'border-r border-slate-100'}`}
+                      />
+                    )
+                  }
+
+                  return (
+                    <div key={`${day}-${column.id}`} className={`p-1.5 ${isLast ? '' : 'border-r border-slate-100'}`}>
+                      <ClassCell
+                        cls={current.slots[column.periodIdx]?.[di]}
+                        canEdit={editMode}
+                        onEdit={() => setEditTarget({ slotIdx: column.periodIdx, dayIdx: di })}
+                        onClear={() => handleClearCell(column.periodIdx, di)}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       ) : (

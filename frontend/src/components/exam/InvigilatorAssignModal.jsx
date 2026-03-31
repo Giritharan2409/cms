@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { assignInvigilator, getInvigilationByExam, removeInvigilator } from '../../data/examData';
+import { assignInvigilator, listInvigilators, deleteInvigilator } from '../../api/examsApi';
 
 // Mock faculty data - in real app, this would come from faculty database
 const mockFaculty = [
@@ -20,32 +20,46 @@ export default function InvigilatorAssignModal({ isOpen, onClose, exam, currentU
     }
   }, [isOpen, exam]);
 
-  const loadAssignedInvigilators = () => {
-    const assigned = getInvigilationByExam(exam.id);
-    setAssignedInvigilators(assigned);
+  const loadAssignedInvigilators = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const assigned = await listInvigilators({ examId });
+      setAssignedInvigilators(assigned);
+    } catch (err) {
+      console.error('Failed to load invigilators:', err);
+      setAssignedInvigilators([]);
+    }
   };
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedFaculty) return;
 
     const faculty = mockFaculty.find(f => f.id === selectedFaculty);
     if (!faculty) return;
 
-    const result = assignInvigilator(exam.id, faculty.id, faculty.name, currentUserId);
-    
-    if (result.success) {
+    try {
+      await assignInvigilator({
+        examId: exam._id || exam.id,
+        facultyId: faculty.id,
+        facultyName: faculty.name,
+        assignedBy: currentUserId || '',
+      });
       loadAssignedInvigilators();
       setSelectedFaculty('');
       alert('Invigilator assigned successfully!');
-    } else {
-      alert(result.message);
+    } catch (err) {
+      alert(err?.message || 'Failed to assign invigilator');
     }
   };
 
-  const handleRemove = (assignmentId) => {
+  const handleRemove = async (assignmentId) => {
     if (confirm('Remove this invigilator assignment?')) {
-      removeInvigilator(assignmentId);
-      loadAssignedInvigilators();
+      try {
+        await deleteInvigilator(assignmentId);
+        loadAssignedInvigilators();
+      } catch (err) {
+        alert(err?.message || 'Failed to remove invigilator');
+      }
     }
   };
 

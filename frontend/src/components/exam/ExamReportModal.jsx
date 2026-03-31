@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getRegistrationsByExam, getMarksByExam, updateExam } from '../../data/examData';
+import { listRegistrations, listMarks, publishExamResults } from '../../api/examsApi';
 
 export default function ExamReportModal({ isOpen, onClose, exam }) {
   const [registrations, setRegistrations] = useState([]);
@@ -12,59 +12,73 @@ export default function ExamReportModal({ isOpen, onClose, exam }) {
     }
   }, [isOpen, exam]);
 
-  const loadReportData = () => {
-    const regs = getRegistrationsByExam(exam.id);
-    const examMarks = getMarksByExam(exam.id);
-    
-    setRegistrations(regs);
-    setMarks(examMarks);
-    
-    // Calculate statistics
-    if (examMarks.length > 0) {
-      const totalMarks = examMarks.reduce((sum, m) => sum + m.marks, 0);
-      const avgMarks = totalMarks / examMarks.length;
-      const maxMarks = Math.max(...examMarks.map(m => m.marks));
-      const minMarks = Math.min(...examMarks.map(m => m.marks));
-      
-      const gradeCount = examMarks.reduce((acc, m) => {
-        acc[m.grade] = (acc[m.grade] || 0) + 1;
-        return acc;
-      }, {});
-      
-      setStats({
-        totalRegistered: regs.length,
-        totalEvaluated: examMarks.length,
-        pending: regs.length - examMarks.length,
-        average: avgMarks.toFixed(2),
-        highest: maxMarks,
-        lowest: minMarks,
-        passRate: ((examMarks.filter(m => m.grade !== 'F').length / examMarks.length) * 100).toFixed(1),
-        gradeDistribution: gradeCount
-      });
-    } else {
-      setStats({
-        totalRegistered: regs.length,
-        totalEvaluated: 0,
-        pending: regs.length,
-        average: 0,
-        highest: 0,
-        lowest: 0,
-        passRate: 0,
-        gradeDistribution: {}
-      });
+  const loadReportData = async () => {
+    try {
+      const examId = exam._id || exam.id;
+      const [regs, examMarks] = await Promise.all([
+        listRegistrations({ examId }),
+        listMarks({ examId }),
+      ]);
+
+      setRegistrations(regs);
+      setMarks(examMarks);
+
+      // Calculate statistics
+      if (examMarks.length > 0) {
+        const totalMarks = examMarks.reduce((sum, m) => sum + m.marks, 0);
+        const avgMarks = totalMarks / examMarks.length;
+        const maxMarks = Math.max(...examMarks.map((m) => m.marks));
+        const minMarks = Math.min(...examMarks.map((m) => m.marks));
+
+        const gradeCount = examMarks.reduce((acc, m) => {
+          acc[m.grade] = (acc[m.grade] || 0) + 1;
+          return acc;
+        }, {});
+
+        setStats({
+          totalRegistered: regs.length,
+          totalEvaluated: examMarks.length,
+          pending: regs.length - examMarks.length,
+          average: avgMarks.toFixed(2),
+          highest: maxMarks,
+          lowest: minMarks,
+          passRate: ((examMarks.filter((m) => m.grade !== 'F').length / examMarks.length) * 100).toFixed(1),
+          gradeDistribution: gradeCount,
+        });
+      } else {
+        setStats({
+          totalRegistered: regs.length,
+          totalEvaluated: 0,
+          pending: regs.length,
+          average: 0,
+          highest: 0,
+          lowest: 0,
+          passRate: 0,
+          gradeDistribution: {},
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load exam report data:', err);
+      setRegistrations([]);
+      setMarks([]);
+      setStats({ totalRegistered: 0, totalEvaluated: 0, pending: 0, average: 0, highest: 0, lowest: 0, passRate: 0, gradeDistribution: {} });
     }
   };
 
-  const handlePublishResults = () => {
+  const handlePublishResults = async () => {
     if (stats.pending > 0) {
       alert(`Cannot publish results. ${stats.pending} students have not been evaluated yet.`);
       return;
     }
 
     if (confirm('Are you sure you want to publish the results? Students will be able to view their marks.')) {
-      updateExam(exam.id, { resultsPublished: true });
-      alert('Results published successfully!');
-      onClose();
+      try {
+        await publishExamResults(exam._id || exam.id);
+        alert('Results published successfully!');
+        onClose();
+      } catch (err) {
+        alert(err?.message || 'Failed to publish results');
+      }
     }
   };
 

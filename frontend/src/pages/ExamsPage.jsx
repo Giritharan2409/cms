@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import MarksEntryModal from '../components/exam/MarksEntryModal'
 import HallTicket from '../components/exam/HallTicket'
 import ExamSessionModal from '../components/exam/ExamSessionModal'
-import TimetableDraftForm from '../components/exam/TimetableDraftForm'
+import TimetableScheduleWizard from '../components/exam/TimetableScheduleWizard'
 import InvigilatorAssignModal from '../components/exam/InvigilatorAssignModal'
 import RevaluationModal from '../components/exam/RevaluationModal'
 import ExamReportModal from '../components/exam/ExamReportModal'
@@ -15,11 +15,14 @@ import InternalMarksModal from '../components/exam/InternalMarksModal'
 import TimetableApprovalModal from '../components/exam/TimetableApprovalModal'
 import NotificationPanel from '../components/exam/NotificationPanel'
 import {
-  initializeExamData,
-  getAllExams,
-  getRegistrationsByStudent,
-  registerForExam,
-} from '../data/examData'
+  listExams,
+  createExam,
+  updateExamById,
+  deleteExamById,
+  listRegistrations,
+  registerExam,
+  listMarks,
+} from '../api/examsApi'
 import { getStudentById } from '../data/studentData'
 
 export default function ExamsPage({ noLayout = false }) {
@@ -49,7 +52,7 @@ export default function ExamsPage({ noLayout = false }) {
   const [showHallTicket, setShowHallTicket] = useState(false)
   const [hallTicketMode, setHallTicketMode] = useState('all')
   const [showExamSessionModal, setShowExamSessionModal] = useState(false)
-  const [showTimetableDraftForm, setShowTimetableDraftForm] = useState(false)
+  const [showScheduleWizard, setShowScheduleWizard] = useState(false)
   const [showInvigilatorModal, setShowInvigilatorModal] = useState(false)
   const [showRevaluationModal, setShowRevaluationModal] = useState(false)
   const [showExamReportModal, setShowExamReportModal] = useState(false)
@@ -59,50 +62,55 @@ export default function ExamsPage({ noLayout = false }) {
   const [showTimetableApprovalModal, setShowTimetableApprovalModal] = useState(false)
   const [showNotificationPanel, setShowNotificationPanel] = useState(false)
   const [selectedExam, setSelectedExam] = useState(null)
+  const [studentRegistrations, setStudentRegistrations] = useState([])
   
-  // Initialize exam data on mount
-  useEffect(() => {
-    initializeExamData()
-  }, [])
-
   // Handle exam registration
-  const handleRegister = (examId) => {
+  const handleRegister = async (examId) => {
     if (!session?.userId) {
       alert('Please sign in to register for exams.')
       return
     }
 
-    const result = registerForExam(
-      examId,
-      session.userId,
-      studentRecordForHallTicket?.name || session.userId
-    )
+    try {
+      await registerExam({
+        examId,
+        studentId: session.userId,
+        studentName: studentRecordForHallTicket?.name || session.userId,
+      })
+      await fetchExams()
+      alert('Successfully registered for the exam!')
+    } catch (err) {
+      const message = err?.message || 'Registration failed.'
 
-    if (!result.success) {
-      alert(result.message || 'Registration failed.')
-      return
+      // If backend says the student is already registered, treat it as a
+      // non-fatal case: refresh state so the row shows as registered.
+      if (message.toLowerCase().includes('already registered')) {
+        await fetchExams()
+        alert('You are already registered for this exam.')
+        return
+      }
+
+      alert(message)
     }
+  }
 
-    setExams(exams.map(exam =>
-      (exam._id || exam.id) === examId ? { ...exam, registered: true } : exam
-    ))
-    alert('Successfully registered for the exam!')
+  const getRegisteredExams = () => {
+    const registeredIds = new Set(studentRegistrations.map((reg) => String(reg.examId)))
+    return exams.filter((exam) => registeredIds.has(String(exam._id || exam.id)))
   }
 
   // Handle opening unified hall ticket
   const handleOpenAllHallTickets = () => {
-    // Get all registered exams
-    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
-    const registeredIds = new Set(registrations.map(reg => reg.examId))
-    const registeredExams = exams.filter(exam => registeredIds.has(exam._id || exam.id))
+    const registeredExams = getRegisteredExams()
     if (registeredExams.length === 0) {
-      alert('No exams registered yet.');
-      return;
+      alert('No exams registered yet.')
+      return
     }
+
     // Open hall ticket with one consolidated subject list for this student
-    setSelectedExam(registeredExams[0]);
-    setHallTicketMode('all');
-    setShowHallTicket(true);
+    setSelectedExam(registeredExams[0])
+    setHallTicketMode('all')
+    setShowHallTicket(true)
   }
 
   const buildHallTicketSubjects = ({ mode, exam } = {}) => {
@@ -117,9 +125,7 @@ export default function ExamsPage({ noLayout = false }) {
       return [mapExam(exam)]
     }
 
-    const registrations = session?.userId ? getRegistrationsByStudent(session.userId) : []
-    const registeredIds = new Set(registrations.map((reg) => reg.examId))
-    const registeredExams = exams.filter((item) => registeredIds.has(item._id || item.id))
+    const registeredExams = getRegisteredExams()
     return registeredExams.map(mapExam)
   }
 
@@ -128,33 +134,56 @@ export default function ExamsPage({ noLayout = false }) {
     fetchExams()
   }, [])
 
-  const applyRegistrations = (examList) => {
-    if (!session?.userId) return examList
-    const registrations = getRegistrationsByStudent(session.userId)
-    if (!registrations.length) return examList
-    const registeredIds = new Set(registrations.map((reg) => reg.examId))
-    return examList.map((exam) => ({
-      ...exam,
-      registered: registeredIds.has(exam._id || exam.id),
-    }))
-  }
-
   const fetchExams = async () => {
-    const localSampleExams = getAllExams()
-
     try {
-      const res = await fetch('/api/exams')
-      const raw = await res.text()
-      const json = raw ? JSON.parse(raw) : null
-
-      if (res.ok && json?.success && Array.isArray(json.data) && json.data.length > 0) {
-        setExams(applyRegistrations(json.data))
-      } else {
-        setExams(applyRegistrations(localSampleExams))
+      // Build query parameters for department/semester filtering
+      let queryParams = {}
+      
+      if (isStudent && studentRecordForHallTicket) {
+        queryParams.department = studentRecordForHallTicket.department
+        queryParams.semester = studentRecordForHallTicket.semester
+      } else if (isFaculty && session?.userId) {
+        // For faculty, we'd need to look up their department from faculty data
+        // For now, fetch from user data or session
+        const userDepartment = session?.department || studentRecordForHallTicket?.department
+        if (userDepartment) {
+          queryParams.department = userDepartment
+        }
       }
+      
+      const examList = await listExams(queryParams)
+      if (!isStudent || !session?.userId) {
+        setExams(examList)
+        return
+      }
+
+      const [registrations, marks] = await Promise.all([
+        listRegistrations({ studentId: session.userId }),
+        listMarks({ studentId: session.userId }),
+      ])
+
+      setStudentRegistrations(registrations)
+      const registeredIds = new Set(registrations.map((reg) => String(reg.examId)))
+      const marksByExam = marks.reduce((acc, item) => {
+        const key = String(item.examId)
+        if (!acc[key]) acc[key] = item
+        return acc
+      }, {})
+
+      const merged = examList.map((exam) => {
+        const examId = String(exam._id || exam.id)
+        const mark = marksByExam[examId]
+        return {
+          ...exam,
+          registered: registeredIds.has(examId),
+          marks: mark?.marks,
+          grade: mark?.grade,
+        }
+      })
+      setExams(merged)
     } catch (err) {
       console.error('Failed to fetch exams:', err)
-      setExams(applyRegistrations(localSampleExams))
+      setExams([])
     } finally {
       setLoading(false)
     }
@@ -231,27 +260,11 @@ export default function ExamsPage({ noLayout = false }) {
     
     try {
       if (editingExam) {
-        const res = await fetch(`/api/exams/${editingExam._id || editingExam.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        const json = await res.json()
-        if (json.success) {
-          const editingId = editingExam._id || editingExam.id
-          setExams(exams.map(exam => (exam._id || exam.id) === editingId ? json.data : exam))
-        }
+        await updateExamById(editingExam._id || editingExam.id, payload)
       } else {
-        const res = await fetch('/api/exams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        const json = await res.json()
-        if (json.success) {
-          setExams([...exams, json.data])
-        }
+        await createExam(payload)
       }
+      await fetchExams()
     } catch (err) {
       console.error('Failed to save exam:', err)
     }
@@ -262,11 +275,8 @@ export default function ExamsPage({ noLayout = false }) {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this exam?')) {
       try {
-        const res = await fetch(`/api/exams/${id}`, { method: 'DELETE' })
-        const json = await res.json()
-        if (json.success) {
-          setExams(exams.filter(exam => (exam._id || exam.id) !== id))
-        }
+        await deleteExamById(id)
+        await fetchExams()
       } catch (err) {
         console.error('Failed to delete exam:', err)
       }
@@ -334,19 +344,7 @@ export default function ExamsPage({ noLayout = false }) {
   const inner = (
     <>
       <div className="flex flex-col gap-4 mb-6">
-        <div>
-          <p className="text-slate-500 mt-1">Department of Computer Science — Semester 4</p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(isAdmin || isFaculty) && (
-            <button 
-              onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
-            >
-              <span className="material-symbols-outlined text-lg">calendar_add_on</span>
-              Schedule Exam
-            </button>
-          )}
           {isStudent && (
             <button 
               onClick={handleOpenAllHallTickets}
@@ -356,29 +354,24 @@ export default function ExamsPage({ noLayout = false }) {
               Download Hall Tickets
             </button>
           )}
-          {isAdmin && (
+          {(isAdmin || isFaculty) && (
             <>
               <button 
-                onClick={() => setShowExamSessionModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+                onClick={() => setShowScheduleWizard(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-semibold hover:bg-emerald-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">calendar_month</span>
-                Manage Sessions
+                <span className="material-symbols-outlined text-lg">edit_calendar</span>
+                Create Schedule
               </button>
-              <button 
-                onClick={() => setShowTimetableDraftForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
-              >
-                <span className="material-symbols-outlined text-lg">draft</span>
-                Create Timetable
-              </button>
+              {isAdmin && (
               <button 
                 onClick={() => setShowTimetableApprovalModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200 transition-all"
               >
-                <span className="material-symbols-outlined text-lg">approval</span>
-                Approve Timetables
+                <span className="material-symbols-outlined text-lg">verified_user</span>
+                Approve Schedules
               </button>
+              )}
             </>
           )}
         </div>
@@ -500,7 +493,7 @@ export default function ExamsPage({ noLayout = false }) {
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {exam.status === 'Completed' && exam.resultsPublished ? (
+                        {exam.resultsPublished ? (
                           <button
                             onClick={() => handleOpenRevaluation(exam)}
                             className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-semibold hover:bg-orange-600 transition-all"
@@ -738,14 +731,13 @@ export default function ExamsPage({ noLayout = false }) {
         />
       )}
 
-      {showTimetableDraftForm && (
-        <TimetableDraftForm
-          onClose={() => setShowTimetableDraftForm(false)}
-          onSave={() => {
-            setShowTimetableDraftForm(false);
-          }}
-        />
-      )}
+      <TimetableScheduleWizard
+        isOpen={showScheduleWizard}
+        onClose={() => setShowScheduleWizard(false)}
+        onSave={() => {
+          setShowScheduleWizard(false);
+        }}
+      />
 
       {showInvigilatorModal && selectedExam && (
         <InvigilatorAssignModal
@@ -807,8 +799,9 @@ export default function ExamsPage({ noLayout = false }) {
       {showTimetableApprovalModal && (
         <TimetableApprovalModal
           onClose={() => setShowTimetableApprovalModal(false)}
-          onApprove={() => {
+          onApprove={async () => {
             setShowTimetableApprovalModal(false);
+            await fetchExams();
           }}
         />
       )}

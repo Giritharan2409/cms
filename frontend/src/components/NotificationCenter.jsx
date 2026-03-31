@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import NotificationCard from './NotificationCard';
 import CreateNotification from './CreateNotification';
 import './NotificationCenter.css';
+import { buildApiUrl } from '../api/apiBase';
 
 const CATEGORIES = [
   { value: '', label: 'All' },
@@ -38,7 +39,7 @@ export default function NotificationCenter({ role = 'student' }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      let url = `/api/notifications/${role}`;
+      let url = buildApiUrl(`/notifications/${role}`);
       const params = new URLSearchParams();
 
       if (selectedCategory) params.append('category', selectedCategory);
@@ -62,7 +63,7 @@ export default function NotificationCenter({ role = 'student' }) {
 
   const handleMarkAsRead = async (notificationId) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+      await fetch(buildApiUrl(`/notifications/${notificationId}/read`), { method: 'PUT' });
       setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, status: 'read' } : n
       ));
@@ -73,7 +74,7 @@ export default function NotificationCenter({ role = 'student' }) {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch(`/api/notifications/${role}/read-all`, { method: 'PUT' });
+      await fetch(buildApiUrl(`/notifications/${role}/read-all`), { method: 'PUT' });
       fetchNotifications();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -82,7 +83,7 @@ export default function NotificationCenter({ role = 'student' }) {
 
   const handleDelete = async (notificationId) => {
     try {
-      await fetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
+      await fetch(buildApiUrl(`/notifications/${notificationId}`), { method: 'DELETE' });
       setNotifications(notifications.filter(n => n.id !== notificationId));
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -92,7 +93,7 @@ export default function NotificationCenter({ role = 'student' }) {
   const handleClearAll = async () => {
     if (window.confirm('Are you sure you want to delete all notifications?')) {
       try {
-        await fetch(`/api/notifications/${role}/clear-all`, { method: 'POST' });
+        await fetch(buildApiUrl(`/notifications/${role}/clear-all`), { method: 'POST' });
         setNotifications([]);
       } catch (error) {
         console.error('Error clearing notifications:', error);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { createTimetableDraft, getAllExamHalls } from '../../data/examData';
+import { createTimetableDraft, listExamHalls } from '../../api/examsApi';
 import { getUserSession } from '../../auth/sessionController';
 
 export default function TimetableDraftForm({ onClose, onSave }) {
@@ -22,7 +22,22 @@ export default function TimetableDraftForm({ onClose, onSave }) {
   const [halls, setHalls] = useState([]);
 
   React.useEffect(() => {
-    setHalls(getAllExamHalls());
+    let cancelled = false;
+
+    async function loadHalls() {
+      try {
+        const rows = await listExamHalls();
+        if (!cancelled) setHalls(rows);
+      } catch (err) {
+        console.error('Failed to load exam halls:', err);
+      }
+    }
+
+    loadHalls();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleFormChange = (e) => {
@@ -59,7 +74,7 @@ export default function TimetableDraftForm({ onClose, onSave }) {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // Validation
@@ -77,7 +92,6 @@ export default function TimetableDraftForm({ onClose, onSave }) {
       return;
     }
 
-    // Create draft
     const draft = {
       ...formData,
       exams,
@@ -85,12 +99,16 @@ export default function TimetableDraftForm({ onClose, onSave }) {
       status: 'Draft'
     };
 
-    createTimetableDraft(draft);
-    alert('Timetable draft created successfully');
-    onSave();
+    try {
+      await createTimetableDraft(draft);
+      alert('Timetable draft created successfully');
+      onSave();
+    } catch (err) {
+      alert(err?.message || 'Failed to create timetable draft');
+    }
   };
 
-  const handleSubmitForApproval = () => {
+  const handleSubmitForApproval = async () => {
     const draft = {
       ...formData,
       exams,
@@ -103,9 +121,13 @@ export default function TimetableDraftForm({ onClose, onSave }) {
       return;
     }
 
-    createTimetableDraft(draft);
-    alert('Timetable submitted for approval');
-    onSave();
+    try {
+      await createTimetableDraft(draft);
+      alert('Timetable submitted for approval');
+      onSave();
+    } catch (err) {
+      alert(err?.message || 'Failed to submit timetable for approval');
+    }
   };
 
   return (

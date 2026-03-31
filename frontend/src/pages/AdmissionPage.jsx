@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
+import StatCard from '../components/StatCard';
 import { useAdmission } from '../context/AdmissionContext';
 import { getUserSession } from '../auth/sessionController';
 import AddMemberModal from '../components/AddMemberModal';
@@ -31,7 +32,18 @@ export default function AdmissionPage() {
 
   const filteredApps = useMemo(() => {
     const apps = activeTab === 'students' ? studentApps : facultyApps;
-    return apps.filter((app) =>
+    return apps.map(app => {
+      // Map backend faculty fields to frontend expected fields
+      if (activeTab === 'faculty') {
+        return {
+          ...app,
+          role: app.designation || app.role,
+          experience: app.yearsOfExperience,
+          highestQualification: app.qualification,
+        };
+      }
+      return app;
+    }).filter((app) =>
       app.name?.toLowerCase().includes(searchName.toLowerCase()) ||
       app.fullName?.toLowerCase().includes(searchName.toLowerCase())
     );
@@ -103,48 +115,36 @@ export default function AdmissionPage() {
       <div className="space-y-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Total Student Adm</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{studentApps.length}</p>
-              </div>
-              <span className="material-symbols-outlined text-4xl text-teal-500">group</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Total Faculty</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{facultyApps.length}</p>
-              </div>
-              <span className="material-symbols-outlined text-4xl text-teal-500">person</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Approved</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {studentApps.filter((a) => a.status === 'Approved').length +
-                    facultyApps.filter((a) => a.status === 'Approved').length}
-                </p>
-              </div>
-              <span className="material-symbols-outlined text-4xl text-teal-500">done</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6 border-t-4 border-teal-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Rejected</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
-                  {studentApps.filter((a) => a.status === 'Rejected').length +
-                    facultyApps.filter((a) => a.status === 'Rejected').length}
-                </p>
-              </div>
-              <span className="material-symbols-outlined text-4xl text-teal-500">close</span>
-            </div>
-          </div>
+          <StatCard
+            icon="group"
+            label="Total Student Adm"
+            value={studentApps.length}
+            color="blue"
+          />
+          <StatCard
+            icon="person"
+            label="Total Faculty"
+            value={facultyApps.length}
+            color="green"
+          />
+          <StatCard
+            icon="check_circle"
+            label="Approved"
+            value={
+              studentApps.filter((a) => a.status === 'Approved').length +
+              facultyApps.filter((a) => a.status === 'Approved').length
+            }
+            color="emerald"
+          />
+          <StatCard
+            icon="cancel"
+            label="Rejected"
+            value={
+              studentApps.filter((a) => a.status === 'Rejected').length +
+              facultyApps.filter((a) => a.status === 'Rejected').length
+            }
+            color="red"
+          />
         </div>
 
         {/* Tabs and Search */}
@@ -212,17 +212,28 @@ export default function AdmissionPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredApps.map((app) => (
+                {filteredApps.map((app) => {
+                  // Helper function to safely extract string values from objects
+                  const getValue = (field) => {
+                    if (typeof field === 'string') return field;
+                    if (typeof field === 'object' && field !== null) {
+                      // If it's an object, try to return the course or name property
+                      return field.course || field.name || field.value || JSON.stringify(field);
+                    }
+                    return '';
+                  };
+
+                  return (
                   <tr key={app.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 text-gray-700">{app.id}</td>
                     <td className="py-3 px-4 text-gray-700">
                       {app.name || app.fullName}
                     </td>
                     <td className="py-3 px-4 text-gray-700">
-                      {activeTab === 'students' ? app.course : app.role}
+                      {activeTab === 'students' ? getValue(app.course) : getValue(app.role)}
                     </td>
                     {activeTab === 'faculty' && (
-                      <td className="py-3 px-4 text-gray-700">{app.department}</td>
+                      <td className="py-3 px-4 text-gray-700">{getValue(app.department)}</td>
                     )}
                     <td className="py-3 px-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[app.status]}`}>
@@ -271,7 +282,8 @@ export default function AdmissionPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {filteredApps.length === 0 && (

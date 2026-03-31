@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 from urllib.parse import urlsplit
 
@@ -10,7 +11,7 @@ DEFAULT_MONGODB_URI = "mongodb://localhost:27017/College_db"
 MONGODB_URI = os.getenv("MONGODB_URI", DEFAULT_MONGODB_URI)
 
 
-def mask_mongodb_uri(uri: str | None) -> str:
+def mask_mongodb_uri(uri: Optional[str]) -> str:
     if not uri:
         return "<not configured>"
 

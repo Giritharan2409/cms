@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { getUserSession } from '../auth/sessionController';
 import { jsPDF } from 'jspdf';
@@ -7,14 +7,72 @@ export default function InvoicePage() {
   const session = getUserSession();
   const studentId = session?.userId;
 
-  const [invoices, setInvoices] = useState(
-    JSON.parse(localStorage.getItem('admin_invoices') || '[]')
-  );
+  const [invoices, setInvoices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [searchName, setSearchName] = useState('');
   const [searchDept, setSearchDept] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  const normalizeInvoice = (invoice) => {
+    const invoiceId = invoice.id || invoice.invoice_id || invoice._id || '';
+    const generatedDateRaw = invoice.generatedDate || invoice.generated_date || invoice.createdAt || '';
+    const normalizedGeneratedDate = generatedDateRaw
+      ? new Date(generatedDateRaw).toLocaleDateString('en-CA')
+      : new Date().toLocaleDateString('en-CA');
+
+    return {
+      id: invoiceId,
+      studentId: invoice.studentId || invoice.student_id || '',
+      studentName: invoice.studentName || invoice.student_name || '',
+      course: invoice.course || '',
+      total: Number(invoice.total || invoice.total_amount || 0),
+      items: Array.isArray(invoice.items) ? invoice.items : [],
+      paymentStatus: invoice.paymentStatus || invoice.payment_status || 'Pending',
+      paymentMethod: invoice.paymentMethod || invoice.payment_method || 'N/A',
+      transactionId: invoice.transactionId || invoice.transaction_id || 'N/A',
+      paidDate: invoice.paidDate || invoice.paid_date || 'N/A',
+      generatedDate: normalizedGeneratedDate,
+      feeAssignmentId: invoice.feeAssignmentId || invoice.fee_assignment_id || '',
+    };
+  };
+
+  const fetchStudentInvoices = async () => {
+    if (!studentId) {
+      setInvoices([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setLoadError('');
+      const response = await fetch('/api/invoices');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch invoices: ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const normalized = (Array.isArray(payload) ? payload : [])
+        .map(normalizeInvoice)
+        .filter((inv) => inv.studentId === studentId);
+
+      setInvoices(normalized);
+    } catch (error) {
+      console.error('Invoice fetch error:', error);
+      setLoadError('Unable to load invoices right now. Please try again.');
+      setInvoices([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudentInvoices();
+    const intervalId = setInterval(fetchStudentInvoices, 10000);
+    return () => clearInterval(intervalId);
+  }, [studentId]);
 
   // Filter invoices for current student
   const studentInvoices = useMemo(() => {
@@ -279,7 +337,15 @@ export default function InvoicePage() {
 
         {/* Invoice Cards Grid */}
         <div className="bg-white rounded-lg shadow p-6">
-          {studentInvoices.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">Loading invoices...</p>
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 text-lg">{loadError}</p>
+            </div>
+          ) : studentInvoices.length === 0 ? (
             <div className="text-center py-12">
               <span className="material-symbols-outlined text-6xl text-gray-300 block mb-4">
                 receipt

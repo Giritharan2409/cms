@@ -15,6 +15,8 @@ class ExamBase(BaseModel):
     duration: str
     maxMarks: str
     senderRole: Optional[str] = "faculty"
+    department: Optional[str] = None
+    semester: Optional[str] = None
 
 
 class ExamCreate(ExamBase):
@@ -32,6 +34,8 @@ class ExamUpdate(BaseModel):
     duration: Optional[str] = None
     maxMarks: Optional[str] = None
     senderRole: Optional[str] = None
+    department: Optional[str] = None
+    semester: Optional[str] = None
 
 
 class TimetableEntry(BaseModel):
@@ -47,6 +51,13 @@ class TimetableEntry(BaseModel):
     label: str = ""
 
 
+class TimetableBreakItem(BaseModel):
+    id: str
+    label: str
+    afterPeriod: int
+    tone: str = "slate"
+
+
 class TimetableRecord(BaseModel):
     classId: str
     label: str
@@ -54,6 +65,8 @@ class TimetableRecord(BaseModel):
     semester: str
     section: str
     slots: List[List[Optional[TimetableEntry]]] = Field(default_factory=list)
+    periodSlots: List[str] = Field(default_factory=list)
+    breakItems: List[TimetableBreakItem] = Field(default_factory=list)
 
 
 class AttendanceRecord(BaseModel):
@@ -68,6 +81,43 @@ class AttendanceRecord(BaseModel):
 class WeeklyAttendancePoint(BaseModel):
     day: str
     attendance: float
+
+
+class AttendanceMarkEntry(BaseModel):
+    studentId: str
+    rollNumber: str = ""
+    name: str = ""
+    status: str = "Present"
+
+
+class AttendanceMarkRecord(BaseModel):
+    classId: str
+    classLabel: str = ""
+    date: str
+    hour: str
+    markedBy: str = ""
+    markedAt: Optional[str] = None
+    entries: List[AttendanceMarkEntry] = Field(default_factory=list)
+
+
+class OdRequestPayload(BaseModel):
+    studentId: str
+    fromDate: str
+    toDate: str
+    hours: List[str] = Field(default_factory=list)
+    reason: str
+    proofImageData: str = ""
+    proofImageName: str = ""
+    status: str = "Pending"
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+    reviewedBy: Optional[str] = None
+    reviewedAt: Optional[str] = None
+
+
+class OdRequestStatusUpdate(BaseModel):
+    status: str
+    reviewedBy: Optional[str] = None
 
 
 class PlacementEntry(BaseModel):

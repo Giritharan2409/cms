@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllTimetableDrafts, updateTimetableDraftStatus } from '../../data/examData';
+import { listTimetableDrafts, updateTimetableDraftStatus } from '../../api/examsApi';
 import { getUserSession } from '../../auth/sessionController';
 
 export default function TimetableApprovalModal({ onClose, onApprove }) {
@@ -12,25 +12,38 @@ export default function TimetableApprovalModal({ onClose, onApprove }) {
     loadDrafts();
   }, []);
 
-  const loadDrafts = () => {
-    const allDrafts = getAllTimetableDrafts();
-    setDrafts(allDrafts);
+  const loadDrafts = async () => {
+    try {
+      const allDrafts = await listTimetableDrafts();
+      setDrafts(allDrafts);
+    } catch (err) {
+      console.error('Failed to load timetable drafts:', err);
+      setDrafts([]);
+    }
   };
 
-  const handleAction = (draftId, action) => {
-    if (action === 'Rejected' && !remarks) {
+  const handleAction = async (draftId, action) => {
+    if (action === 'reject' && !remarks) {
       alert('Please provide remarks for rejection');
       return;
     }
 
     const status = action === 'approve' ? 'Approved' : 'Rejected';
-    updateTimetableDraftStatus(draftId, status, session.username, remarks);
-    
-    alert(`Timetable ${status.toLowerCase()} successfully`);
-    setSelectedDraft(null);
-    setRemarks('');
-    loadDrafts();
-    onApprove();
+    try {
+      await updateTimetableDraftStatus(draftId, {
+        status,
+        reviewedBy: session?.userId || session?.username || '',
+        remarks,
+      });
+
+      alert(`Timetable ${status.toLowerCase()} successfully`);
+      setSelectedDraft(null);
+      setRemarks('');
+      loadDrafts();
+      onApprove();
+    } catch (err) {
+      alert(err?.message || 'Failed to update timetable status');
+    }
   };
 
   const getStatusColor = (status) => {

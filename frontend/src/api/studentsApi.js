@@ -1,6 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}/api`
-  : '/api';
+import { API_BASE } from './apiBase';
 const CACHE_KEY = 'cms_students_cache';
 
 function getCachedStudents() {

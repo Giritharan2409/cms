@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './CreateNotification.css';
+import { buildApiUrl } from '../api/apiBase';
 
 const ROLES = [
   { value: 'student', label: 'Student' },
@@ -52,7 +53,7 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
     setLoading(true);
 
     try {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch(buildApiUrl('/notifications'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -63,10 +64,18 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
         })
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data = {};
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = {};
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create notification');
+        throw new Error(data.detail || data.error || data.message || 'Failed to create notification');
       }
 
       setSuccess('Notification created successfully!');
@@ -80,7 +89,7 @@ export default function CreateNotification({ senderRole, onNotificationCreated }
       });
 
       if (onNotificationCreated) {
-        onNotificationCreated(data.data);
+        onNotificationCreated(data.data || null);
       }
 
       setTimeout(() => setSuccess(''), 3000);

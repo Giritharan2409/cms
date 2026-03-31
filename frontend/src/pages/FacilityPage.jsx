@@ -1,15 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { getUserSession } from '../auth/sessionController'
-
-const FALLBACK_FACILITIES = [
-  { name: 'Computer Lab 4', type: 'Laboratory',   capacity: 40,  status: 'Available',   amenities: ['AC', 'Projector', '40 PCs'] },
-  { name: 'Hall A',         type: 'Lecture Hall', capacity: 120, status: 'In Use',       amenities: ['AC', 'Mic System', 'Projector'] },
-  { name: 'Room 302',       type: 'Classroom',    capacity: 60,  status: 'Available',   amenities: ['Whiteboard', 'Projector'] },
-  { name: 'Room 304',       type: 'Classroom',    capacity: 60,  status: 'Maintenance', amenities: ['Whiteboard'] },
-  { name: 'Seminar Hall',   type: 'Seminar',      capacity: 80,  status: 'Available',   amenities: ['AC', 'Videoconf', 'Projector'] },
-  { name: 'Lab 2',          type: 'Laboratory',   capacity: 30,  status: 'In Use',       amenities: ['AC', '30 PCs', 'CCTV'] },
-]
+import {
+  fetchFacilities,
+  fetchFacilityBookings,
+  createFacilityBooking,
+  createFacilityRecord,
+} from '../api/facilityApi'
 
 const statusStyle = {
   Available:   'bg-green-100 text-green-800',
@@ -20,8 +17,14 @@ const statusStyle = {
 export default function FacilityPage({ noLayout = false }) {
   const session = getUserSession()
   const role = session?.role || 'student'
+  const canAddFacility = role === 'admin'
+  const canBookFacility = role === 'admin' || role === 'faculty'
 
-  const [facilities, setFacilities] = useState(FALLBACK_FACILITIES)
+  const [facilities, setFacilities] = useState([])
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [apiNotice, setApiNotice] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [filterOpen, setFilterOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -33,22 +36,68 @@ export default function FacilityPage({ noLayout = false }) {
   const [addFacilitySuccess, setAddFacilitySuccess] = useState(false)
   const filterRef = useRef(null)
 
-  useEffect(() => {
-    async function fetchFacilities() {
-      try {
-        const res = await fetch('/api/academics/facilities')
-        const json = await res.json().catch(() => null)
-        if (json?.success && json.data.length > 0) setFacilities(json.data)
-      } catch (err) {
-        console.error('Failed to fetch facilities:', err)
-      }
+  async function loadFacilitiesData({ silent = false } = {}) {
+    if (!silent) setLoading(true)
+    setApiNotice('')
+    try {
+      const [facilityRows, bookingRows] = await Promise.all([
+        fetchFacilities({ status: statusFilter, search: searchQuery }),
+        fetchFacilityBookings(),
+      ])
+      setFacilities(facilityRows)
+      setBookings(bookingRows)
+    } catch (err) {
+      console.error('Failed to fetch facilities/bookings:', err)
+      setFacilities([])
+      setBookings([])
+      setApiNotice('Failed to load facility data from backend API.')
+    } finally {
+      if (!silent) setLoading(false)
+      setRefreshing(false)
     }
-    fetchFacilities()
-  }, [])
+  }
 
-  const visibleFacilities = role === 'admin'
+  useEffect(() => {
+    loadFacilitiesData()
+  }, [statusFilter, searchQuery])
+
+  const visibleFacilities = canBookFacility || canAddFacility
     ? facilities
     : facilities.filter((facility) => facility.status === 'Available')
+
+  const availableRooms = visibleFacilities.filter((f) => f.status !== 'Maintenance')
+
+  const bookingsByRoom = bookings.reduce((acc, booking) => {
+    const room = String(booking?.room || '')
+    if (!room) return acc
+    if (!acc[room]) acc[room] = []
+    acc[room].push(booking)
+    return acc
+  }, {})
+
+  Object.values(bookingsByRoom).forEach((roomBookings) => {
+    roomBookings.sort((a, b) => {
+      const aKey = `${a?.date || ''} ${a?.timeFrom || ''}`
+      const bKey = `${b?.date || ''} ${b?.timeFrom || ''}`
+      return bKey.localeCompare(aKey)
+    })
+  })
+
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const displayStatusByRoom = visibleFacilities.reduce((acc, facility) => {
+    const roomName = String(facility?.name || '')
+    const baseStatus = facility?.status || 'Available'
+
+    if (baseStatus === 'Maintenance') {
+      acc[roomName] = 'Maintenance'
+      return acc
+    }
+
+    const roomBookings = bookingsByRoom[roomName] || []
+    const hasBookingToday = roomBookings.some((booking) => String(booking?.date || '').slice(0, 10) === todayIso)
+    acc[roomName] = hasBookingToday ? 'In Use' : 'Available'
+    return acc
+  }, {})
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -58,41 +107,30 @@ export default function FacilityPage({ noLayout = false }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filtered = visibleFacilities.filter(
-    f => (statusFilter === 'All' || f.status === statusFilter) &&
-         f.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const availableRooms = visibleFacilities.filter(f => f.status === 'Available')
+  const filtered = visibleFacilities
 
   async function handleBookRoom(e) {
     e.preventDefault()
+    setApiNotice('')
     try {
-      const res = await fetch('/api/academics/facilities/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...bookingForm, requestedBy: session?.userId || '' }),
-      })
-      const json = await res.json().catch(() => null)
-      if (json?.success) {
-        setFacilities(prev => prev.map(f => f.name === bookingForm.room ? { ...f, status: 'In Use' } : f))
-        setBookingSuccess(true)
-        setTimeout(() => {
-          setBookingOpen(false)
-          setBookingSuccess(false)
-          setBookingForm({ room: '', date: '', timeFrom: '', timeTo: '', purpose: '' })
-        }, 1500)
-        return
-      }
-      window.alert(json?.detail || 'Booking failed. Please try again.')
+      const created = await createFacilityBooking({ ...bookingForm, requestedBy: session?.userId || '' })
+      setBookings((prev) => [created, ...prev])
+      setBookingSuccess(true)
+      setApiNotice('Room booking saved to backend successfully.')
+      setTimeout(() => {
+        setBookingOpen(false)
+        setBookingSuccess(false)
+        setBookingForm({ room: '', date: '', timeFrom: '', timeTo: '', purpose: '' })
+      }, 1500)
     } catch (err) {
       console.error('Failed to book room:', err)
-      window.alert('Booking failed. Please check backend connection and try again.')
+      setApiNotice(err?.message || 'Booking failed. Please check backend connection and try again.')
     }
   }
 
   async function handleAddFacility(e) {
     e.preventDefault()
+    setApiNotice('')
     try {
       const amenitiesArray = addFacilityForm.amenities
         .split(',')
@@ -107,54 +145,65 @@ export default function FacilityPage({ noLayout = false }) {
         amenities: amenitiesArray,
       }
 
-      const res = await fetch('/api/academics/facilities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const json = await res.json().catch(() => null)
-      if (json?.success) {
-        setFacilities(prev => [...prev, json.data])
-        setAddFacilitySuccess(true)
-        setTimeout(() => {
-          setAddFacilityOpen(false)
-          setAddFacilitySuccess(false)
-          setAddFacilityForm({ name: '', type: '', capacity: 30, status: 'Available', amenities: '' })
-        }, 1500)
-        return
-      }
-      window.alert(json?.detail || 'Failed to add facility. Please try again.')
+      const created = await createFacilityRecord(payload)
+      setFacilities(prev => [...prev, created])
+      setAddFacilitySuccess(true)
+      setApiNotice('Facility record saved to backend successfully.')
+      setTimeout(() => {
+        setAddFacilityOpen(false)
+        setAddFacilitySuccess(false)
+        setAddFacilityForm({ name: '', type: '', capacity: 30, status: 'Available', amenities: '' })
+      }, 1500)
     } catch (err) {
       console.error('Failed to add facility:', err)
-      window.alert('Failed to add facility. Please check backend connection and try again.')
+      setApiNotice(err?.message || 'Failed to add facility. Please check backend connection and try again.')
     }
   }
 
   const inner = (
     <>
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
-        {role === 'admin' && (
+        {(canAddFacility || canBookFacility) && (
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setAddFacilityOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
-            >
-              <span className="material-symbols-outlined text-lg">add_circle</span>Add Facility
-            </button>
-            <button
-              onClick={() => setBookingOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-colors"
-            >
-              <span className="material-symbols-outlined text-lg">add</span>Book Room
-            </button>
+            {canAddFacility && (
+              <button
+                onClick={() => setAddFacilityOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">add_circle</span>Add Facility
+              </button>
+            )}
+            {canBookFacility && (
+              <button
+                onClick={() => setBookingOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>Book Room
+              </button>
+            )}
           </div>
         )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
-          { icon: 'meeting_room', label: 'Available',   value: visibleFacilities.filter(f => f.status === 'Available').length, color: 'text-emerald-600 bg-emerald-100' },
-          { icon: 'groups',       label: 'In Use',      value: visibleFacilities.filter(f => f.status === 'In Use').length,    color: 'text-blue-600 bg-blue-100' },
-          { icon: 'build',        label: 'Maintenance', value: visibleFacilities.filter(f => f.status === 'Maintenance').length, color: 'text-red-600 bg-red-100' },
+          {
+            icon: 'meeting_room',
+            label: 'Available Today',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'Available').length,
+            color: 'text-emerald-600 bg-emerald-100',
+          },
+          {
+            icon: 'groups',
+            label: 'Booked Today',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'In Use').length,
+            color: 'text-blue-600 bg-blue-100',
+          },
+          {
+            icon: 'build',
+            label: 'Maintenance',
+            value: visibleFacilities.filter((f) => displayStatusByRoom[f.name] === 'Maintenance').length,
+            color: 'text-red-600 bg-red-100',
+          },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
             <div className={`p-3 rounded-xl ${s.color}`}>
@@ -170,7 +219,19 @@ export default function FacilityPage({ noLayout = false }) {
 
       {/* Search & Filter — right-aligned like attendance page */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div />
+        <div>
+          <button
+            onClick={() => {
+              setRefreshing(true)
+              loadFacilitiesData({ silent: true })
+            }}
+            disabled={loading || refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border bg-white text-slate-600 border-slate-200 hover:border-slate-300 shadow-sm disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-lg">refresh</span>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
@@ -225,19 +286,37 @@ export default function FacilityPage({ noLayout = false }) {
         </div>
       </div>
 
+      {apiNotice && (
+        <div className={`mb-4 px-4 py-2.5 rounded-lg text-xs font-semibold border ${
+          apiNotice.toLowerCase().includes('failed')
+            ? 'bg-red-50 text-red-700 border-red-200'
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          {apiNotice}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.length === 0 && (
+        {loading && (
+          <div className="col-span-full text-center text-slate-400 text-sm py-10">Loading facilities...</div>
+        )}
+        {!loading && filtered.length === 0 && (
           <div className="col-span-full text-center text-slate-400 text-sm py-10">No facilities found</div>
         )}
-        {filtered.map((f, i) => (
+        {!loading && filtered.map((f, i) => (
           <div key={f.name} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col gap-3 animate-fadeIn" style={{ animationDelay: `${i * 50}ms` }}>
+            {(() => {
+              const displayStatus = displayStatusByRoom[f.name] || f.status || 'Available'
+              return (
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-bold text-slate-900">{f.name}</p>
                 <p className="text-xs text-slate-500">{f.type}</p>
               </div>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle[f.status]}`}>{f.status}</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyle[displayStatus]}`}>{displayStatus}</span>
             </div>
+              )
+            })()}
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <span className="material-symbols-outlined text-sm text-slate-400">people</span>
               Capacity: <span className="font-semibold text-slate-700">{f.capacity}</span>
@@ -247,14 +326,33 @@ export default function FacilityPage({ noLayout = false }) {
                 <span key={a} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[11px] font-medium">{a}</span>
               ))}
             </div>
+
+            {(() => {
+              const roomBookings = bookingsByRoom[f.name] || []
+              if (roomBookings.length === 0) return null
+
+              return (
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Booked Slots</p>
+                  <div className="space-y-1.5">
+                    {roomBookings.slice(0, 3).map((booking) => (
+                      <div key={booking.id || `${booking.date}-${booking.timeFrom}-${booking.timeTo}`} className="text-xs text-slate-600 bg-blue-50 border border-blue-100 rounded-md px-2 py-1.5">
+                        <span className="font-semibold text-blue-700">{booking.date}</span>
+                        <span>{`  ${booking.timeFrom} - ${booking.timeTo}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         ))}
       </div>
 
       {/* Book Room Modal */}
-      {role === 'admin' && bookingOpen && (
+      {canBookFacility && bookingOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setBookingOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl md:min-h-[31rem] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {bookingSuccess ? (
               <div className="p-8 text-center">
                 <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -357,7 +455,7 @@ export default function FacilityPage({ noLayout = false }) {
       )}
 
       {/* Add Facility Modal */}
-      {role === 'admin' && addFacilityOpen && (
+      {canAddFacility && addFacilityOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setAddFacilityOpen(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl md:min-h-[31rem] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             {addFacilitySuccess ? (
