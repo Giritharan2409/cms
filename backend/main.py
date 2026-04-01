@@ -138,6 +138,8 @@ app.include_router(faculty_settings_router, prefix="/api/settings/faculty", tags
 app.include_router(finance_settings_router, prefix="/api/settings/finance", tags=["Finance Settings"])
 app.include_router(admin_settings_router, prefix="/api/settings/admin", tags=["Admin Settings"])
 app.include_router(student_settings_router, prefix="/api/student/settings", tags=["Student Settings"])
+app.include_router(courses_router, prefix="/api")
+app.include_router(admissions_router, prefix="/api")
 app.include_router(fees_router, prefix="/api")
 app.include_router(invoices_router)
 app.include_router(payments_router)

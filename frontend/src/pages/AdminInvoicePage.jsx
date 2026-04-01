@@ -2,33 +2,57 @@ import React, { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import { jsPDF } from 'jspdf';
-import { getUserSession } from '../auth/sessionController';
+import { API_BASE } from '../api/apiBase';
 
 export default function AdminInvoicePage() {
-  const session = getUserSession();
-  const [invoices, setInvoices] = useState(
-    JSON.parse(localStorage.getItem('admin_invoices') || '[]')
-  );
+  const [invoices, setInvoices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [courseFilter, setCourseFilter] = useState('all');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  // Save to localStorage whenever invoices change
   React.useEffect(() => {
-    localStorage.setItem('admin_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
-  // Listen for real-time updates from localStorage (when students make payments)
-  React.useEffect(() => {
-    const handleInvoiceUpdate = (event) => {
-      const updatedInvoices = event.detail || JSON.parse(localStorage.getItem('admin_invoices') || '[]');
-      setInvoices(updatedInvoices);
+    const normalizeInvoice = (invoice) => {
+      const generatedDateRaw = invoice.generatedDate || invoice.generated_date || invoice.createdAt || '';
+      return {
+        id: invoice.id || invoice.invoice_id || '',
+        studentId: invoice.studentId || invoice.student_id || '',
+        studentName: invoice.studentName || invoice.student_name || '',
+        course: invoice.course || '',
+        total: Number(invoice.total || invoice.total_amount || 0),
+        items: Array.isArray(invoice.items) ? invoice.items : [],
+        paymentStatus: invoice.paymentStatus || invoice.payment_status || 'Pending',
+        paymentMethod: invoice.paymentMethod || invoice.payment_method || 'N/A',
+        transactionId: invoice.transactionId || invoice.transaction_id || 'N/A',
+        paidDate: invoice.paidDate || invoice.paid_date || 'N/A',
+        generatedDate: generatedDateRaw
+          ? new Date(generatedDateRaw).toLocaleDateString('en-CA')
+          : new Date().toLocaleDateString('en-CA'),
+      };
     };
 
-    window.addEventListener('invoiceUpdated', handleInvoiceUpdate);
-    return () => window.removeEventListener('invoiceUpdated', handleInvoiceUpdate);
+    const fetchInvoices = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${API_BASE}/invoices`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch invoices');
+        }
+        const payload = await response.json();
+        setInvoices((Array.isArray(payload) ? payload : []).map(normalizeInvoice));
+      } catch (error) {
+        console.error('Failed to load invoices:', error);
+        setInvoices([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInvoices();
+    const intervalId = setInterval(fetchInvoices, 10000);
+    return () => clearInterval(intervalId);
   }, []);
 
   const allCourses = useMemo(() => {
@@ -75,10 +99,22 @@ export default function AdminInvoicePage() {
   };
 
   const handleDelete = (invoiceId) => {
-    if (confirm('Are you sure you want to delete this invoice?')) {
-      setInvoices(invoices.filter((inv) => inv.id !== invoiceId));
-      alert('Invoice deleted successfully');
-    }
+    if (!confirm('Are you sure you want to delete this invoice?')) return;
+
+    const removeInvoice = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/invoices/${invoiceId}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error('Failed to delete invoice');
+        }
+        setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceId));
+        alert('Invoice deleted successfully');
+      } catch (error) {
+        alert(error.message || 'Unable to delete invoice');
+      }
+    };
+
+    removeInvoice();
   };
 
   const handleDownloadPDF = (invoice) => {
@@ -350,7 +386,9 @@ export default function AdminInvoicePage() {
             </div>
           </div>
 
-          {filteredInvoices.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500">Loading invoices...</div>
+          ) : filteredInvoices.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <span className="material-symbols-outlined text-4xl block mb-4 text-gray-300">receipt_long</span>
               <p className="font-medium">No invoices found</p>

@@ -510,6 +510,88 @@ async def list_student_fee_records(
         raise
 
 
+@router.get("/student-record")
+async def get_student_fee_record(
+    year: str = Query(...),
+    department: str = Query(...),
+    student_id: str = Query(...),
+):
+    """Return aggregated fee details for one student in a selected year and department."""
+
+    if not year.strip() or not department.strip() or not student_id.strip():
+        raise HTTPException(status_code=400, detail="year, department and student_id are required")
+
+    def _matches_assignment(item: dict[str, Any]) -> bool:
+        if str(item.get("studentId", "")).strip() != student_id.strip():
+            return False
+        if str(item.get("academicYear", "")).strip() != year.strip():
+            return False
+        if department.strip().lower() not in str(item.get("course", "")).strip().lower():
+            return False
+        if item.get("isDeleted"):
+            return False
+        return True
+
+    def _summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
+        if not records:
+            raise HTTPException(status_code=404, detail="No fee records found for selected filters")
+
+        hydrated = [_hydrate_assignment(item) for item in records]
+        total_assigned = round(sum(float(item.get("totalAmount") or 0) for item in hydrated), 2)
+        total_paid = round(sum(float(item.get("paidAmount") or 0) for item in hydrated), 2)
+        pending = round(max(total_assigned - total_paid, 0), 2)
+
+        if total_assigned > 0 and pending <= 0:
+            status = "Paid"
+        elif total_paid > 0:
+            status = "Partial"
+        else:
+            status = "Pending"
+
+        breakdown = {
+            "tuition": round(sum(float((item.get("breakdown") or {}).get("tuitionFee") or 0) for item in hydrated), 2),
+            "hostel": round(sum(float((item.get("breakdown") or {}).get("hostelFee") or 0) for item in hydrated), 2),
+            "exam": round(sum(float((item.get("breakdown") or {}).get("examFee") or 0) for item in hydrated), 2),
+            "misc": round(sum(float((item.get("breakdown") or {}).get("miscFee") or 0) for item in hydrated), 2),
+        }
+
+        first = hydrated[0]
+        return {
+            "student": {
+                "name": first.get("studentName") or "Unknown Student",
+                "id": first.get("studentId") or student_id,
+                "department": first.get("course") or department,
+                "academic_year": first.get("academicYear") or year,
+            },
+            "total_assigned": total_assigned,
+            "total_paid": total_paid,
+            "pending": pending,
+            "status": status,
+            "breakdown": breakdown,
+        }
+
+    try:
+        db = get_db()
+        query = {
+            "studentId": student_id.strip(),
+            "academicYear": year.strip(),
+            "course": {"$regex": f"^{department.strip()}$", "$options": "i"},
+            "isDeleted": {"$ne": True},
+        }
+
+        records: list[dict[str, Any]] = []
+        async for item in db["fees_assignments"].find(query).sort("createdAt", -1):
+            records.append(item)
+
+        return _summarize(records)
+    except HTTPException as error:
+        if error.status_code == 503:
+            _ensure_dev_fees_store()
+            records = [item for item in DEV_STORE["fees_assignments"] if _matches_assignment(item)]
+            return _summarize(records)
+        raise
+
+
 @router.get("/assignments/{fee_id}")
 async def get_fee_assignment(fee_id: str):
     db = get_db()

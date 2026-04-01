@@ -21,6 +21,14 @@ COURSES_BY_CATEGORY: dict[str, list[dict[str, str]]] = {
     ],
 }
 
+DEPARTMENT_BY_CODE = {
+    "CSE": "Computer Science",
+    "ECE": "Electronics",
+    "MECH": "Mechanical",
+    "CIVIL": "Civil",
+    "IT": "Information Technology",
+}
+
 
 def _admissions_collection():
     return get_db()["admissions"]
@@ -98,7 +106,10 @@ def _build_lookup_query(admission_id: str) -> dict[str, Any]:
 
 def _serialize_admission(item: dict[str, Any]) -> dict[str, Any]:
     serialized = dict(item)
-    serialized["_id"] = str(serialized["_id"])
+    raw_id = serialized.get("_id")
+    serialized["_id"] = str(raw_id) if raw_id is not None else str(
+        serialized.get("id") or serialized.get("admission_id") or ""
+    )
 
     if not serialized.get("id"):
         serialized["id"] = serialized.get("admission_id") or serialized["_id"]
@@ -120,6 +131,137 @@ def _serialize_admission(item: dict[str, Any]) -> dict[str, Any]:
         serialized["fullName"] = serialized["name"]
 
     return serialized
+
+
+COURSE_NAME_BY_CODE = {
+    str(course.get("code", "")).strip().upper(): str(course.get("name", "")).strip()
+    for category_courses in COURSES_BY_CATEGORY.values()
+    for course in category_courses
+    if course.get("code") and course.get("name")
+}
+
+COURSE_CODE_BY_NAME = {
+    name.lower(): code
+    for code, name in COURSE_NAME_BY_CODE.items()
+}
+
+COURSE_CODE_BY_DEPARTMENT = {
+    department.lower(): code
+    for code, department in DEPARTMENT_BY_CODE.items()
+}
+
+
+def _normalize_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _course_candidates(course: Optional[str]) -> set[str]:
+    if not course:
+        return set()
+
+    normalized = _normalize_text(course)
+    lowered = normalized.lower()
+    uppered = normalized.upper()
+    candidates = {lowered}
+
+    if uppered in COURSE_NAME_BY_CODE:
+        candidates.add(COURSE_NAME_BY_CODE[uppered].lower())
+        candidates.add(DEPARTMENT_BY_CODE.get(uppered, "").lower())
+    if lowered in COURSE_CODE_BY_NAME:
+        candidates.add(COURSE_CODE_BY_NAME[lowered].lower())
+    if uppered in DEPARTMENT_BY_CODE:
+        candidates.add(DEPARTMENT_BY_CODE[uppered].lower())
+    if lowered in COURSE_CODE_BY_DEPARTMENT:
+        code = COURSE_CODE_BY_DEPARTMENT[lowered]
+        candidates.add(code.lower())
+        candidates.add(COURSE_NAME_BY_CODE.get(code, "").lower())
+
+    return candidates
+
+
+def _derive_academic_year_from_student_identifier(student_id: str) -> str:
+    parts = _normalize_text(student_id).split("-")
+    if len(parts) >= 3 and parts[1].isdigit() and len(parts[1]) == 4:
+        start = int(parts[1])
+        return f"{start}-{start + 1}"
+    return ""
+
+
+def _student_row_to_admission_like(row: dict[str, Any]) -> dict[str, Any]:
+    student_id = _normalize_text(row.get("id") or row.get("rollNumber"))
+    academic_year = (
+        _normalize_text(row.get("academicYear"))
+        or _normalize_text(row.get("academic_year"))
+        or _derive_academic_year_from_student_identifier(student_id)
+    )
+    course = _normalize_text(row.get("course") or row.get("department"))
+
+    return {
+        "_id": str(row.get("_id") or student_id),
+        "id": student_id,
+        "admission_id": student_id,
+        "role": "student",
+        "type": "student",
+        "status": row.get("status") or "Active",
+        "name": row.get("name") or row.get("fullName") or "",
+        "fullName": row.get("fullName") or row.get("name") or "",
+        "email": row.get("email") or "",
+        "phone": row.get("phone") or "",
+        "course": course,
+        "department": row.get("department") or course,
+        "academicYear": academic_year,
+        "academic_year": academic_year,
+        "created_at": row.get("created_at") or row.get("createdAt") or "",
+    }
+
+
+async def _students_collection_fallback(
+    academic_year: Optional[str],
+    course: Optional[str],
+) -> list[dict[str, Any]]:
+    db = get_db()
+    data: list[dict[str, Any]] = []
+
+    async for row in db["students"].find().sort("_id", -1):
+        normalized = _student_row_to_admission_like(dict(row))
+        if _matches_student_filters(normalized, academic_year, course):
+            data.append(normalized)
+
+    return data
+
+
+def _matches_academic_year(record: dict[str, Any], academic_year: Optional[str]) -> bool:
+    if not academic_year:
+        return True
+
+    target = _normalize_text(academic_year)
+    values = {
+        _normalize_text(record.get("academicYear")),
+        _normalize_text(record.get("academic_year")),
+        _normalize_text((record.get("course_info") or {}).get("academic_year")),
+    }
+    return target in values
+
+
+def _matches_course(record: dict[str, Any], course: Optional[str]) -> bool:
+    if not course:
+        return True
+
+    candidates = _course_candidates(course)
+    values = {
+        _normalize_text(record.get("course")).lower(),
+        _normalize_text(record.get("department")).lower(),
+        _normalize_text((record.get("course_info") or {}).get("course")).lower(),
+    }
+    return any(value in candidates for value in values if value)
+
+
+def _matches_student_filters(
+    record: dict[str, Any],
+    academic_year: Optional[str],
+    course: Optional[str],
+) -> bool:
+    return _matches_academic_year(record, academic_year) and _matches_course(record, course)
 
 
 def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -335,17 +477,16 @@ async def get_student_admissions(
         admissions_collection = _admissions_collection()
         data: list[dict[str, Any]] = []
         base_query: dict[str, Any] = {"$or": [{"role": "student"}, {"type": "student"}]}
-        filters: dict[str, Any] = {}
-        if academic_year:
-            filters["academicYear"] = academic_year
-        if course:
-            filters["course"] = course
 
-        query = {"$and": [base_query, filters]} if filters else base_query
-        async for item in admissions_collection.find(query).sort("created_at", -1):
-            data.append(_serialize_admission(item))
+        async for item in admissions_collection.find(base_query).sort("created_at", -1):
+            serialized = _serialize_admission(item)
+            if _matches_student_filters(serialized, academic_year, course):
+                data.append(serialized)
 
-        if filters:
+        if not data:
+            data = await _students_collection_fallback(academic_year, course)
+
+        if academic_year or course:
             return {"data": data, "count": len(data)}
         return data
     except HTTPException as e:
@@ -356,10 +497,22 @@ async def get_student_admissions(
                 if item.get("role") == "student" or item.get("type") == "student"
             ]
 
-            if academic_year:
-                query_results = [item for item in query_results if item.get("academicYear") == academic_year]
-            if course:
-                query_results = [item for item in query_results if item.get("course") == course]
+            query_results = [
+                item
+                for item in query_results
+                if _matches_student_filters(item, academic_year, course)
+            ]
+
+            if not query_results:
+                student_results = [
+                    _student_row_to_admission_like(item)
+                    for item in DEV_STORE.get("students", [])
+                ]
+                query_results = [
+                    item
+                    for item in student_results
+                    if _matches_student_filters(item, academic_year, course)
+                ]
 
             data = sorted(query_results, key=lambda x: x.get("created_at", ""), reverse=True)
             if academic_year or course:
@@ -380,24 +533,13 @@ async def get_filtered_students(
     try:
         admissions_collection = _admissions_collection()
         
-        # Build query
         query = {"$or": [{"role": "student"}, {"type": "student"}]}
-        
-        # Add filters if provided
-        filters = {}
-        if academic_year:
-            filters["academicYear"] = academic_year
-        if course:
-            filters["course"] = course
-        
-        if filters:
-            query = {"$and": [query, filters]}
-        
-        # Fetch matching students
+
         data: list[dict[str, Any]] = []
         async for item in admissions_collection.find(query).sort("created_at", -1):
             serialized = _serialize_admission(item)
-            data.append(serialized)
+            if _matches_student_filters(serialized, academic_year, course):
+                data.append(serialized)
         
         return {"data": data, "count": len(data)}
         
@@ -411,11 +553,11 @@ async def get_filtered_students(
                 if item.get("role") == "student" or item.get("type") == "student"
             ]
             
-            # Apply filters
-            if academic_year:
-                query_results = [item for item in query_results if item.get("academicYear") == academic_year]
-            if course:
-                query_results = [item for item in query_results if item.get("course") == course]
+            query_results = [
+                item
+                for item in query_results
+                if _matches_student_filters(item, academic_year, course)
+            ]
             
             data = [_serialize_admission(item) for item in query_results]
             return {"data": data, "count": len(data)}

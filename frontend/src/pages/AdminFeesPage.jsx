@@ -43,6 +43,12 @@ const DEFAULT_STUDENT_FILTERS = {
   studentName: '',
 };
 
+const DEFAULT_STUDENT_RECORD_FILTERS = {
+  year: '',
+  department: '',
+  studentId: '',
+};
+
 const ACADEMIC_YEARS = ['2024-2025', '2025-2026', '2026-2027'];
 
 const PAYMENT_METHODS = ['UPI', 'Card', 'Net Banking'];
@@ -80,9 +86,17 @@ export default function AdminFeesPage() {
   const [paymentForm, setPaymentForm] = useState(DEFAULT_PAYMENT);
   const [studentFilters, setStudentFilters] = useState(DEFAULT_STUDENT_FILTERS);
   const [loading, setLoading] = useState(false);
+  const [invoiceGeneratingFor, setInvoiceGeneratingFor] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [studentsFromApi, setStudentsFromApi] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [studentRecordFilters, setStudentRecordFilters] = useState(DEFAULT_STUDENT_RECORD_FILTERS);
+  const [studentRecordOptions, setStudentRecordOptions] = useState([]);
+  const [loadingStudentRecordOptions, setLoadingStudentRecordOptions] = useState(false);
+  const [studentFeeRecord, setStudentFeeRecord] = useState(null);
+  const [loadingStudentFeeRecord, setLoadingStudentFeeRecord] = useState(false);
+  const [studentRecordAssignments, setStudentRecordAssignments] = useState([]);
 
   // Load courses from API when academic year changes
   React.useEffect(() => {
@@ -106,6 +120,7 @@ export default function AdminFeesPage() {
   React.useEffect(() => {
     const loadStudents = async () => {
       if (!studentFilters.academicYear || !studentFilters.course) {
+        setStudentsFromApi([]);
         setFilteredStudents([]);
         return;
       }
@@ -121,19 +136,10 @@ export default function AdminFeesPage() {
         if (!response.ok) throw new Error('Failed to load students');
         const data = await response.json();
         const studentData = Array.isArray(data) ? data : (data.data || []);
-        
-        // Apply search filters
-        let filtered = studentData;
-        if (studentFilters.studentId) {
-          filtered = filtered.filter(s => String(s.id || '').toLowerCase().includes(studentFilters.studentId.toLowerCase()));
-        }
-        if (studentFilters.studentName) {
-          filtered = filtered.filter(s => normalizeName(s).toLowerCase().includes(studentFilters.studentName.toLowerCase()));
-        }
-        
-        setFilteredStudents(filtered);
+        setStudentsFromApi(studentData);
       } catch (error) {
         console.error('Error loading students:', error);
+        setStudentsFromApi([]);
         setFilteredStudents([]);
       } finally {
         setLoadingStudents(false);
@@ -143,11 +149,23 @@ export default function AdminFeesPage() {
     loadStudents();
   }, [studentFilters.academicYear, studentFilters.course]);
 
-  // Apply search filters only (don't reload)
+  // Apply client-side ID/name filters on the already fetched student list.
   React.useEffect(() => {
-    // This effect just handles student ID and name search on already loaded students
-    // The loading effect above handles the API calls
-  }, [studentFilters.studentId, studentFilters.studentName]);
+    let filtered = studentsFromApi;
+    const idNeedle = studentFilters.studentId.trim().toLowerCase();
+    const nameNeedle = studentFilters.studentName.trim().toLowerCase();
+
+    if (idNeedle) {
+      filtered = filtered.filter((student) =>
+        String(student.id || student.studentId || '').toLowerCase().includes(idNeedle)
+      );
+    }
+    if (nameNeedle) {
+      filtered = filtered.filter((student) => normalizeName(student).toLowerCase().includes(nameNeedle));
+    }
+
+    setFilteredStudents(filtered);
+  }, [studentsFromApi, studentFilters.studentId, studentFilters.studentName]);
 
   const filteredAssignments = useMemo(() => {
     return feeAssignments.filter((assignment) => {
@@ -219,6 +237,12 @@ export default function AdminFeesPage() {
   };
 
   const getStatusLabel = (status) => status || 'Assigned';
+
+  const getStudentRecordStatusClass = (status) => {
+    if (status === 'Paid') return 'bg-green-100 text-green-800';
+    if (status === 'Partial') return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
 
   const openAssignModal = (students) => {
     if (!students.length) {
@@ -439,13 +463,36 @@ export default function AdminFeesPage() {
     }
   };
 
-  const downloadReceipt = (assignment, transaction) => {
+  const downloadInvoice = async (assignment, transaction) => {
+    setInvoiceGeneratingFor(assignment.id);
+    let invoice = null;
+
+    try {
+      const response = await fetch(`${API_BASE}/invoices/generate-from-fee-assignment/${assignment.id}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.detail || 'Failed to generate invoice record');
+      }
+      invoice = await response.json();
+    } catch (error) {
+      setInvoiceGeneratingFor(null);
+      alert(error.message || 'Unable to generate invoice.');
+      return;
+    }
+
+    const invoiceId = invoice?.invoice_id || invoice?.id || `INV-${assignment.studentId}`;
+    const generatedDateRaw = invoice?.generated_date || invoice?.generatedDate || new Date().toISOString();
+    const generatedDate = String(generatedDateRaw).slice(0, 10);
+    const paymentStatus = invoice?.payment_status || invoice?.paymentStatus || assignment?.status || 'Pending';
+
     const pdf = new jsPDF();
     let y = 20;
 
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(18);
-    pdf.text('Payment Receipt', 105, y, { align: 'center' });
+    pdf.text('Invoice', 105, y, { align: 'center' });
     y += 12;
 
     pdf.setFont('helvetica', 'normal');
@@ -470,9 +517,15 @@ export default function AdminFeesPage() {
     y += 10;
 
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Payment Details', 20, y);
+    pdf.text('Invoice Details', 20, y);
     y += 7;
     pdf.setFont('helvetica', 'normal');
+    pdf.text(`Invoice ID: ${invoiceId}`, 20, y);
+    y += 6;
+    pdf.text(`Invoice Date: ${generatedDate}`, 20, y);
+    y += 6;
+    pdf.text(`Status: ${paymentStatus}`, 20, y);
+    y += 6;
     pdf.text(`Amount: ${formatCurrency(transaction.amount)}`, 20, y);
     y += 6;
     pdf.text(`Payment Method: ${transaction.paymentMethod}`, 20, y);
@@ -481,7 +534,9 @@ export default function AdminFeesPage() {
     y += 6;
     pdf.text(`Date: ${transaction.date}`, 20, y);
 
-    pdf.save(`receipt-${assignment.studentId}-${transaction.transactionId}.pdf`);
+    pdf.save(`invoice-${invoiceId}.pdf`);
+    setInvoiceGeneratingFor(null);
+    alert('Invoice downloaded. It is now available on the Invoice page.');
   };
 
   const handleCreateTemplate = async () => {
@@ -573,6 +628,300 @@ export default function AdminFeesPage() {
     setSelectedStudentIds({});
   }, [studentFilters.academicYear, studentFilters.course, studentFilters.studentId, studentFilters.studentName]);
 
+  React.useEffect(() => {
+    const loadStudentRecordOptions = async () => {
+      if (!studentRecordFilters.year || !studentRecordFilters.department) {
+        setStudentRecordOptions([]);
+        return;
+      }
+
+      setLoadingStudentRecordOptions(true);
+      try {
+        const params = new URLSearchParams({
+          academicYear: studentRecordFilters.year,
+          course: studentRecordFilters.department,
+        });
+        const response = await fetch(`${API_BASE}/fees/assignments?${params}`);
+        if (!response.ok) {
+          throw new Error('Failed to load students for selected filters');
+        }
+
+        const payload = await response.json();
+        const rows = payload.data || [];
+        const map = new Map();
+
+        rows.forEach((row) => {
+          const id = String(row.studentId || '').trim();
+          if (!id || map.has(id)) return;
+          map.set(id, {
+            id,
+            name: row.studentName || id,
+          });
+        });
+
+        setStudentRecordOptions(Array.from(map.values()));
+      } catch (error) {
+        console.error('Error loading student record options:', error);
+        setStudentRecordOptions([]);
+      } finally {
+        setLoadingStudentRecordOptions(false);
+      }
+    };
+
+    loadStudentRecordOptions();
+  }, [studentRecordFilters.year, studentRecordFilters.department]);
+
+  React.useEffect(() => {
+    const loadStudentFeeRecord = async () => {
+      if (!studentRecordFilters.year || !studentRecordFilters.department || !studentRecordFilters.studentId) {
+        setStudentFeeRecord(null);
+        setStudentRecordAssignments([]);
+        return;
+      }
+
+      setLoadingStudentFeeRecord(true);
+      try {
+        const params = new URLSearchParams({
+          year: studentRecordFilters.year,
+          department: studentRecordFilters.department,
+          student_id: studentRecordFilters.studentId,
+        });
+        const response = await fetch(`${API_BASE}/fees/student-record?${params}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            setStudentFeeRecord(null);
+            return;
+          }
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || 'Failed to load student fee record');
+        }
+
+        const payload = await response.json();
+        setStudentFeeRecord(payload);
+
+        const recordsResponse = await fetch(
+          `${API_BASE}/fees/students/${studentRecordFilters.studentId}/records`
+        );
+        if (recordsResponse.ok) {
+          const recordsPayload = await recordsResponse.json();
+          const matchingAssignments = (recordsPayload.data || []).filter((item) => {
+            const yearMatches = String(item.academicYear || '') === studentRecordFilters.year;
+            const deptMatches = String(item.course || '').toLowerCase() ===
+              String(studentRecordFilters.department || '').toLowerCase();
+            return yearMatches && deptMatches;
+          });
+          setStudentRecordAssignments(matchingAssignments);
+        } else {
+          setStudentRecordAssignments([]);
+        }
+      } catch (error) {
+        console.error('Error loading student fee record:', error);
+        setStudentFeeRecord(null);
+        setStudentRecordAssignments([]);
+      } finally {
+        setLoadingStudentFeeRecord(false);
+      }
+    };
+
+    loadStudentFeeRecord();
+  }, [studentRecordFilters.year, studentRecordFilters.department, studentRecordFilters.studentId]);
+
+  const currentStudentRecordAssignment = useMemo(
+    () => studentRecordAssignments[0] || null,
+    [studentRecordAssignments]
+  );
+
+  const currentStudentRecordTransaction = useMemo(() => {
+    if (!currentStudentRecordAssignment) return null;
+    const txns = currentStudentRecordAssignment.transactions || [];
+    return txns[txns.length - 1] || null;
+  }, [currentStudentRecordAssignment]);
+
+  const studentPaidPercentage = useMemo(() => {
+    const assigned = Number(studentFeeRecord?.total_assigned || 0);
+    const paid = Number(studentFeeRecord?.total_paid || 0);
+    if (assigned <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((paid / assigned) * 100)));
+  }, [studentFeeRecord]);
+
+  const renderStudentFeeRecordsSection = () => (
+    <div className="bg-white rounded-lg shadow p-4">
+      <h2 className="text-lg font-bold text-gray-800 mb-4">Student Fee Records</h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Academic Year</label>
+          <select
+            value={studentRecordFilters.year}
+            onChange={(e) => {
+              const year = e.target.value;
+              setStudentRecordFilters({ year, department: '', studentId: '' });
+              setStudentRecordOptions([]);
+              setStudentFeeRecord(null);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">Select Academic Year</option>
+            {ACADEMIC_YEARS.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Department</label>
+          <select
+            value={studentRecordFilters.department}
+            disabled={!studentRecordFilters.year}
+            onChange={(e) => {
+              const department = e.target.value;
+              setStudentRecordFilters((prev) => ({ ...prev, department, studentId: '' }));
+              setStudentFeeRecord(null);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            <option value="">Select Department</option>
+            {courses.map((course) => (
+              <option key={course} value={course}>
+                {course}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Student</label>
+          <select
+            value={studentRecordFilters.studentId}
+            disabled={!studentRecordFilters.year || !studentRecordFilters.department || loadingStudentRecordOptions}
+            onChange={(e) =>
+              setStudentRecordFilters((prev) => ({
+                ...prev,
+                studentId: e.target.value,
+              }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            <option value="">{loadingStudentRecordOptions ? 'Loading students...' : 'Search Student'}</option>
+            {studentRecordOptions.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name} ({student.id})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {!studentRecordFilters.year ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          Select filters to view student fee details
+        </div>
+      ) : !studentRecordFilters.department ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          Select filters to view student fee details
+        </div>
+      ) : loadingStudentRecordOptions ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          Loading students...
+        </div>
+      ) : studentRecordOptions.length === 0 ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          No students found for selected Academic Year and Department.
+        </div>
+      ) : !studentRecordFilters.studentId ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          Select filters to view student fee details
+        </div>
+      ) : loadingStudentFeeRecord ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          Loading student fee record...
+        </div>
+      ) : !studentFeeRecord ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
+          No fee record found for the selected student.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <StatCard icon="account_balance_wallet" label="Total Fee Assigned" value={formatCurrency(studentFeeRecord.total_assigned)} color="blue" />
+            <StatCard icon="payments" label="Total Paid" value={formatCurrency(studentFeeRecord.total_paid)} color="green" />
+            <StatCard icon="hourglass_bottom" label="Pending Amount" value={formatCurrency(studentFeeRecord.pending)} color="orange" />
+            <StatCard icon="flag" label="Status" value={studentFeeRecord.status} color={studentFeeRecord.status === 'Paid' ? 'green' : studentFeeRecord.status === 'Partial' ? 'orange' : 'red'} />
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-gray-800">Student Fee Record</h3>
+            <span className={`text-xs font-bold px-2 py-1 rounded-full ${getStudentRecordStatusClass(studentFeeRecord.status)}`}>
+              {studentFeeRecord.status}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm font-bold text-gray-800 mb-2">Student Info</p>
+              <div className="text-sm text-gray-700 space-y-1">
+                <p><span className="font-semibold">Name:</span> {studentFeeRecord.student?.name || 'N/A'}</p>
+                <p><span className="font-semibold">Student ID:</span> {studentFeeRecord.student?.id || 'N/A'}</p>
+                <p><span className="font-semibold">Department:</span> {studentFeeRecord.student?.department || 'N/A'}</p>
+                <p><span className="font-semibold">Academic Year:</span> {studentFeeRecord.student?.academic_year || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm font-bold text-gray-800 mb-2">Fee Summary</p>
+              <div className="text-sm text-gray-700 space-y-1">
+                <p><span className="font-semibold">Total Fee Assigned:</span> {formatCurrency(studentFeeRecord.total_assigned)}</p>
+                <p><span className="font-semibold">Total Paid:</span> {formatCurrency(studentFeeRecord.total_paid)}</p>
+                <p><span className="font-semibold">Pending Amount:</span> {formatCurrency(studentFeeRecord.pending)}</p>
+                <p><span className="font-semibold">Status:</span> {studentFeeRecord.status}</p>
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-600 mb-1">
+                  <span>Payment Progress</span>
+                  <span>{studentPaidPercentage}% Paid</span>
+                </div>
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-2 bg-green-500 rounded-full transition-all"
+                    style={{ width: `${studentPaidPercentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-sm font-bold text-gray-800 mb-2">Fee Breakdown</p>
+            <div className="text-sm text-gray-700 divide-y divide-gray-200">
+              <div className="flex items-center justify-between py-2">
+                <span className="font-semibold">Tuition Fee</span>
+                <span>{formatCurrency(studentFeeRecord.breakdown?.tuition)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="font-semibold">Hostel Fee</span>
+                <span>{formatCurrency(studentFeeRecord.breakdown?.hostel)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="font-semibold">Exam Fee</span>
+                <span>{formatCurrency(studentFeeRecord.breakdown?.exam)}</span>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="font-semibold">Misc Fee</span>
+                <span>{formatCurrency(studentFeeRecord.breakdown?.misc)}</span>
+              </div>
+            </div>
+          </div>
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
@@ -594,8 +943,18 @@ export default function AdminFeesPage() {
             >
               Fee Records
             </button>
+            <button
+              onClick={() => setActiveSection('student-records')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                activeSection === 'student-records' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Student Records
+            </button>
           </div>
         </div>
+
+        {activeSection === 'student-records' && renderStudentFeeRecordsSection()}
 
         {activeSection === 'records' && (
           <>
@@ -748,11 +1107,11 @@ export default function AdminFeesPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            disabled={!lastTransaction}
-                            onClick={() => lastTransaction && downloadReceipt(assignment, lastTransaction)}
+                            disabled={!lastTransaction || invoiceGeneratingFor === assignment.id}
+                            onClick={() => lastTransaction && downloadInvoice(assignment, lastTransaction)}
                             className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-1.5 text-sm rounded-lg transition"
                           >
-                            Download Receipt
+                            {invoiceGeneratingFor === assignment.id ? 'Generating...' : 'Download Invoice'}
                           </button>
                           <button
                             onClick={() => handleDeleteClick(assignment)}
@@ -1231,10 +1590,10 @@ export default function AdminFeesPage() {
                     </div>
                     <div className="mt-3">
                       <button
-                        onClick={() => downloadReceipt(selectedAssignment, txn)}
+                        onClick={() => downloadInvoice(selectedAssignment, txn)}
                         className="bg-green-500 hover:bg-green-600 text-white font-semibold py-1.5 px-3 text-sm rounded-lg transition"
                       >
-                        Download Receipt
+                        Download Invoice
                       </button>
                     </div>
                   </div>
