@@ -110,6 +110,17 @@ export default function PayrollPage({ noLayout = false }) {
         tax: 0,
     });
 
+    // Run Payroll Modal State
+    const [isRunPayrollOpen, setIsRunPayrollOpen] = useState(false);
+    const [runPayrollStep, setRunPayrollStep] = useState(1);
+    const [runPayrollConfig, setRunPayrollConfig] = useState({
+        payMonth: new Date().toLocaleString('default', { month: 'long' }),
+        payYear: new Date().getFullYear().toString(),
+        category: 'All',
+        department: 'All'
+    });
+    const [runPayrollPreview, setRunPayrollPreview] = useState([]);
+
     // Step 1 local state for UI filtering
     const [step1Category, setStep1Category] = useState('');
     const [step1Department, setStep1Department] = useState('');
@@ -117,7 +128,7 @@ export default function PayrollPage({ noLayout = false }) {
 
     const filteredData = useMemo(() => {
         return payrollData.filter(record => {
-            const hasPayroll = !!(record.grossPay || record.netPay);
+            const hasPayroll = record.grossPay !== undefined || record.netPay !== undefined;
             if (!hasPayroll) return false;
 
             const matchMonth = filterMonth === 'All Periods' || record.payMonth === filterMonth || (record.payPeriodDetailed && record.payPeriodDetailed.includes(filterMonth));
@@ -344,61 +355,84 @@ export default function PayrollPage({ noLayout = false }) {
         }
     };
 
-    const handleRunPayroll = async () => {
-        const now = new Date();
-        const currentPeriod = now.toLocaleString('default', { month: 'long' }) + ' ' + now.getFullYear();
-        const newRecords = [];
+    const handleRunPayroll = () => {
+        setIsRunPayrollOpen(true);
+        setRunPayrollStep(1);
+        setRunPayrollPreview([]);
+    };
 
-        staffList.forEach(staff => {
-            // Normalize field names from the DB (may vary)
-            const id = staff.staffId || staff.staff_id || staff.id || '';
-            const name = staff.staffName || staff.name || '';
-            const role = staff.designation || staff.role || '';
-            const dept = staff.department || '';
-            const cat = staff.category || '';
+    const handlePreviewPayroll = () => {
+        const selectedPeriod = `${runPayrollConfig.payMonth} ${runPayrollConfig.payYear}`;
+
+        const alreadyGenerated = payrollData.some(r => r.payPeriodDetailed === selectedPeriod);
+        if (alreadyGenerated) {
+            alert('Payroll already exists for selected period');
+            return;
+        }
+
+        const filteredStaff = staffList.filter(staff => {
+            const catMatch = runPayrollConfig.category === 'All' || staff.category === runPayrollConfig.category;
+            const deptMatch = runPayrollConfig.department === 'All' || staff.department === runPayrollConfig.department || staff.departmentId === runPayrollConfig.department;
+            return catMatch && deptMatch;
+        });
+
+        if (filteredStaff.length === 0) {
+            alert('No staff found for the selected department and category.');
+            return;
+        }
+
+        const previewRecords = filteredStaff.map(staff => {
             const basic = Number(staff.basicSalary || staff.basic_salary || 0);
             const hra = Number(staff.hra || 0);
             const allowance = Number(staff.allowance || 0);
             const pf = Number(staff.pf || 0);
             const tax = Number(staff.tax || 0);
+            const gross = basic + hra + allowance;
+            const net = gross - (pf + tax);
 
-            const exists = payrollData.some(r => (r.staffId === id) && r.payPeriodDetailed === currentPeriod);
-            if (!exists) {
-                const gross = basic + hra + allowance;
-                const deds = pf + tax;
-                newRecords.push({
-                    staffName: name,
-                    staffId: id,
-                    designation: role,
-                    department: dept,
-                    category: cat,
-                    payMonth: 'Current Month',
-                    payPeriodDetailed: currentPeriod,
-                    grossPay: gross,
-                    deductions: deds,
-                    netPay: gross - deds,
-                    status: 'Draft',
-                    basicSalary: basic,
-                    hra, allowance, bonus: 0, pf, tax
-                });
-            }
+            return {
+                staffName: staff.staffName || staff.name || '',
+                staffId: staff.staffId || staff.staff_id || staff.id || '',
+                designation: staff.designation || staff.role || '',
+                department: staff.department || staff.departmentId || '',
+                category: staff.category || '',
+                payMonth: 'Current Month',
+                payPeriodDetailed: selectedPeriod,
+                grossPay: gross,
+                deductions: pf + tax,
+                netPay: net,
+                status: 'Draft',
+                basicSalary: basic,
+                hra,
+                allowance,
+                bonus: 0,
+                pf,
+                tax,
+                esi: 0,
+                professionalTax: 0,
+                tds: 0
+            };
         });
 
-        if (newRecords.length > 0) {
+        setRunPayrollPreview(previewRecords);
+        setRunPayrollStep(2);
+    };
+
+    const executeRunPayroll = async () => {
+        if (runPayrollPreview.length > 0) {
             try {
                 const res = await fetch(`${API_BASE}/payroll/batch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newRecords),
+                    body: JSON.stringify(runPayrollPreview),
                 });
                 if (!res.ok) throw new Error('Failed to run payroll');
                 await fetchPayroll();
-                alert('Payroll successfully generated for ' + currentPeriod + '.');
+                setIsRunPayrollOpen(false);
+                alert('Payroll generated successfully');
             } catch (err) {
                 alert('Error: ' + err.message);
             }
-        } else {
-            alert('Payroll records already exist for all staff this month.');
         }
     };
 
@@ -477,7 +511,7 @@ export default function PayrollPage({ noLayout = false }) {
                                     const displayName = record.staffName || (staff && (staff.staffName || staff.name)) || '—';
                                     const displayId = record.staffId || '—';
                                     const displayRole = record.designation || (staff && (staff.designation || staff.role)) || '—';
-                                    const hasPayroll = !!(record.grossPay || record.netPay);
+                                    const hasPayroll = record.grossPay !== undefined || record.netPay !== undefined;
                                     return (
                                         <tr key={record.id} style={{ borderTop: '1px solid #e5e7eb', transition: 'background 0.2s' }}>
                                             <td style={{ padding: '16px 20px' }}>
@@ -1053,6 +1087,126 @@ export default function PayrollPage({ noLayout = false }) {
                                 <button type="submit" className="btn-primary-sm" style={{ background: '#2563eb', color: '#fff' }}>Save Changes</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Run Payroll Bulk Modal */}
+            {isRunPayrollOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+                    <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: runPayrollStep === 1 ? 500 : 800, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', animation: 'slideUp 0.3s ease-out', overflow: 'hidden' }}>
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb' }}>
+                            <h3 style={{ margin: 0, fontSize: 18, color: '#1f2937', fontWeight: 600 }}>Run Bulk Payroll</h3>
+                            <button onClick={() => setIsRunPayrollOpen(false)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>
+                                <CloseIcon />
+                            </button>
+                        </div>
+
+                        {runPayrollStep === 1 && (
+                            <div style={{ padding: 24, animation: 'fadeIn 0.2s ease-out' }}>
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Pay Month</label>
+                                    <select
+                                        value={runPayrollConfig.payMonth}
+                                        onChange={(e) => setRunPayrollConfig({ ...runPayrollConfig, payMonth: e.target.value })}
+                                        style={{ width: '100%', height: 42, padding: '0 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}
+                                    >
+                                        {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Pay Year</label>
+                                    <select
+                                        value={runPayrollConfig.payYear}
+                                        onChange={(e) => setRunPayrollConfig({ ...runPayrollConfig, payYear: e.target.value })}
+                                        style={{ width: '100%', height: 42, padding: '0 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}
+                                    >
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                    </select>
+                                </div>
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Category Filter</label>
+                                    <select
+                                        value={runPayrollConfig.category}
+                                        onChange={(e) => setRunPayrollConfig({ ...runPayrollConfig, category: e.target.value })}
+                                        style={{ width: '100%', height: 42, padding: '0 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}
+                                    >
+                                        <option value="All">All Categories</option>
+                                        <option value="Teaching">Teaching</option>
+                                        <option value="Non-Teaching">Non-Teaching</option>
+                                        <option value="Support">Support</option>
+                                    </select>
+                                </div>
+                                <div style={{ marginBottom: 24 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Department Filter (Optional)</label>
+                                    <select
+                                        value={runPayrollConfig.department}
+                                        onChange={(e) => setRunPayrollConfig({ ...runPayrollConfig, department: e.target.value })}
+                                        style={{ width: '100%', height: 42, padding: '0 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14 }}
+                                    >
+                                        <option value="All">All Departments</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="Electrical Engineering">Electrical Engineering</option>
+                                        <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                        <option value="Information Technology">Information Technology</option>
+                                        <option value="Administration">Administration</option>
+                                    </select>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                                    <button onClick={() => setIsRunPayrollOpen(false)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+                                    <button className="btn-primary-sm" onClick={handlePreviewPayroll}>Preview Payroll</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {runPayrollStep === 2 && (
+                            <div style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                                <div style={{ padding: '16px 24px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe' }}>
+                                    <p style={{ margin: 0, color: '#1e40af', fontSize: 14 }}>Previewing <strong>{runPayrollPreview.length}</strong> payroll records for <strong>{runPayrollConfig.payMonth} {runPayrollConfig.payYear}</strong>.</p>
+                                </div>
+
+                                <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f9fafb', color: '#6b7280', fontSize: 12, textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
+                                                <th style={{ padding: '12px 24px', fontWeight: 600 }}>Staff Name</th>
+                                                <th style={{ padding: '12px 24px', fontWeight: 600 }}>Designation</th>
+                                                <th style={{ padding: '12px 24px', fontWeight: 600 }}>Pay Period</th>
+                                                <th style={{ padding: '12px 24px', fontWeight: 600 }}>Gross Pay</th>
+                                                <th style={{ padding: '12px 24px', fontWeight: 600 }}>Net Pay</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {runPayrollPreview.map((rec, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                    <td style={{ padding: '12px 24px' }}>
+                                                        <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 14 }}>{rec.staffName}</div>
+                                                        <div style={{ fontSize: 12, color: '#6b7280' }}>ID: {rec.staffId}</div>
+                                                    </td>
+                                                    <td style={{ padding: '12px 24px', fontSize: 13, color: '#374151' }}>{rec.designation}</td>
+                                                    <td style={{ padding: '12px 24px', fontSize: 13, color: '#4b5563' }}>{rec.payPeriodDetailed}</td>
+                                                    <td style={{ padding: '12px 24px', fontSize: 13, color: '#374151', fontWeight: 500 }}>{formatCurrency(rec.grossPay)}</td>
+                                                    <td style={{ padding: '12px 24px', fontSize: 14, color: '#111827', fontWeight: 600 }}>{formatCurrency(rec.netPay)}</td>
+                                                </tr>
+                                            ))}
+                                            {runPayrollPreview.length === 0 && (
+                                                <tr><td colSpan="5" style={{ padding: 24, textAlign: 'center', color: '#6b7280' }}>No preview data available.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', justifyContent: 'space-between' }}>
+                                    <button onClick={() => setRunPayrollStep(1)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: 500 }}>Back</button>
+                                    <button className="btn-primary-sm" onClick={executeRunPayroll} style={{ background: '#10b981', borderColor: '#059669', minWidth: 120 }}>Run Payroll</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

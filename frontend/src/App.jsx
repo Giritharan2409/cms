@@ -13,6 +13,7 @@ import StudentSettings from './pages/student/StudentSettings';
 import FacultySettings from './pages/faculty/FacultySettings';
 import FinanceSettings from './pages/finance/FinanceSettings';
 import AdminSettings from './pages/admin/AdminSettings';
+import SettingsPage from './pages/SettingsPage';
 import StudentPageWrapper from './pages/StudentPageWrapper';
 import StudentDetailPage from './pages/StudentDetailPage';
 import NotificationsPage from './pages/NotificationsPage';

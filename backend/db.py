@@ -209,7 +209,6 @@ async def lifespan(app):
     if _reconnect_task:
         _reconnect_task.cancel()
         try:
-        try:
             await _reconnect_task
         except asyncio.CancelledError:
             pass

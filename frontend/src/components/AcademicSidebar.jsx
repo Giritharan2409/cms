@@ -63,7 +63,6 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
     if (item === 'Department') {
       return role === 'admin' ? '/admin-department' : '/department'
     }
-    }
     if (item === 'Fees') {
       return role === 'admin' ? '/admin-fees' : '/fees'
     }
