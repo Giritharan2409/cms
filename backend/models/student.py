@@ -26,4 +26,5 @@ class Student(BaseModel):
     fee_status: str = Field(default="pending", alias="feeStatus")
     guardian: str = ""
     guardian_phone: str = Field(default="", alias="guardianPhone")
+    guardian_relationship: str = Field(default="", alias="guardianRelationship")
     enroll_date: Optional[date] = Field(default=None, alias="enrollDate")

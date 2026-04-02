@@ -45,6 +45,37 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+const SEMESTER_OPTIONS = Array.from({ length: 8 }, (_, index) => index + 1);
+const STATE_OPTIONS = [
+  'Andhra Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Tamil Nadu',
+  'Telangana',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+];
+
+const onlyDigits = (value, limit) => String(value || '').replace(/\D/g, '').slice(0, limit);
+const trimValue = (value) => String(value || '').trim();
+const isValidPhone = (value) => /^\d{10}$/.test(onlyDigits(value, 10));
+const isValidPincode = (value) => /^\d{6}$/.test(onlyDigits(value, 6));
+const isValidEmail = (value) => /^\S+@\S+\.\S+$/.test(trimValue(value));
+
 export default function StudentAdmissionModal({ isOpen, onClose }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -133,16 +164,26 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   const areAllStepsComplete = () => {
     return (
       // Step 1: Personal
-      formData.name &&
-      formData.email &&
-      formData.phone &&
+      trimValue(formData.name) &&
+      isValidEmail(formData.email) &&
+      isValidPhone(formData.phone) &&
       formData.dateOfBirth &&
       formData.gender &&
       // Step 2: Academic
-      formData.previousSchool &&
+      trimValue(formData.previousSchool) &&
       formData.board &&
       formData.yearOfPassing &&
-      formData.marksPercentage &&
+      trimValue(formData.marksPercentage) &&
+      formData.semester &&
+      trimValue(formData.rollNumber) &&
+      formData.cgpa !== '' &&
+      trimValue(formData.address) &&
+      trimValue(formData.city) &&
+      formData.state &&
+      isValidPincode(formData.pincode) &&
+      trimValue(formData.guardianName) &&
+      isValidPhone(formData.guardianPhone) &&
+      trimValue(formData.guardianRelationship) &&
       // Step 3: Course
       formData.courseCategory &&
       formData.course &&
@@ -170,6 +211,16 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       board: 'CBSE',
       yearOfPassing: '2023',
       marksPercentage: '92%',
+      semester: '6',
+      rollNumber: 'STU-2025-001',
+      cgpa: '8.9',
+      address: '45, Residency Road',
+      city: 'Bangalore',
+      state: 'Karnataka',
+      pincode: '560001',
+      guardianName: 'Suresh Sharma',
+      guardianPhone: '9876543210',
+      guardianRelationship: 'Father',
       courseCategory: 'Engineering',
       course: 'CSE',
       academicYear: '2025-2026',
@@ -188,7 +239,14 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]:
+        name === 'phone' || name === 'guardianPhone'
+          ? onlyDigits(value, 10)
+          : name === 'pincode'
+          ? onlyDigits(value, 6)
+          : name === 'cgpa'
+          ? value.replace(/[^\d.]/g, '')
+          : value,
       ...(name === 'courseCategory' ? { course: '' } : {}),
     }));
   };
@@ -231,21 +289,48 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
     };
   }, [formData.courseCategory]);
 
-  const handleFileChange = (e, fieldName) => {
-    const file = e.target.files?.[0];
-    setFormData((prev) => ({
-      ...prev,
-      [fieldName]: file,
-    }));
+  const validateCurrentStep = () => {
+    if (currentStep === 1) {
+      if (!trimValue(formData.name)) return 'Please enter the student full name.';
+      if (!isValidEmail(formData.email)) return 'Please enter a valid email address.';
+      if (!isValidPhone(formData.phone)) return 'Phone number must be exactly 10 digits.';
+      if (!formData.dateOfBirth) return 'Please select date of birth.';
+      if (!formData.gender) return 'Please select gender.';
+    }
+
+    if (currentStep === 2) {
+      if (!trimValue(formData.previousSchool)) return 'Please enter the previous school name.';
+      if (!formData.board) return 'Please select the board.';
+      if (!formData.yearOfPassing) return 'Please enter the year of passing.';
+      if (!trimValue(formData.marksPercentage)) return 'Please enter the marks or percentage.';
+      if (!formData.semester) return 'Please select the semester.';
+      if (!trimValue(formData.rollNumber)) return 'Please enter the roll number.';
+      if (formData.cgpa === '' || Number.isNaN(Number(formData.cgpa))) return 'Please enter a valid CGPA.';
+      if (!trimValue(formData.address)) return 'Please enter the address.';
+      if (!trimValue(formData.city)) return 'Please enter the city.';
+      if (!formData.state) return 'Please select the state.';
+      if (!isValidPincode(formData.pincode)) return 'Pincode must be exactly 6 digits.';
+      if (!trimValue(formData.guardianName)) return 'Please enter the guardian name.';
+      if (!isValidPhone(formData.guardianPhone)) return 'Guardian phone must be exactly 10 digits.';
+      if (!trimValue(formData.guardianRelationship)) return 'Please enter the guardian relationship.';
+    }
+
+    if (currentStep === 3) {
+      if (!formData.courseCategory || !formData.course || !formData.academicYear) {
+        return 'Please select course category, course, and academic year.';
+      }
+    }
+
+    return '';
   };
 
   const handleNext = () => {
-    if (currentStep === 3) {
-      if (!formData.courseCategory || !formData.course || !formData.academicYear) {
-        alert('Please select course category, course, and academic year.');
-        return;
-      }
+    const validationError = validateCurrentStep();
+    if (validationError) {
+      alert(validationError);
+      return;
     }
+
     if (currentStep < 8) setCurrentStep(currentStep + 1);
   };
 
@@ -259,15 +344,25 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const buildStudentAdmissionPayload = () => ({
-    name: formData.name,
-    email: formData.email,
-    phone: formData.phone,
+    name: trimValue(formData.name),
+    email: trimValue(formData.email),
+    phone: onlyDigits(formData.phone, 10),
     dateOfBirth: formData.dateOfBirth,
     gender: formData.gender,
-    previousSchool: formData.previousSchool,
+    previousSchool: trimValue(formData.previousSchool),
     board: formData.board,
-    yearOfPassing: formData.yearOfPassing,
-    marksPercentage: formData.marksPercentage,
+    yearOfPassing: Number(formData.yearOfPassing || 0),
+    marksPercentage: trimValue(formData.marksPercentage),
+    semester: Number(formData.semester || 0),
+    rollNumber: trimValue(formData.rollNumber),
+    cgpa: Number(formData.cgpa || 0),
+    address: trimValue(formData.address),
+    city: trimValue(formData.city),
+    state: formData.state,
+    pincode: onlyDigits(formData.pincode, 6),
+    guardianName: trimValue(formData.guardianName),
+    guardianPhone: onlyDigits(formData.guardianPhone, 10),
+    guardianRelationship: trimValue(formData.guardianRelationship),
     courseCategory: formData.courseCategory,
     course: formData.course,
     academicYear: formData.academicYear,
@@ -317,6 +412,12 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
   };
 
   const handleProceedToPayment = async () => {
+    const validationError = validateCurrentStep();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
     if (!areAllStepsComplete()) {
       alert('Please complete all required steps before proceeding to payment.');
       return;
@@ -324,7 +425,6 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
 
     setProceedPaymentLoading(true);
     try {
-      await persistStudentAdmission();
       setShowPaymentDetails(true);
     } catch (error) {
       console.error('Error saving admission before payment:', error);
@@ -356,8 +456,6 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
 
     setPaymentLoading(true);
     try {
-      await persistStudentAdmission();
-
       // Generate user ID based on email
       const userId = savedUserId || `STU_${(formData.email.split('@')[0] || 'student')}_${Date.now()}`;
       if (!savedUserId) {
@@ -432,16 +530,31 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
       return;
     }
 
+    if (!areAllStepsComplete()) {
+      alert('Please complete all required fields before submitting the application.');
+      return;
+    }
+
     const studentData = {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
+      name: trimValue(formData.name),
+      email: trimValue(formData.email),
+      phone: onlyDigits(formData.phone, 10),
       dateOfBirth: formData.dateOfBirth,
       gender: formData.gender,
-      previousSchool: formData.previousSchool,
+      previousSchool: trimValue(formData.previousSchool),
       board: formData.board,
-      yearOfPassing: formData.yearOfPassing,
-      marksPercentage: formData.marksPercentage,
+      yearOfPassing: Number(formData.yearOfPassing || 0),
+      marksPercentage: trimValue(formData.marksPercentage),
+      semester: Number(formData.semester || 0),
+      rollNumber: trimValue(formData.rollNumber),
+      cgpa: Number(formData.cgpa || 0),
+      address: trimValue(formData.address),
+      city: trimValue(formData.city),
+      state: formData.state,
+      pincode: onlyDigits(formData.pincode, 6),
+      guardianName: trimValue(formData.guardianName),
+      guardianPhone: onlyDigits(formData.guardianPhone, 10),
+      guardianRelationship: trimValue(formData.guardianRelationship),
       courseCategory: formData.courseCategory,
       course: formData.course,
       academicYear: formData.academicYear,
@@ -558,6 +671,16 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
         board: '',
         yearOfPassing: '',
         marksPercentage: '',
+        semester: '',
+        rollNumber: '',
+        cgpa: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        guardianName: '',
+        guardianPhone: '',
+        guardianRelationship: '',
         courseCategory: '',
         course: '',
         academicYear: '',
@@ -762,7 +885,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Previous School
+                      Previous School *
                     </label>
                     <input
                       type="text"
@@ -775,7 +898,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Board
+                      Board *
                     </label>
                     <select
                       name="board"
@@ -793,7 +916,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Year of Passing
+                      Year of Passing *
                     </label>
                     <input
                       type="number"
@@ -801,12 +924,14 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.yearOfPassing}
                       onChange={handleInputChange}
                       placeholder="2023"
+                      min="1900"
+                      max="2100"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Marks / Percentage
+                      Marks / Percentage *
                     </label>
                     <input
                       type="text"
@@ -816,6 +941,178 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       placeholder="92%"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-base font-bold text-gray-800 mb-3">Academic Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Semester *
+                      </label>
+                      <select
+                        name="semester"
+                        value={formData.semester}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select</option>
+                        {SEMESTER_OPTIONS.map((semester) => (
+                          <option key={semester} value={semester}>
+                            Semester {semester}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Roll Number *
+                      </label>
+                      <input
+                        type="text"
+                        name="rollNumber"
+                        value={formData.rollNumber}
+                        onChange={handleInputChange}
+                        placeholder="STU-2025-001"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        CGPA *
+                      </label>
+                      <input
+                        type="number"
+                        name="cgpa"
+                        value={formData.cgpa}
+                        onChange={handleInputChange}
+                        placeholder="8.5"
+                        min="0"
+                        max="10"
+                        step="0.01"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-base font-bold text-gray-800 mb-3">Address</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Address Line *
+                      </label>
+                      <input
+                        type="text"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        placeholder="45, Residency Road"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={formData.city}
+                          onChange={handleInputChange}
+                          placeholder="Bangalore"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          State *
+                        </label>
+                        <select
+                          name="state"
+                          value={formData.state}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select</option>
+                          {STATE_OPTIONS.map((state) => (
+                            <option key={state} value={state}>
+                              {state}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Pincode *
+                        </label>
+                        <input
+                          type="text"
+                          name="pincode"
+                          value={formData.pincode}
+                          onChange={handleInputChange}
+                          placeholder="560001"
+                          inputMode="numeric"
+                          maxLength={6}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-base font-bold text-gray-800 mb-3">Guardian Information</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Guardian Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="guardianName"
+                        value={formData.guardianName}
+                        onChange={handleInputChange}
+                        placeholder="Suresh Sharma"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Guardian Phone *
+                      </label>
+                      <input
+                        type="tel"
+                        name="guardianPhone"
+                        value={formData.guardianPhone}
+                        onChange={handleInputChange}
+                        placeholder="9876543210"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Relationship *
+                      </label>
+                      <select
+                        name="guardianRelationship"
+                        value={formData.guardianRelationship}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select</option>
+                        {['Father', 'Mother', 'Guardian', 'Other'].map((relationship) => (
+                          <option key={relationship} value={relationship}>
+                            {relationship}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1105,6 +1402,28 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     </p>
                     <p className="text-gray-600">
                       <strong>Quota:</strong> {formData.quota}
+                    </p>
+                  </div>
+                  <div className="border-b pb-2">
+                    <p className="text-gray-600">
+                      <strong>Semester:</strong> {formData.semester}
+                    </p>
+                    <p className="text-gray-600">
+                      <strong>Roll Number:</strong> {formData.rollNumber}
+                    </p>
+                    <p className="text-gray-600">
+                      <strong>CGPA:</strong> {formData.cgpa}
+                    </p>
+                  </div>
+                  <div className="border-b pb-2">
+                    <p className="text-gray-600">
+                      <strong>Address:</strong> {formData.address}, {formData.city}, {formData.state} - {formData.pincode}
+                    </p>
+                    <p className="text-gray-600">
+                      <strong>Guardian:</strong> {formData.guardianName} ({formData.guardianRelationship})
+                    </p>
+                    <p className="text-gray-600">
+                      <strong>Guardian Phone:</strong> {formData.guardianPhone}
                     </p>
                   </div>
                   <div>

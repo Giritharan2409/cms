@@ -511,7 +511,8 @@ async def get_student(student_id: str):
             serialized_adm = serialize_doc(adm)
             row = {
                 "id": serialized_adm.get("id"),
-                "rollNumber": serialized_adm.get("id") or serialized_adm.get("rollNumber") or str(serialized_adm.get("_id")),
+                "rollNumber": serialized_adm.get("rollNumber") or serialized_adm.get("roll_number") or serialized_adm.get("id") or str(serialized_adm.get("_id")),
+                "roll_number": serialized_adm.get("rollNumber") or serialized_adm.get("roll_number") or serialized_adm.get("id") or str(serialized_adm.get("_id")),
                 "name": serialized_adm.get("name") or serialized_adm.get("fullName") or "N/A",
                 "email": serialized_adm.get("email") or "",
                 "phone": serialized_adm.get("phone") or "",
@@ -519,12 +520,18 @@ async def get_student(student_id: str):
                 "year": serialized_adm.get("year", "1st Year"),
                 "semester": serialized_adm.get("semester", 1),
                 "section": serialized_adm.get("section", "A"),
+                "cgpa": serialized_adm.get("cgpa", 0),
                 "status": "Active",
                 "feeStatus": serialized_adm.get("payment_status") or "Pending",
                 "enrollDate": serialized_adm.get("updated_at") or serialized_adm.get("created_at"),
-                "address": (serialized_adm.get("personal") or {}).get("address", ""),
-                "guardian": serialized_adm.get("guardian", (serialized_adm.get("personal") or {}).get("parent_name", "")),
-                "guardianPhone": (serialized_adm.get("personal") or {}).get("phone", serialized_adm.get("phone", "")),
+                "address": serialized_adm.get("address") or (serialized_adm.get("personal") or {}).get("address", ""),
+                "city": serialized_adm.get("city") or (serialized_adm.get("personal") or {}).get("city", ""),
+                "state": serialized_adm.get("state") or (serialized_adm.get("personal") or {}).get("state", ""),
+                "pincode": serialized_adm.get("pincode") or (serialized_adm.get("personal") or {}).get("pincode", ""),
+                "guardian": serialized_adm.get("guardianName") or serialized_adm.get("guardian_name") or (serialized_adm.get("personal") or {}).get("guardian_name", ""),
+                "guardianName": serialized_adm.get("guardianName") or serialized_adm.get("guardian_name") or (serialized_adm.get("personal") or {}).get("guardian_name", ""),
+                "guardianPhone": serialized_adm.get("guardianPhone") or serialized_adm.get("guardian_phone") or (serialized_adm.get("personal") or {}).get("guardian_phone", serialized_adm.get("phone", "")),
+                "guardianRelationship": serialized_adm.get("guardianRelationship") or serialized_adm.get("guardian_relationship") or (serialized_adm.get("personal") or {}).get("guardian_relationship", ""),
                 "gender": serialized_adm.get("gender") or (serialized_adm.get("personal") or {}).get("gender", ""),
                 "avatar": f"https://ui-avatars.com/api/?name={serialized_adm.get('name', 'S')}&background=2563eb&color=fff&size=128",
                 "attendancePct": 0,
@@ -544,6 +551,12 @@ async def create_student(payload: StudentRecord):
     # Normalize guardianName → guardian
     if data.get("guardianName") and not data.get("guardian"):
         data["guardian"] = data["guardianName"]
+    if data.get("guardianRelationship") and not data.get("guardian_relationship"):
+        data["guardian_relationship"] = data["guardianRelationship"]
+    if data.get("guardianPhone") and not data.get("guardian_phone"):
+        data["guardian_phone"] = data["guardianPhone"]
+    if data.get("rollNumber") and not data.get("roll_number"):
+        data["roll_number"] = data["rollNumber"]
 
     if not data.get("rollNumber"):
         data["rollNumber"] = data["id"]

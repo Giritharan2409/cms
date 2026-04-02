@@ -64,6 +64,11 @@ def _to_int(value: Any, fallback: int = 0) -> int:
     return fallback
 
 
+def _text(value: Any, fallback: str = "") -> str:
+    text = str(value or "").strip()
+    return text if text else fallback
+
+
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -129,6 +134,32 @@ def _serialize_admission(item: dict[str, Any]) -> dict[str, Any]:
         serialized["name"] = serialized["fullName"]
     if not serialized.get("fullName") and serialized.get("name"):
         serialized["fullName"] = serialized["name"]
+
+    serialized["rollNumber"] = serialized.get("rollNumber") or serialized.get("roll_number") or serialized["id"]
+    serialized["roll_number"] = serialized.get("roll_number") or serialized["rollNumber"]
+    serialized["semester"] = serialized.get("semester") or (serialized.get("academic") or {}).get("semester") or 0
+    serialized["cgpa"] = serialized.get("cgpa") or (serialized.get("academic") or {}).get("cgpa") or 0
+
+    personal = serialized.get("personal") or {}
+    guardian_name = serialized.get("guardianName") or serialized.get("guardian_name") or personal.get("guardian_name") or serialized.get("guardian") or ""
+    guardian_phone = serialized.get("guardianPhone") or serialized.get("guardian_phone") or personal.get("guardian_phone") or ""
+    guardian_relationship = (
+        serialized.get("guardianRelationship")
+        or serialized.get("guardian_relationship")
+        or personal.get("guardian_relationship")
+        or ""
+    )
+
+    serialized["address"] = serialized.get("address") or personal.get("address") or ""
+    serialized["city"] = serialized.get("city") or personal.get("city") or ""
+    serialized["state"] = serialized.get("state") or personal.get("state") or ""
+    serialized["pincode"] = serialized.get("pincode") or personal.get("pincode") or ""
+    serialized["guardianName"] = guardian_name
+    serialized["guardian_name"] = guardian_name
+    serialized["guardianPhone"] = guardian_phone
+    serialized["guardian_phone"] = guardian_phone
+    serialized["guardianRelationship"] = guardian_relationship
+    serialized["guardian_relationship"] = guardian_relationship
 
     return serialized
 
@@ -271,6 +302,16 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
     name = (payload.get("name") or payload.get("fullName") or "").strip()
     email = (payload.get("email") or "").strip()
     phone = (payload.get("phone") or "").strip()
+    roll_number = _text(payload.get("rollNumber") or payload.get("roll_number") or admission_id)
+    semester = _to_int(payload.get("semester"), fallback=0)
+    cgpa = _to_float(payload.get("cgpa"), fallback=0.0)
+    address = _text(payload.get("address") or payload.get("addressLine"))
+    city = _text(payload.get("city"))
+    state = _text(payload.get("state"))
+    pincode = _text(payload.get("pincode"))
+    guardian_name = _text(payload.get("guardianName") or payload.get("guardian_name") or payload.get("guardian"))
+    guardian_phone = _text(payload.get("guardianPhone") or payload.get("guardian_phone"))
+    guardian_relationship = _text(payload.get("guardianRelationship") or payload.get("guardian_relationship"))
 
     payment_status = payload.get("paymentStatus") or payload.get("payment_status") or "Pending"
     academic_year = _normalize_academic_year(payload.get("academicYear") or payload.get("academic_year"))
@@ -288,6 +329,10 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "fullName": payload.get("fullName") or name,
         "email": email,
         "phone": phone,
+        "rollNumber": roll_number,
+        "roll_number": roll_number,
+        "semester": semester,
+        "cgpa": cgpa,
         "dateOfBirth": payload.get("dateOfBirth") or payload.get("dob") or "",
         "gender": payload.get("gender") or "",
         "previousSchool": payload.get("previousSchool") or "",
@@ -301,6 +346,16 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "quota": payload.get("quota") or "",
         "accommodation": payload.get("accommodation") or "",
         "roomType": payload.get("roomType") or "",
+        "address": address,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "guardianName": guardian_name,
+        "guardian_name": guardian_name,
+        "guardianPhone": guardian_phone,
+        "guardian_phone": guardian_phone,
+        "guardianRelationship": guardian_relationship,
+        "guardian_relationship": guardian_relationship,
         "documents": payload.get("documents") if isinstance(payload.get("documents"), list) else [
             {"id": f"DOC-PHOTO-{_utc_now_iso()}", "name": "Passport Photo", "data": payload.get("passportPhoto"), "type": "image/jpeg", "uploadDate": _utc_now_iso(), "category": "Identity"} if payload.get("passportPhoto") else None,
             {"id": f"DOC-AADHAAR-{_utc_now_iso()}", "name": "Aadhaar Card", "data": payload.get("aadhaarCard"), "type": "application/pdf", "uploadDate": _utc_now_iso(), "category": "Identity"} if payload.get("aadhaarCard") else None,
@@ -326,16 +381,22 @@ def _normalize_from_flat_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "email": normalized["email"],
         "phone": normalized["phone"],
         "student_id": normalized["id"],
-        "address": payload.get("address") or "",
-        "city": payload.get("city") or "",
-        "state": payload.get("state") or "",
-        "pincode": payload.get("pincode") or "",
+        "address": address,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "guardian_name": guardian_name,
+        "guardian_phone": guardian_phone,
+        "guardian_relationship": guardian_relationship,
     }
     normalized["academic"] = {
         "previous_school": normalized["previousSchool"],
         "board": normalized["board"],
         "year_of_passing": normalized["yearOfPassing"],
         "marks_percentage": normalized["marksPercentage"],
+        "semester": semester,
+        "roll_number": roll_number,
+        "cgpa": cgpa,
     }
     normalized["course_info"] = {
         "category": normalized["courseCategory"],
@@ -380,6 +441,10 @@ def _normalize_from_nested_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "fullName": personal.get("full_name") or "",
             "email": personal.get("email") or "",
             "phone": personal.get("phone") or "",
+            "rollNumber": academic.get("roll_number") or personal.get("student_id") or admission_id,
+            "roll_number": academic.get("roll_number") or personal.get("student_id") or admission_id,
+            "semester": academic.get("semester") or 0,
+            "cgpa": academic.get("cgpa") or 0,
             "dateOfBirth": personal.get("dob") or "",
             "gender": personal.get("gender") or "",
             "previousSchool": academic.get("previous_school") or "",
@@ -390,6 +455,16 @@ def _normalize_from_nested_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "course": course.get("course") or "",
             "academicYear": academic_year,
             "admissionYear": admission_year,
+            "address": personal.get("address") or "",
+            "city": personal.get("city") or "",
+            "state": personal.get("state") or "",
+            "pincode": personal.get("pincode") or "",
+            "guardianName": personal.get("guardian_name") or "",
+            "guardian_name": personal.get("guardian_name") or "",
+            "guardianPhone": personal.get("guardian_phone") or "",
+            "guardian_phone": personal.get("guardian_phone") or "",
+            "guardianRelationship": personal.get("guardian_relationship") or "",
+            "guardian_relationship": personal.get("guardian_relationship") or "",
             "payment_status": payment_status,
             "paymentStatus": payment_status,
             "course_info": {
@@ -712,19 +787,27 @@ async def approve_admission(admission_id: str):
                 # Map admission data to student structure
                 student_data = {
                     "id": adm.get("id") or str(adm.get("_id")),
-                    "rollNumber": adm.get("id") or adm.get("rollNumber") or str(adm.get("_id")),
+                    "rollNumber": adm.get("rollNumber") or adm.get("roll_number") or adm.get("id") or str(adm.get("_id")),
+                    "roll_number": adm.get("rollNumber") or adm.get("roll_number") or adm.get("id") or str(adm.get("_id")),
                     "name": adm.get("name") or adm.get("fullName") or "N/A",
                     "email": adm.get("email") or "",
                     "phone": adm.get("phone") or "",
                     "department": adm.get("course") or adm.get("department") or "N/A",
                     "year": "1st Year",
-                    "semester": 1,
+                    "semester": adm.get("semester") or 1,
                     "section": "A",
+                    "cgpa": adm.get("cgpa") or 0,
                     "status": "Active",
                     "feeStatus": adm.get("payment_status") or "Pending",
                     "enrollDate": adm.get("updated_at") or _utc_now_iso(),
-                    "address": (adm.get("personal") or {}).get("address", ""),
-                    "guardian": adm.get("guardian", (adm.get("personal") or {}).get("parent_name", "")),
+                    "address": adm.get("address") or (adm.get("personal") or {}).get("address", ""),
+                    "city": adm.get("city") or (adm.get("personal") or {}).get("city", ""),
+                    "state": adm.get("state") or (adm.get("personal") or {}).get("state", ""),
+                    "pincode": adm.get("pincode") or (adm.get("personal") or {}).get("pincode", ""),
+                    "guardian": adm.get("guardianName") or adm.get("guardian_name") or (adm.get("personal") or {}).get("guardian_name", ""),
+                    "guardianName": adm.get("guardianName") or adm.get("guardian_name") or (adm.get("personal") or {}).get("guardian_name", ""),
+                    "guardianPhone": adm.get("guardianPhone") or adm.get("guardian_phone") or (adm.get("personal") or {}).get("guardian_phone", ""),
+                    "guardianRelationship": adm.get("guardianRelationship") or adm.get("guardian_relationship") or (adm.get("personal") or {}).get("guardian_relationship", ""),
                     "motherName": adm.get("motherName") or (adm.get("personal") or {}).get("mother_name", ""),
                     "bloodGroup": adm.get("bloodGroup") or "",
                     "skills": adm.get("skills") or [],
@@ -757,16 +840,26 @@ async def approve_admission(admission_id: str):
                     if "students" not in DEV_STORE: DEV_STORE["students"] = []
                     student_data = {
                         "id": adm.get("id"),
-                        "rollNumber": adm.get("id"),
+                        "rollNumber": adm.get("rollNumber") or adm.get("roll_number") or adm.get("id"),
+                        "roll_number": adm.get("rollNumber") or adm.get("roll_number") or adm.get("id"),
                         "name": adm.get("name") or adm.get("fullName"),
                         "email": adm.get("email"),
                         "phone": adm.get("phone"),
                         "department": adm.get("course"),
                         "year": "1st Year",
-                        "semester": 1,
+                        "semester": adm.get("semester") or 1,
+                        "cgpa": adm.get("cgpa") or 0,
                         "status": "Active",
                         "feeStatus": adm.get("payment_status") or "Pending",
                         "enrollDate": adm.get("updated_at"),
+                        "address": adm.get("address") or "",
+                        "city": adm.get("city") or "",
+                        "state": adm.get("state") or "",
+                        "pincode": adm.get("pincode") or "",
+                        "guardian": adm.get("guardianName") or adm.get("guardian_name") or "",
+                        "guardianName": adm.get("guardianName") or adm.get("guardian_name") or "",
+                        "guardianPhone": adm.get("guardianPhone") or adm.get("guardian_phone") or "",
+                        "guardianRelationship": adm.get("guardianRelationship") or adm.get("guardian_relationship") or "",
                         "avatar": f"https://ui-avatars.com/api/?name={adm.get('name', 'S')}&background=2563eb&color=fff&size=128"
                     }
                     # Upsert in dev students

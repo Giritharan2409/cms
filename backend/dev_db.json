@@ -720,5 +720,7 @@
   ],
   "admissions": [],
   "od_requests": [],
-  "faculty_admissions": []
+  "faculty_admissions": [],
+  "fee_templates": [],
+  "fees_assignments": []
 }

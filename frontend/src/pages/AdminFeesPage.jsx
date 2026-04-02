@@ -1090,13 +1090,7 @@ export default function AdminFeesPage() {
                           </ul>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                          <button
-                            onClick={() => openPaymentModal(assignment)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1.5 text-sm rounded-lg transition"
-                          >
-                            Add Payment
-                          </button>
+                        <div className="grid grid-cols-1 gap-2 mb-2">
                           <button
                             onClick={() => viewTransactions(assignment)}
                             className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-1.5 text-sm rounded-lg transition"

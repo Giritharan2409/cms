@@ -13,6 +13,9 @@ class PersonalInfo(BaseModel):
     city: str
     state: str
     pincode: str
+    guardian_name: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    guardian_relationship: Optional[str] = None
 
 
 class AcademicInfo(BaseModel):
@@ -20,6 +23,9 @@ class AcademicInfo(BaseModel):
     board: str
     year_of_passing: int
     marks_percentage: float
+    semester: Optional[int] = None
+    roll_number: Optional[str] = None
+    cgpa: Optional[float] = None
 
 
 class CourseInfo(BaseModel):

@@ -51,10 +51,14 @@ class StudentRecord(BaseModel):
     dob: Optional[Any] = None
     gender: Optional[str] = None
     address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
     guardian: Optional[str] = None
     motherName: Optional[str] = None
     guardianName: Optional[str] = None  # Alias from frontend
     guardianPhone: Optional[str] = None
+    guardianRelationship: Optional[str] = None
     bloodGroup: Optional[str] = None
     skills: list[str] = Field(default_factory=list)
     subjects: list[dict[str, Any]] = Field(default_factory=list)
@@ -80,3 +84,11 @@ class StudentResponse(BaseModel):
     avatar: Optional[str] = None
     is_admission: bool = False
     enrollDate: Optional[Any] = None # Support both str and datetime
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    guardian: Optional[str] = None
+    guardianName: Optional[str] = None
+    guardianPhone: Optional[str] = None
+    guardianRelationship: Optional[str] = None
