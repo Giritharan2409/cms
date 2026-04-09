@@ -7,7 +7,7 @@ export default function StudentTable({ students, onEdit, onDelete }) {
     ACTIVE:   'bg-[#10b981]/10 text-[#10b981]',
     PENDING:  'bg-[#f59e0b]/10 text-[#f59e0b]',
     INACTIVE: 'bg-[#ef4444]/10 text-[#ef4444]',
-    GRADUATED: 'bg-blue-100 text-blue-800',
+    GRADUATED: 'bg-green-100 text-green-800',
   }
 
   const feeStyles = {
@@ -82,7 +82,7 @@ export default function StudentTable({ students, onEdit, onDelete }) {
                   <div className="flex items-center justify-end gap-2">
                     <button 
                       onClick={() => onEdit && onEdit(s)}
-                      className="p-1.5 text-slate-400 hover:text-[#1162d4] hover:bg-[#1162d4]/10 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-[green-600] hover:bg-[green-600]/10 rounded-lg transition-colors"
                       title="Edit Student"
                     >
                       <span className="material-symbols-outlined text-lg">edit</span>

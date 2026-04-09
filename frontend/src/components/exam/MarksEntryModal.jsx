@@ -78,8 +78,8 @@ export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#1162d4]/10 rounded-lg">
-              <span className="material-symbols-outlined text-[#1162d4]">edit_note</span>
+            <div className="p-2 bg-[green-600]/10 rounded-lg">
+              <span className="material-symbols-outlined text-[green-600]">edit_note</span>
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900">Enter Marks</h3>
@@ -117,13 +117,13 @@ export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }
                         max={exam.maxMarks}
                         value={marksData[student.studentId]?.marks || ''}
                         onChange={(e) => handleMarksChange(student.studentId, e.target.value)}
-                        className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none"
+                        className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[green-600]/20 focus:border-[green-600] outline-none"
                         placeholder="0"
                       />
                     </div>
                     <div className="w-16">
                       <label className="text-xs font-medium text-slate-600 mb-1 block">Grade</label>
-                      <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-[#1162d4] text-center">
+                      <div className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-[green-600] text-center">
                         {marksData[student.studentId]?.grade || '-'}
                       </div>
                     </div>
@@ -144,7 +144,7 @@ export default function MarksEntryModal({ isOpen, onClose, exam, currentUserId }
           <button
             onClick={handleSave}
             disabled={saving || students.length === 0}
-            className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Save Marks'}
           </button>

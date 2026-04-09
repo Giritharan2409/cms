@@ -1,4 +1,4 @@
-ï»¿import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Layout from '../components/Layout'
 import Modal from '../components/Modal'
 import { getUserSession } from '../auth/sessionController'
@@ -106,7 +106,7 @@ export default function PlacementPage({ noLayout = false }) {
     }
   }
 
-  const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1162d4]/10 focus:border-[#1162d4] outline-none transition-all text-sm text-slate-700 bg-white";
+  const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[green-600]/10 focus:border-[green-600] outline-none transition-all text-sm text-slate-700 bg-white";
   const labelClasses = "block text-sm font-semibold text-slate-700 mb-1.5 ml-0.5";
 
   function parsePackageValue(value) {
@@ -117,7 +117,7 @@ export default function PlacementPage({ noLayout = false }) {
   }
 
   function formatPackageValue(amount) {
-    if (!Number.isFinite(amount)) return 'â€”'
+    if (!Number.isFinite(amount)) return '—'
     if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`
     return `$${amount.toFixed(0)}`
   }
@@ -126,7 +126,7 @@ export default function PlacementPage({ noLayout = false }) {
     const values = entries
       .map((entry) => parsePackageValue(entry.package))
       .filter((value) => value !== null)
-    if (values.length === 0) return 'â€”'
+    if (values.length === 0) return '—'
     const total = values.reduce((sum, value) => sum + value, 0)
     return formatPackageValue(total / values.length)
   })()
@@ -134,7 +134,7 @@ export default function PlacementPage({ noLayout = false }) {
   const addButton = (
     <button
       onClick={() => setShowModal(true)}
-      className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95 w-fit"
+      className="flex items-center gap-2 px-4 py-2 bg-[green-600] text-white rounded-lg text-sm font-semibold hover:bg-[green-600]/90 transition-all shadow-sm active:scale-95 w-fit"
     >
       <span className="material-symbols-outlined text-lg">add</span>Add Placement
     </button>
@@ -163,12 +163,12 @@ export default function PlacementPage({ noLayout = false }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {(isAdmin
           ? [
-              { icon: 'emoji_events', label: 'Students Placed',   value: entries.filter(e => e.status === 'Selected').length,     color: 'text-[#1162d4] bg-[#1162d4]/10' },
+              { icon: 'emoji_events', label: 'Students Placed',   value: entries.filter(e => e.status === 'Selected').length,     color: 'text-[green-600] bg-[green-600]/10' },
               { icon: 'business',    label: 'Companies Visited',  value: new Set(entries.map(e => e.company)).size,               color: 'text-purple-600 bg-purple-100' },
               { icon: 'attach_money',label: 'Avg. Package',       value: avgPackage,                                              color: 'text-emerald-600 bg-emerald-100' },
             ]
           : [
-              { icon: 'emoji_events', label: 'Placements',        value: visibleEntries.length,                                   color: 'text-[#1162d4] bg-[#1162d4]/10' },
+              { icon: 'emoji_events', label: 'Placements',        value: visibleEntries.length,                                   color: 'text-[green-600] bg-[green-600]/10' },
               { icon: 'assignment_turned_in', label: 'Selected',   value: visibleEntries.filter(e => e.status === 'Selected').length,    color: 'text-emerald-600 bg-emerald-100' },
               { icon: 'schedule',     label: 'In Process',        value: visibleEntries.filter(e => e.status === 'Process').length,     color: 'text-orange-600 bg-orange-100' },
             ])
@@ -205,7 +205,7 @@ export default function PlacementPage({ noLayout = false }) {
             placeholder={isAdmin ? "Search student or company..." : "Search company..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 w-full bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1162d4]/30 focus:border-[#1162d4] transition-all duration-200"
+            className="pl-9 pr-4 py-2 w-full bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[green-600]/30 focus:border-[green-600] transition-all duration-200"
           />
         </div>
         <div className="relative" ref={filterRef}>
@@ -213,7 +213,7 @@ export default function PlacementPage({ noLayout = false }) {
             onClick={() => setFilterOpen(prev => !prev)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-all duration-200 ${
               statusFilter !== 'All'
-                ? 'bg-[#1162d4] text-white border-[#1162d4] shadow-sm'
+                ? 'bg-[green-600] text-white border-[green-600] shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 shadow-sm'
             }`}
           >
@@ -227,7 +227,7 @@ export default function PlacementPage({ noLayout = false }) {
                   key={opt}
                   onClick={() => { setStatusFilter(opt); setFilterOpen(false) }}
                   className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm transition-colors duration-150 ${
-                    statusFilter === opt ? 'bg-[#1162d4]/10 text-[#1162d4] font-semibold' : 'text-slate-600 hover:bg-slate-50'
+                    statusFilter === opt ? 'bg-[green-600]/10 text-[green-600] font-semibold' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
                   {opt !== 'All' && (
@@ -325,7 +325,7 @@ export default function PlacementPage({ noLayout = false }) {
             </button>
             <button
               onClick={handleSubmit}
-              className="px-6 py-2 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all shadow-sm active:scale-95"
+              className="px-6 py-2 bg-[green-600] text-white rounded-lg text-sm font-semibold hover:bg-[green-600]/90 transition-all shadow-sm active:scale-95"
             >
               Add Entry
             </button>

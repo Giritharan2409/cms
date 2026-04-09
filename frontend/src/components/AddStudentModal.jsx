@@ -236,7 +236,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
         <div className="bg-slate-50 flex items-center border-b border-slate-200">
           {steps.map((s, i) => (
             <div key={s.id} className="flex-1 flex items-center">
-              <div className={`h-1.5 flex-1 transition-all duration-500 ${step >= s.id ? 'bg-[#1162d4]' : 'bg-slate-200'}`} />
+              <div className={`h-1.5 flex-1 transition-all duration-500 ${step >= s.id ? 'bg-[#0d6947]' : 'bg-slate-200'}`} />
             </div>
           ))}
         </div>
@@ -245,8 +245,8 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
         <div className="px-8 py-5 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
-              <div className="p-2 bg-[#1162d4]/10 rounded-lg">
-                <span className="material-symbols-outlined text-[#1162d4]">{editStudent ? 'edit_note' : 'person_add'}</span>
+                <div className="p-2 bg-[#0d6947]/10 rounded-lg">
+                <span className="material-symbols-outlined text-[#0d6947]">{editStudent ? 'edit_note' : 'person_add'}</span>
               </div>
               {editStudent ? 'Edit Student Details' : 'Enroll New Student'}
             </h2>
@@ -266,7 +266,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 <div className="flex flex-col items-center gap-4">
                   <div 
-                    className="w-32 h-32 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all"
+                    className="w-32 h-32 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group cursor-pointer hover:border-green-400 hover:bg-green-50/50 transition-all"
                     onClick={() => fileInputRef.current.click()}
                   >
                     {avatarPreview ? (
@@ -277,7 +277,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                         <p className="text-[10px] text-slate-400 font-bold uppercase">Profile Photo</p>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-blue-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <div className="absolute inset-0 bg-green-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                       <span className="text-white text-xs font-bold">CHANGE PHOTO</span>
                     </div>
                   </div>
@@ -287,17 +287,17 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Full Name <span className="text-red-500">*</span></label>
-                    <input name="name" value={formData.name} onChange={handleChange} className={`w-full px-4 py-2.5 rounded-lg border ${errors.name ? 'border-red-400 focus:ring-red-100' : 'border-slate-200 focus:border-[#1162d4] focus:ring-[#1162d4]/20'} border border-slate-200 rounded-lg focus:ring-2 outline-none transition-colors text-slate-700`} placeholder="e.g. John Doe" />
+                    <input name="name" value={formData.name} onChange={handleChange} className={`w-full px-4 py-2.5 rounded-lg border ${errors.name ? 'border-red-400 focus:ring-red-100' : 'border-slate-200 focus:border-[#0d6947] focus:ring-[#0d6947]/20'} border border-slate-200 rounded-lg focus:ring-2 outline-none transition-colors text-slate-700`} placeholder="e.g. John Doe" />
                     {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Date of Birth *</label>
-                    <input type="date" name="dob" value={formData.dob} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.dob ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50'} outline-none transition-all text-slate-700`} />
+                    <input type="date" name="dob" value={formData.dob} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.dob ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50'} outline-none transition-all text-slate-700`} />
                     {errors.dob && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.dob}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Gender *</label>
-                    <select name="gender" value={formData.gender} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-slate-700 bg-white">
+                    <select name="gender" value={formData.gender} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all text-slate-700 bg-white">
                       <option>Male</option>
                       <option>Female</option>
                       <option>Other</option>
@@ -305,19 +305,19 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Email *</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.email ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50'} outline-none transition-all text-slate-700`} placeholder="example@mit.edu" />
+                    <input type="email" name="email" value={formData.email} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.email ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50'} outline-none transition-all text-slate-700`} placeholder="example@mit.edu" />
                     {errors.email && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.email}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Phone Number</label>
                     <div className="flex">
                       <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-400 text-sm font-bold">+91</span>
-                      <input name="phone" value={formData.phone} onChange={handleChange} className="w-full px-4 py-3 rounded-r-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-slate-700" placeholder="00000 00000" />
+                      <input name="phone" value={formData.phone} onChange={handleChange} className="w-full px-4 py-3 rounded-r-xl border border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all text-slate-700" placeholder="00000 00000" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Blood Group</label>
-                    <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-slate-700 bg-white">
+                    <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all text-slate-700 bg-white">
                       <option value="">Select Group</option>
                       {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
                     </select>
@@ -326,7 +326,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Permanent Address</label>
-                <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all text-slate-700 bg-slate-50/30 resize-none" placeholder="Enter complete home address..." />
+                <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all text-slate-700 bg-slate-50/30 resize-none" placeholder="Enter complete home address..." />
               </div>
             </div>
           )}
@@ -337,45 +337,45 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Student ID</label>
-                  <input name="id" value={formData.id} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 bg-slate-50/50 font-mono text-[#2563eb] font-bold" />
+                  <input name="id" value={formData.id} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 bg-slate-50/50 font-mono text-[#0d6947] font-bold" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Department</label>
-                  <select name="department" value={formData.department} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="department" value={formData.department} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {['Computer Science', 'Mechanical Eng.', 'Electrical Eng.', 'Civil Engineering', 'Automobile Eng.', 'Electronics Eng.'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Year</label>
-                  <select name="year" value={formData.year} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="year" value={formData.year} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {['1st Year', '2nd Year', '3rd Year', '4th Year'].map(y => <option key={y}>{y}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Semester</label>
-                  <select name="semester" value={formData.semester} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="semester" value={formData.semester} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {getSemOptions().map(s => <option key={s} value={s}>Semester {s}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Section</label>
-                  <select name="section" value={formData.section} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="section" value={formData.section} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {['A', 'B', 'C', 'D'].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Enrollment Date</label>
-                  <input type="date" name="enrollDate" value={formData.enrollDate} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700" />
+                  <input type="date" name="enrollDate" value={formData.enrollDate} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Admission Type</label>
-                  <select name="admissionType" value={formData.admissionType} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="admissionType" value={formData.admissionType} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {['Regular', 'Lateral', 'Management', 'Quota'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Previous Institution</label>
-                  <input name="previousInstitution" value={formData.previousInstitution} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700" placeholder="College / High School Name" />
+                  <input name="previousInstitution" value={formData.previousInstitution} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700" placeholder="College / High School Name" />
                 </div>
               </div>
             </div>
@@ -387,27 +387,27 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Guardian Name *</label>
-                  <input name="guardianName" value={formData.guardianName} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.guardianName ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-blue-500'} outline-none text-slate-700 font-medium`} placeholder="Full name of parent/guardian" />
+                  <input name="guardianName" value={formData.guardianName} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.guardianName ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-green-500'} outline-none text-slate-700 font-medium`} placeholder="Full name of parent/guardian" />
                   {errors.guardianName && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.guardianName}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Relationship *</label>
-                  <select name="relationship" value={formData.relationship} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700 bg-white">
+                  <select name="relationship" value={formData.relationship} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700 bg-white">
                     {['Father', 'Mother', 'Legal Guardian', 'Sibling', 'Relative'].map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Guardian Phone *</label>
-                  <input name="guardianPhone" value={formData.guardianPhone} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.guardianPhone ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-blue-500'} outline-none text-slate-700`} placeholder="+91 00000 00000" />
+                  <input name="guardianPhone" value={formData.guardianPhone} onChange={handleChange} className={`w-full px-4 py-3 rounded-xl border ${errors.guardianPhone ? 'border-red-400 ring-4 ring-red-50' : 'border-slate-200 focus:border-green-500'} outline-none text-slate-700`} placeholder="+91 00000 00000" />
                   {errors.guardianPhone && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.guardianPhone}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Guardian Email</label>
-                  <input type="email" name="guardianEmail" value={formData.guardianEmail} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700" placeholder="optional@email.com" />
+                  <input type="email" name="guardianEmail" value={formData.guardianEmail} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700" placeholder="optional@email.com" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Guardian Occupation</label>
-                  <input name="guardianOccupation" value={formData.guardianOccupation} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 outline-none text-slate-700" placeholder="e.g. Business, Engineer" />
+                  <input name="guardianOccupation" value={formData.guardianOccupation} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-green-500 outline-none text-slate-700" placeholder="e.g. Business, Engineer" />
                 </div>
               </div>
             </div>
@@ -429,10 +429,10 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                   { label: 'Passport Photo', field: 'photo' },
                   { label: 'Transfer Certificate', field: 'tc' },
                 ].map((doc) => (
-                  <div key={doc.field} className={`relative border-2 border-dashed rounded-xl p-4 transition-all ${formData.docs[doc.field] ? 'border-green-200 bg-green-50/30' : errors[doc.field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'} group`}>
+                  <div key={doc.field} className={`relative border-2 border-dashed rounded-xl p-4 transition-all ${formData.docs[doc.field] ? 'border-green-200 bg-green-50/30' : errors[doc.field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200 hover:border-green-300 hover:bg-slate-50'} group`}>
                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, doc.field)} />
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${formData.docs[doc.field] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600'}`}>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${formData.docs[doc.field] ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400 group-hover:bg-green-100 group-hover:text-green-600'}`}>
                         <span className="material-symbols-outlined text-lg">{formData.docs[doc.field] ? 'verified' : 'upload'}</span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -446,10 +446,10 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                 ))}
                 
                 {/* Additional Docs */}
-                <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-4 hover:border-blue-300 hover:bg-slate-50 transition-all group">
+                <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-4 hover:border-green-300 hover:bg-slate-50 transition-all group">
                   <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer" />
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 group-hover:bg-green-100 group-hover:text-green-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-lg">add_circle</span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -466,7 +466,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
           {/* Step 5: Review */}
           {step === 5 && (
             <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
-              <div className="bg-[#2563eb]/5 border border-[#2563eb]/10 rounded-2xl p-6 relative overflow-hidden">
+              <div className="bg-[#0d6947]/5 border border-[#0d6947]/10 rounded-2xl p-6 relative overflow-hidden">
                 <div className="flex flex-col md:flex-row gap-6 relative z-10">
                   <div className="w-24 h-24 rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden shrink-0">
                     <img src={avatarPreview || `https://ui-avatars.com/api/?name=${formData.name}&background=2563eb&color=fff`} className="w-full h-full object-cover" />
@@ -474,7 +474,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold text-slate-900">{formData.name || 'Anonymous Student'}</h3>
-                      <button onClick={() => setStep(1)} className="text-[10px] font-bold text-[#2563eb] hover:underline uppercase tracking-widest">Edit Step 1</button>
+                      <button onClick={() => setStep(1)} className="text-[10px] font-bold text-[#0d6947] hover:underline uppercase tracking-widest">Edit Step 1</button>
                     </div>
                     <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                       <span className="text-slate-500 flex items-center gap-1.5"><span className="material-symbols-outlined text-base">badge</span> {formData.id}</span>
@@ -484,7 +484,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                   </div>
                 </div>
                 <div className="absolute top-0 right-0 p-8 transform rotate-12 opacity-5 scale-150">
-                  <span className="material-symbols-outlined text-[120px] text-[#2563eb]">check_circle</span>
+                  <span className="material-symbols-outlined text-[120px] text-[#0d6947]">check_circle</span>
                 </div>
               </div>
 
@@ -492,7 +492,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                  <div className="space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Personal & Bio</h4>
-                      <button onClick={() => setStep(1)} className="text-[10px] font-bold text-[#2563eb] hover:underline">Edit</button>
+                      <button onClick={() => setStep(1)} className="text-[10px] font-bold text-[#0d6947] hover:underline">Edit</button>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between text-sm">
@@ -513,7 +513,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                  <div className="space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Guardian Details</h4>
-                      <button onClick={() => setStep(3)} className="text-[10px] font-bold text-[#2563eb] hover:underline">Edit</button>
+                      <button onClick={() => setStep(3)} className="text-[10px] font-bold text-[#0d6947] hover:underline">Edit</button>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between text-sm">
@@ -536,7 +536,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Documents Uploaded</h4>
-                  <button onClick={() => setStep(4)} className="text-[10px] font-bold text-[#2563eb] hover:underline">Edit</button>
+                  <button onClick={() => setStep(4)} className="text-[10px] font-bold text-[#0d6947] hover:underline">Edit</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(formData.docs).filter(([k,v]) => v && k !== 'additional').map(([key, doc]) => (
@@ -548,11 +548,11 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
                 </div>
               </div>
 
-              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5 flex gap-4">
-                <span className="material-symbols-outlined text-blue-600 text-3xl">contract_edit</span>
+              <div className="bg-green-50/50 border border-green-100 rounded-xl p-5 flex gap-4">
+                <span className="material-symbols-outlined text-green-600 text-3xl">contract_edit</span>
                 <div>
-                  <h4 className="text-sm font-bold text-blue-900 mb-1">Confirmation Required</h4>
-                  <p className="text-xs text-blue-700 leading-normal">By clicking "Complete Enrollment", you certify that all information is true. The system will auto-generate the credentials and notify the student via email.</p>
+                  <h4 className="text-sm font-bold text-green-900 mb-1">Confirmation Required</h4>
+                  <p className="text-xs text-green-700 leading-normal">By clicking "Complete Enrollment", you certify that all information is true. The system will auto-generate the credentials and notify the student via email.</p>
                 </div>
               </div>
             </div>
@@ -592,7 +592,7 @@ export default function AddStudentModal({ isOpen, onClose, onSuccess, editStuden
               {step < 5 ? (
                 <button 
                   onClick={handleNext}
-                  className="px-6 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-colors flex items-center gap-2"
+                  className="px-6 py-2.5 bg-[#0d6947] text-white rounded-lg text-sm font-semibold hover:bg-[#0d6947]/90 transition-colors flex items-center gap-2"
                 >
                   Continue
                   <span className="material-symbols-outlined text-base">arrow_forward</span>

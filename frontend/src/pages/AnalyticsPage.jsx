@@ -1530,16 +1530,6 @@ export default function AnalyticsPage({role:propRole}){
 
   return(
     <Layout title="Reports & Analytics">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <p style={{color:'#64748b',fontSize:13,margin:0}}>
-          {role==='admin'&&'College-wide statistics - Students, Faculty, Finance'}
-          {role==='faculty'&&'Class performance, attendance and exam analytics'}
-          {role==='finance'&&'Fee collection, expenses and scholarship analytics'}
-          {role==='student'&&'Your personal performance overview'}
-        </p>
-        <span style={{fontSize:11,color:'#9ca3af',fontWeight:500}}>Updated {new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
-      </div>
-
       <FilterBar/>
 
       {role==='admin'   && <AdminView   activeMonths={activeMonths} rangeLabel={rangeLabel} department={department} semester={semester}/>}

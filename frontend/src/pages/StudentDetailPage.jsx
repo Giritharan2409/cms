@@ -14,7 +14,7 @@ function OverviewTab({ student }) {
           {/* Contact Information */}
           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[#1162d4] text-[20px]">contact_page</span>
+              <span className="material-symbols-outlined text-[green-600] text-[20px]">contact_page</span>
               Contact Information
             </h3>
             <div className="space-y-5">
@@ -36,7 +36,7 @@ function OverviewTab({ student }) {
           {/* Family Details */}
           <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
             <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[#1162d4] text-[20px]">family_restroom</span>
+              <span className="material-symbols-outlined text-[green-600] text-[20px]">family_restroom</span>
               Family Details
             </h3>
             <div className="space-y-5">
@@ -59,12 +59,12 @@ function OverviewTab({ student }) {
         {/* Academic Info Strip */}
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-3 mb-6 uppercase tracking-wider">
-            <span className="material-symbols-outlined text-[#1162d4] text-[20px]">menu_book</span>
+            <span className="material-symbols-outlined text-[green-600] text-[20px]">menu_book</span>
             Academic Info
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
-               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-[#1162d4] shadow-sm">
+               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-[green-600] shadow-sm">
                   <span className="material-symbols-outlined text-[20px]">event_available</span>
                </div>
                <div>
@@ -98,7 +98,7 @@ function OverviewTab({ student }) {
           <h3 className="text-sm font-semibold text-slate-800 mb-6 uppercase tracking-wider">Technical Skills</h3>
           <div className="flex flex-wrap gap-2">
             {['Python', 'Java', 'SQL', 'React JS', 'Node.js'].map((skill, idx) => (
-              <span key={skill} className={`px-4 py-2 rounded-lg text-xs font-semibold ${idx === 3 ? 'bg-[#1162d4]/10 text-[#1162d4]' : 'bg-slate-100 text-slate-600'}`}>
+              <span key={skill} className={`px-4 py-2 rounded-lg text-xs font-semibold ${idx === 3 ? 'bg-[green-600]/10 text-[green-600]' : 'bg-slate-100 text-slate-600'}`}>
                 {skill}
               </span>
             ))}
@@ -112,13 +112,13 @@ function OverviewTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider text-slate-900 leading-none">GPA Trend</h3>
-            <span className="px-2 py-0.5 bg-blue-50 text-[#1162d4] rounded text-[9px] font-bold uppercase tracking-wider">B+ Average</span>
+            <span className="px-2 py-0.5 bg-green-50 text-[green-600] rounded text-[9px] font-bold uppercase tracking-wider">B+ Average</span>
           </div>
           <div className="flex items-end justify-between h-24 gap-2 mb-4">
             {[35, 45, 100, 40].map((h, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-2">
                 <div 
-                  className={`w-full rounded-md transition-all duration-1000 ${i === 2 ? 'bg-[#1162d4]' : 'bg-[#1162d4]/20'}`} 
+                  className={`w-full rounded-md transition-all duration-1000 ${i === 2 ? 'bg-[green-600]' : 'bg-[green-600]/20'}`} 
                   style={{ height: `${h}%` }} 
                 />
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">SEM{i+1}</span>
@@ -151,13 +151,13 @@ function OverviewTab({ student }) {
         </div>
 
         {/* Academic Alert */}
-        <div className="bg-[#1162d4]/5 border border-[#1162d4]/10 rounded-xl p-8 flex gap-4">
-           <div className="w-10 h-10 bg-[#1162d4] rounded-lg flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#1162d4]/10">
+        <div className="bg-[green-600]/5 border border-[green-600]/10 rounded-xl p-8 flex gap-4">
+           <div className="w-10 h-10 bg-[green-600] rounded-lg flex items-center justify-center text-white shrink-0 shadow-lg shadow-[green-600]/10">
               <span className="material-symbols-outlined text-[20px]">info</span>
            </div>
            <div>
-              <p className="text-xs font-semibold text-[#1162d4] uppercase tracking-wider mb-1">Academic Alert</p>
-              <p className="text-xs font-medium text-[#1162d4]/80 leading-relaxed">
+              <p className="text-xs font-semibold text-[green-600] uppercase tracking-wider mb-1">Academic Alert</p>
+              <p className="text-xs font-medium text-[green-600]/80 leading-relaxed">
                 {student.name} has successfully completed 85% of his credit requirements for the current year.
               </p>
            </div>
@@ -219,7 +219,7 @@ function AcademicsTab({ student }) {
                 <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
                   <span className="material-symbols-outlined text-[20px]">chevron_left</span>
                 </button>
-                <button className="w-8 h-8 flex items-center justify-center bg-[#1162d4] border border-[#1162d4] rounded-lg text-white font-semibold text-xs shadow-sm">1</button>
+                <button className="w-8 h-8 flex items-center justify-center bg-[green-600] border border-[green-600] rounded-lg text-white font-semibold text-xs shadow-sm">1</button>
                 <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">2</button>
                 <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 font-semibold text-xs">3</button>
                 <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-300 hover:text-slate-600 hover:border-slate-300 transition-all">
@@ -240,7 +240,7 @@ function AcademicsTab({ student }) {
               <circle cx="60" cy="60" r="54" stroke="#e2e8f0" strokeWidth="12" fill="none" />
               <circle
                 cx="60" cy="60" r="54"
-                stroke="#1162d4" strokeWidth="12" fill="none"
+                stroke="green-600" strokeWidth="12" fill="none"
                 strokeLinecap="round"
                 strokeDasharray={`${(110/145) * 339} ${339 - (110/145) * 339}`}
               />
@@ -252,7 +252,7 @@ function AcademicsTab({ student }) {
           </div>
           <div className="grid grid-cols-2 w-full gap-4 mt-8 border-t border-slate-100 pt-8">
              <div className="text-center">
-                <p className="text-lg font-bold text-[#1162d4]">{student.cgpa}</p>
+                <p className="text-lg font-bold text-[green-600]">{student.cgpa}</p>
                 <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Current CGPA</p>
              </div>
              <div className="text-center">
@@ -267,7 +267,7 @@ function AcademicsTab({ student }) {
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">Academic Distinctions</h3>
            <div className="space-y-4">
               {[
-                { title: "Dean's List - Sem 2", desc: "Top 5% of class performance", color: "bg-blue-50 text-[#1162d4]", icon: "military_tech" },
+                { title: "Dean's List - Sem 2", desc: "Top 5% of class performance", color: "bg-green-50 text-[green-600]", icon: "military_tech" },
                 { title: "Smart Hackathon Runner-up", desc: "National Level Competition 2023", color: "bg-purple-50 text-purple-600", icon: "emoji_events" },
                 { title: "Google Cloud Certification", desc: "Associate Cloud Engineer", color: "bg-slate-50 text-slate-600", icon: "verified" }
               ].map(item => (
@@ -303,7 +303,7 @@ function FeesTab({ student }) {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Fee Payment Ledger</h3>
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all shadow-sm">
+            <button className="flex items-center gap-2 px-4 py-2 bg-[green-600] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[green-600]/90 transition-all shadow-sm">
                <span className="material-symbols-outlined text-[18px]">add</span>
                New Payment
             </button>
@@ -349,7 +349,7 @@ function FeesTab({ student }) {
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-4">Payment Remarks</h3>
            <div className="space-y-4">
               <div className="flex gap-4 p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
-                 <div className="w-10 h-10 bg-blue-50 text-[#1162d4] rounded-lg flex items-center justify-center shrink-0">
+                 <div className="w-10 h-10 bg-green-50 text-[green-600] rounded-lg flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[18px]">sticky_note_2</span>
                  </div>
                  <p className="text-xs font-medium text-slate-500 leading-relaxed">
@@ -383,7 +383,7 @@ function FeesTab({ student }) {
               </div>
            </div>
            
-           <button className="w-full mt-10 py-3 bg-[#1162d4] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[#1162d4]/90 transition-all">
+           <button className="w-full mt-10 py-3 bg-[green-600] text-white rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-[green-600]/90 transition-all">
               DOWNLOAD INVOICE (PDF)
            </button>
         </div>
@@ -393,9 +393,9 @@ function FeesTab({ student }) {
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">Payment Methods</h3>
            <div className="space-y-3">
               {['HDFC Bank Summary', 'Unified Payments (UPI)', 'Credit/Debit Cards'].map(method => (
-                <div key={method} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[#1162d4]/30 transition-all cursor-pointer group">
+                <div key={method} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-[green-600]/30 transition-all cursor-pointer group">
                    <span className="text-xs font-semibold text-slate-600 group-hover:text-slate-900">{method}</span>
-                   <span className="material-symbols-outlined text-slate-300 group-hover:text-[#1162d4] text-[18px]">chevron_right</span>
+                   <span className="material-symbols-outlined text-slate-300 group-hover:text-[green-600] text-[18px]">chevron_right</span>
                 </div>
               ))}
            </div>
@@ -416,12 +416,12 @@ function DocumentsTab({ student }) {
            <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-6">File Categories</h3>
            <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Academic', count: 12, color: 'bg-blue-50 text-[#1162d4]', icon: 'school' },
+                { label: 'Academic', count: 12, color: 'bg-green-50 text-[green-600]', icon: 'school' },
                 { label: 'Identity', count: 4, color: 'bg-green-50 text-green-600', icon: 'badge' },
                 { label: 'Fees', count: 8, color: 'bg-purple-50 text-purple-600', icon: 'receipt_long' },
                 { label: 'Others', count: 2, color: 'bg-slate-50 text-slate-400', icon: 'folder_open' }
               ].map(cat => (
-                <div key={cat.label} className="p-4 rounded-xl border border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[#1162d4]/20 transition-all cursor-pointer group">
+                <div key={cat.label} className="p-4 rounded-xl border border-slate-50 bg-slate-50/30 hover:bg-white hover:border-[green-600]/20 transition-all cursor-pointer group">
                    <div className={`w-10 h-10 ${cat.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                       <span className="material-symbols-outlined text-[20px]">{cat.icon}</span>
                    </div>
@@ -433,12 +433,12 @@ function DocumentsTab({ student }) {
         </div>
 
         {/* Upload Dropzone Preview */}
-        <div className="bg-[#1162d4]/5 border-2 border-dashed border-[#1162d4]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[#1162d4]/10 transition-all">
-           <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-[#1162d4] shadow-xl shadow-[#1162d4]/10 mb-6 group-hover:scale-110 transition-transform">
+        <div className="bg-[green-600]/5 border-2 border-dashed border-[green-600]/20 rounded-xl p-10 flex flex-col items-center text-center group cursor-pointer hover:bg-[green-600]/10 transition-all">
+           <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-[green-600] shadow-xl shadow-[green-600]/10 mb-6 group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined text-[32px]">cloud_upload</span>
            </div>
-           <h4 className="text-sm font-semibold text-[#1162d4] uppercase tracking-wider mb-2">Upload New Media</h4>
-           <p className="text-[10px] font-medium text-[#1162d4]/60 uppercase tracking-tight">Drag & drop or browse files</p>
+           <h4 className="text-sm font-semibold text-[green-600] uppercase tracking-wider mb-2">Upload New Media</h4>
+           <p className="text-[10px] font-medium text-[green-600]/60 uppercase tracking-tight">Drag & drop or browse files</p>
         </div>
       </div>
 
@@ -448,7 +448,7 @@ function DocumentsTab({ student }) {
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Document Storage</h3>
             <div className="flex bg-slate-50 border border-slate-200 p-1 rounded-lg">
-               <button className="px-3 py-1.5 bg-white text-[#1162d4] rounded-md text-[10px] font-semibold uppercase tracking-wider shadow-sm">Grid View</button>
+               <button className="px-3 py-1.5 bg-white text-[green-600] rounded-md text-[10px] font-semibold uppercase tracking-wider shadow-sm">Grid View</button>
                <button className="px-3 py-1.5 text-slate-400 rounded-md text-[10px] font-semibold uppercase tracking-wider">List View</button>
             </div>
           </div>
@@ -467,7 +467,7 @@ function DocumentsTab({ student }) {
                    <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors group">
                      <td className="px-8 py-5">
                         <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 group-hover:bg-[#1162d4]/10 group-hover:text-[#1162d4] transition-all">
+                           <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500 group-hover:bg-[green-600]/10 group-hover:text-[green-600] transition-all">
                               <span className="material-symbols-outlined text-[20px]">{doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}</span>
                            </div>
                            <div>
@@ -487,7 +487,7 @@ function DocumentsTab({ student }) {
                      </td>
                      <td className="px-8 py-5 text-center">
                         <div className="flex items-center justify-center gap-1">
-                           <button className="p-2 text-slate-400 hover:text-[#1162d4] hover:bg-blue-50 rounded-lg transition-all">
+                           <button className="p-2 text-slate-400 hover:text-[green-600] hover:bg-green-50 rounded-lg transition-all">
                               <span className="material-symbols-outlined text-[18px]">download</span>
                            </button>
                            <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
@@ -582,16 +582,16 @@ export default function StudentDetailPage() {
       <div className="flex items-center justify-between mb-8">
         <button 
           onClick={() => navigate('/students')}
-          className="flex items-center gap-2.5 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-[#1162d4] hover:border-[#1162d4] transition-all group uppercase tracking-wider"
+          className="flex items-center gap-2.5 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-[green-600] hover:border-[green-600] transition-all group uppercase tracking-wider"
         >
           <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
           <span>Back to Students</span>
         </button>
 
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
-             <div className="w-1.5 h-1.5 bg-[#1162d4] rounded-full animate-pulse" />
-             <span className="text-[10px] font-bold text-[#1162d4] uppercase tracking-wider">Active Session</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg">
+             <div className="w-1.5 h-1.5 bg-[green-600] rounded-full animate-pulse" />
+             <span className="text-[10px] font-bold text-[green-600] uppercase tracking-wider">Active Session</span>
           </div>
           <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
             <div className="text-right hidden md:block">
@@ -609,12 +609,12 @@ export default function StudentDetailPage() {
       <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm mb-8 relative overflow-hidden group">
         {/* Abstract background element */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-slate-50 rounded-full opacity-50 group-hover:scale-125 transition-transform duration-1000" />
-        <div className="absolute top-1/2 -right-12 w-32 h-32 bg-blue-50/30 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -right-12 w-32 h-32 bg-green-50/30 rounded-full blur-3xl" />
         
         <div className="relative flex flex-col xl:flex-row xl:items-center justify-between gap-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
             <div className="relative">
-              <div className="w-32 h-32 rounded-xl p-1 bg-gradient-to-br from-[#1162d4] to-[#60a5fa] shadow-xl">
+              <div className="w-32 h-32 rounded-xl p-1 bg-gradient-to-br from-[green-600] to-[#60a5fa] shadow-xl">
                 <img
                   src={student.avatar}
                   alt={student.name}
@@ -629,7 +629,7 @@ export default function StudentDetailPage() {
             <div className="text-center sm:text-left">
               <div className="flex flex-col sm:flex-row items-center gap-3 mb-3">
                 <h2 className="text-3xl font-bold text-slate-900 tracking-tight leading-none">{student.name}</h2>
-                <span className="px-2.5 py-0.5 bg-blue-50 text-[#1162d4] border border-blue-100 rounded-full text-[10px] font-bold uppercase tracking-wider mt-1 sm:mt-0">
+                <span className="px-2.5 py-0.5 bg-green-50 text-green-600 border border-green-100 rounded-full text-[10px] font-bold uppercase tracking-wider mt-1 sm:mt-0">
                   {student.id}
                 </span>
               </div>
@@ -660,7 +660,7 @@ export default function StudentDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#1162d4] text-white rounded-lg text-sm font-semibold hover:bg-[#1162d4]/90 transition-all active:scale-95 shadow-sm">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-[green-600] text-white rounded-lg text-sm font-semibold hover:bg-[green-600]/90 transition-all active:scale-95 shadow-sm">
               <span className="material-symbols-outlined text-[20px]">bolt</span>
               <span>Quick Action</span>
             </button>
@@ -668,7 +668,7 @@ export default function StudentDetailPage() {
               <span className="material-symbols-outlined text-[20px]">description</span>
               <span>Report</span>
             </button>
-            <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-[#1162d4] hover:border-[#1162d4] transition-all shadow-sm group/edit">
+            <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-[green-600] hover:border-[green-600] transition-all shadow-sm group/edit">
               <span className="material-symbols-outlined text-[20px] group-hover/edit:rotate-12 transition-transform">edit</span>
             </button>
           </div>
@@ -683,13 +683,13 @@ export default function StudentDetailPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`pb-4 text-sm font-semibold transition-all relative ${
               activeTab === tab.id
-                ? 'text-[#1162d4]'
+                ? 'text-[green-600]'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1162d4] rounded-t-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[green-600] rounded-t-full" />
             )}
           </button>
         ))}

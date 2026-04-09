@@ -96,7 +96,7 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="bg-[#1162d4] text-white px-6 py-4">
+        <div className="bg-[green-600] text-white px-6 py-4">
           <h2 className="text-xl font-semibold flex items-center">
             <span className="material-symbols-outlined mr-2">event_seat</span>
             Seat Assignment - {exam.name}
@@ -114,7 +114,7 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
                 <select
                   value={selectedHall}
                   onChange={(e) => setSelectedHall(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[green-600]/20 focus:border-[green-600]"
                 >
                   <option value="">Select Hall</option>
                   {halls.map((hall) => (
@@ -127,7 +127,7 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
               <button
                 onClick={handleAutoAssign}
                 disabled={!selectedHall}
-                className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">auto_fix_high</span>
                 Auto-assign Seats
@@ -154,7 +154,7 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
                       value={assignments[reg.studentId] || ''}
                       onChange={(e) => handleManualAssign(reg.studentId, e.target.value)}
                       placeholder="e.g., A-15"
-                      className="w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4]"
+                      className="w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-[green-600]/20 focus:border-[green-600]"
                     />
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function SeatAssignmentModal({ exam, onClose, onSave }) {
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             Save Assignments
           </button>

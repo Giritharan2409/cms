@@ -78,7 +78,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
               <label className="text-sm font-semibold text-slate-700">Activity Type</label>
               <select
                 name="activity_type" value={formData.activity_type} onChange={handleChange} required
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all bg-white"
               >
                 <option value="Training">Training</option>
                 <option value="Conference">Conference</option>
@@ -92,7 +92,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
               <label className="text-sm font-semibold text-slate-700">Title / Name</label>
               <input
                 type="text" name="title" value={formData.title} onChange={handleChange} required
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all"
                 placeholder="e.g. AI in Education Summit"
               />
             </div>
@@ -102,7 +102,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
                 <label className="text-sm font-semibold text-slate-700">Date</label>
                 <input
                   type="date" name="date" value={formData.date} onChange={handleChange} required
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all"
                 />
               </div>
 
@@ -110,7 +110,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
                  <label className="text-sm font-semibold text-slate-700">Credits Earned</label>
                  <input
                   type="number" step="0.5" name="credits_earned" value={formData.credits_earned} onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all"
                  />
               </div>
             </div>
@@ -120,7 +120,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
                  <label className="text-sm font-semibold text-slate-700">Location</label>
                  <input
                   type="text" name="location" value={formData.location} onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all"
                   placeholder="e.g. Virtual OR New York, NY"
                  />
               </div>
@@ -129,7 +129,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
                  <label className="text-sm font-semibold text-slate-700">Status</label>
                  <select
                   name="status" value={formData.status} onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all bg-white"
                  >
                   <option value="Planned">Planned</option>
                   <option value="In Progress">In Progress</option>
@@ -142,7 +142,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
                <label className="text-sm font-semibold text-slate-700">Description / Notes</label>
                <textarea
                 name="description" value={formData.description} onChange={handleChange} rows="3"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-600 transition-all"
                 placeholder="Brief summary..."
                ></textarea>
             </div>
@@ -153,7 +153,7 @@ export default function LogDevelopmentModal({ isOpen, onClose, onSuccess, facult
           <button type="button" onClick={onClose} className="px-5 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
             Cancel
           </button>
-          <button type="submit" form="logDevForm" disabled={loading} className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50">
+          <button type="submit" form="logDevForm" disabled={loading} className="px-5 py-2 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50">
             {loading ? 'Saving...' : 'Save Record'}
           </button>
         </div>

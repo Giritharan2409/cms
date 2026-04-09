@@ -404,16 +404,13 @@ export default function PayrollPage({ noLayout = false }) {
 
     const inner = (
         <div className="payroll-view" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            <div className="section-header">
-                <span className="section-title">Payroll Management</span>
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button type="button" className="btn-secondary-sm" onClick={openWizard} style={{ background: '#fff', border: '1px solid #d1d5db', color: '#374151' }}>
-                        Create Payroll
-                    </button>
-                    <button type="button" className="btn-primary-sm" onClick={handleRunPayroll}>
-                        Run Payroll
-                    </button>
-                </div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 24, justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary-sm" onClick={openWizard} style={{ background: '#fff', border: '1px solid #d1d5db', color: '#374151' }}>
+                    Create Payroll
+                </button>
+                <button type="button" className="btn-primary-sm" onClick={handleRunPayroll}>
+                    Run Payroll
+                </button>
             </div>
 
             <div className="content-card" style={{ marginBottom: 24 }}>

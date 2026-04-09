@@ -67,7 +67,7 @@ export default function RevaluationModal({ isOpen, onClose, exam, studentId, stu
               required
               rows={4}
               placeholder="Explain why you are requesting a revaluation..."
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none resize-none"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[green-600]/20 focus:border-[green-600] outline-none resize-none"
             />
           </div>
 
@@ -96,7 +96,7 @@ export default function RevaluationModal({ isOpen, onClose, exam, studentId, stu
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Submitting...' : 'Submit Request'}
             </button>

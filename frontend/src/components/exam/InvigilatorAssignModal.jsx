@@ -75,8 +75,8 @@ export default function InvigilatorAssignModal({ isOpen, onClose, exam, currentU
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#1162d4]/10 rounded-lg">
-              <span className="material-symbols-outlined text-[#1162d4]">person_add</span>
+            <div className="p-2 bg-[green-600]/10 rounded-lg">
+              <span className="material-symbols-outlined text-[green-600]">person_add</span>
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-900">Assign Invigilators</h3>
@@ -101,7 +101,7 @@ export default function InvigilatorAssignModal({ isOpen, onClose, exam, currentU
               <select
                 value={selectedFaculty}
                 onChange={(e) => setSelectedFaculty(e.target.value)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#1162d4]/20 focus:border-[#1162d4] outline-none"
+                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-[green-600]/20 focus:border-[green-600] outline-none"
               >
                 <option value="">-- Select Faculty --</option>
                 {availableFaculty.map(faculty => (
@@ -113,7 +113,7 @@ export default function InvigilatorAssignModal({ isOpen, onClose, exam, currentU
               <button
                 onClick={handleAssign}
                 disabled={!selectedFaculty}
-                className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Assign
               </button>
@@ -135,7 +135,7 @@ export default function InvigilatorAssignModal({ isOpen, onClose, exam, currentU
                 {assignedInvigilators.map((assignment) => (
                   <div key={assignment.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#1162d4] flex items-center justify-center text-white font-bold">
+                      <div className="w-10 h-10 rounded-full bg-[green-600] flex items-center justify-center text-white font-bold">
                         {assignment.facultyName.charAt(0)}
                       </div>
                       <div>

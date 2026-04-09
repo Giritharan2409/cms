@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
 import { useAdmission } from '../context/AdmissionContext';
 import { getUserSession } from '../auth/sessionController';
-import AddMemberModal from '../components/AddMemberModal';
 import AdmissionDetailsModal from '../components/AdmissionDetailsModal';
 
 const statusColors = {
@@ -13,6 +13,7 @@ const statusColors = {
 };
 
 export default function AdmissionPage() {
+  const navigate = useNavigate();
   const session = getUserSession();
   const {
     studentApps,
@@ -26,7 +27,6 @@ export default function AdmissionPage() {
 
   const [activeTab, setActiveTab] = useState('students');
   const [searchName, setSearchName] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -149,7 +149,7 @@ export default function AdmissionPage() {
                   }}
                   className={`px-4 py-2 font-medium rounded-lg transition-all ${
                     activeTab === tab
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-green-500 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -164,11 +164,11 @@ export default function AdmissionPage() {
                 placeholder="Search by name..."
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
-                className="flex-1 md:flex-none px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 md:flex-none px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
               />
               <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+                onClick={() => navigate(activeTab === 'students' ? '/add-student' : '/add-faculty')}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
               >
                 <span className="material-symbols-outlined">add</span>
                 Add Member
@@ -227,7 +227,7 @@ export default function AdmissionPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleView(app)}
-                          className="p-2 hover:bg-blue-100 text-blue-600 rounded transition"
+                          className="p-2 hover:bg-green-100 text-green-600 rounded transition"
                           title="View details"
                         >
                           <span className="material-symbols-outlined text-lg">visibility</span>
@@ -273,14 +273,6 @@ export default function AdmissionPage() {
       </div>
 
       {/* Modals */}
-      {showAddModal && (
-        <AddMemberModal
-          isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          type={activeTab === 'students' ? 'student' : 'faculty'}
-        />
-      )}
-
       {showDetailsModal && selectedApp && (
         <AdmissionDetailsModal
           isOpen={showDetailsModal}

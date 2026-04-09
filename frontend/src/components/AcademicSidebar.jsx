@@ -108,30 +108,30 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
   }, [location.pathname])
 
   return (
-    <aside className={`w-64 border-r border-slate-200 bg-white flex flex-col fixed h-full overflow-y-auto z-50 transition-transform duration-300 ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="p-5 flex items-center justify-between border-b border-slate-100/60 mb-2">
+    <aside className={`w-64 border-r-0 bg-[#0a2f1a] flex flex-col fixed h-full overflow-y-auto z-50 transition-transform duration-300 ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="p-5 flex items-center justify-between border-b border-green-700/60 mb-2">
         <div className="flex items-center gap-3">
-          <div className="bg-[#2563eb] w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm">
+          <div className="bg-white w-8 h-8 rounded-lg flex items-center justify-center text-[#0a2f1a] shadow-sm">
             <span className="material-symbols-outlined text-[18px] font-bold">school</span>
           </div>
           <div className="min-w-0">
-            <h1 className="font-bold text-[#1e293b] text-base leading-none truncate">MIT Connect</h1>
-            <p className="text-[10px] text-slate-400 mt-1 truncate">{roleMeta.label} Portal</p>
+            <h1 className="font-bold text-white text-base leading-none truncate">MIT Connect</h1>
+            <p className="text-[10px] text-green-200 mt-1 truncate">{roleMeta.label} Portal</p>
           </div>
         </div>
         <button
           onClick={onToggleSidebar}
-          className="p-1 rounded-md bg-white border border-slate-200 text-black hover:bg-slate-50 transition-colors flex items-center justify-center flex-shrink-0"
+          className="p-1 rounded-md bg-green-700 border border-green-600 text-white hover:bg-green-600 transition-colors flex items-center justify-center flex-shrink-0"
           title="Toggle sidebar"
         >
           <span className="material-symbols-outlined text-lg font-semibold">menu</span>
         </button>
       </div>
 
-      <nav ref={navRef} className="flex-1 px-4 space-y-6 overflow-y-auto">
+      <nav ref={navRef} className="flex-1 px-3 space-y-4 overflow-y-auto py-3">
         {menuGroups.map((group) => (
           <div key={group.title}>
-            <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-green-300 mb-3 flex items-center gap-2 pl-3 border-l-3 border-green-400 py-1">
               {group.title}
             </p>
             <div className="space-y-1">
@@ -142,7 +142,7 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
                   <NavLink
                     key={item}
                     to={to}
-                    className={({ isActive }) => `block px-4 py-2.5 rounded-xl text-sm tracking-wide transition-all duration-200 relative z-10 w-full text-left ${isActive ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold shadow-md' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-medium'}`}
+                    className={({ isActive }) => `block px-3 py-2.5 rounded-lg text-sm tracking-wide transition-all duration-200 relative z-10 w-full text-left ${isActive ? 'bg-white/20 text-white font-semibold border-l-3 border-white' : 'text-green-100 hover:bg-green-600/50 hover:text-white font-medium'}`}
                   >
                     {item}
                   </NavLink>
@@ -153,10 +153,10 @@ export default function AcademicSidebar({ isSidebarVisible = true, onToggleSideb
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-100 mt-auto">
+      <div className="p-4 border-t border-green-700/60 mt-auto">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl text-sm font-semibold transition-all duration-200"
+          className="w-full flex items-center gap-3 px-4 py-3 text-red-300 hover:bg-red-600/20 hover:text-red-200 rounded-lg text-sm font-semibold transition-all duration-200"
         >
           <span className="material-symbols-outlined text-[22px]">logout</span>
           <span>Logout</span>

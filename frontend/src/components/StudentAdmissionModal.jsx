@@ -229,7 +229,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-6 relative">
           <h1 className="text-2xl font-bold">Student Admission Form</h1>
-          <p className="text-blue-100">Complete all steps to submit your application</p>
+          <p className="text-green-100">Complete all steps to submit your application</p>
           <button
             onClick={handleAutoFillDemo}
             className="absolute top-6 right-16 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm"
@@ -238,7 +238,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
           </button>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white hover:bg-blue-400 p-2 rounded-full"
+            className="absolute top-4 right-4 text-white hover:bg-green-400 p-2 rounded-full"
           >
             ✕
           </button>
@@ -257,7 +257,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       step.number < currentStep
                         ? 'bg-green-500 text-white'
                         : step.number === currentStep
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-green-500 text-white'
                         : 'bg-gray-300 text-gray-600'
                     }`}
                   >
@@ -285,7 +285,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.name}
                       onChange={handleInputChange}
                       placeholder="Enter full name"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div>
@@ -296,7 +296,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       name="gender"
                       value={formData.gender}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       <option value="">Select</option>
                       <option value="Male">Male</option>
@@ -314,7 +314,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     name="dateOfBirth"
                     value={formData.dateOfBirth}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -328,7 +328,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="priya.sharma@student.edu"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div>
@@ -341,7 +341,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="9876543210"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.previousSchool}
                       onChange={handleInputChange}
                       placeholder="Delhi Public School"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div>
@@ -373,7 +373,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       name="board"
                       value={formData.board}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       <option value="">Select</option>
                       <option value="CBSE">CBSE</option>
@@ -393,7 +393,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.yearOfPassing}
                       onChange={handleInputChange}
                       placeholder="2023"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div>
@@ -406,7 +406,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.marksPercentage}
                       onChange={handleInputChange}
                       placeholder="92%"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                 </div>
@@ -425,7 +425,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       name="courseCategory"
                       value={formData.courseCategory}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       <option value="">Select</option>
                       <option value="Engineering">Engineering</option>
@@ -445,7 +445,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       value={formData.course}
                       onChange={handleInputChange}
                       placeholder="CSE"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                 </div>
@@ -459,7 +459,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                   {['Government Quota', 'Management Quota'].map((option) => (
                     <label
                       key={option}
-                      className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-blue-50 transition"
+                      className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-green-50 transition"
                       style={{
                         borderColor: formData.quota === option ? '#3b82f6' : '#e5e7eb',
                         backgroundColor:
@@ -488,7 +488,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                   {['Day Scholar', 'Hostel Required'].map((option) => (
                     <label
                       key={option}
-                      className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-blue-50 transition"
+                      className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-green-50 transition"
                       style={{
                         borderColor: formData.accommodation === option ? '#3b82f6' : '#e5e7eb',
                         backgroundColor:
@@ -516,7 +516,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       name="roomType"
                       value={formData.roomType}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       <option value="">Select</option>
                       <option value="Single">Single</option>
@@ -590,7 +590,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                     />
                     {formData.transferCertificate && (
-                      <p className="text-xs text-blue-600 mt-1">✓ {formData.transferCertificate.name}</p>
+                      <p className="text-xs text-green-600 mt-1">✓ {formData.transferCertificate.name}</p>
                     )}
                   </div>
                 </div>
@@ -599,15 +599,15 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
 
             {currentStep === 7 && !paymentDone && (
               <div className="space-y-6">
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6">
                   <h3 className="text-lg font-bold text-gray-800 mb-4">Application Fee</h3>
                   <div className="bg-white rounded-lg p-4 mb-4 border border-blue-300">
-                    <p className="text-4xl font-bold text-blue-600 mb-2">₹500</p>
+                    <p className="text-4xl font-bold text-green-600 mb-2">₹500</p>
                     <p className="text-gray-600 text-sm">
                       One-time application processing fee
                     </p>
                   </div>
-                  <div className="bg-blue-100 border-l-4 border-blue-500 p-3 rounded">
+                  <div className="bg-green-100 border-l-4 border-blue-500 p-3 rounded">
                     <p className="text-sm text-blue-800">
                       💳 Click "Proceed to Payment" to complete your payment securely
                     </p>
@@ -679,7 +679,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+                <div className="bg-green-50 p-3 rounded-lg text-sm text-blue-800">
                   <p>
                     By clicking "Submit Application", you confirm that all information
                     provided is accurate and complete.
@@ -708,7 +708,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                     value={formData.paymentMethod}
                     onChange={handleInputChange}
                     name="paymentMethod"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   >
                     <option value="">Select payment method</option>
                     <option value="Debit Card">Debit Card</option>
@@ -729,7 +729,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                         value={paymentDetails.cardHolderName}
                         onChange={handlePaymentDetailsChange}
                         placeholder="John Doe"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                       />
                     </div>
                     <div>
@@ -740,7 +740,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                         value={paymentDetails.cardNumber}
                         onChange={handlePaymentDetailsChange}
                         placeholder="1234 5678 9012 3456"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -752,7 +752,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                           value={paymentDetails.expiryDate}
                           onChange={handlePaymentDetailsChange}
                           placeholder="MM/YY"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                         />
                       </div>
                       <div>
@@ -763,7 +763,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                           value={paymentDetails.cvv}
                           onChange={handlePaymentDetailsChange}
                           placeholder="123"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                         />
                       </div>
                     </div>
@@ -782,12 +782,12 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                         value={paymentDetails.upiId}
                         onChange={handlePaymentDetailsChange}
                         placeholder="username@upi or 9876543210"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                       />
                     </div>
-                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                    <div className="bg-green-50 p-4 rounded-lg text-center">
                       <p className="text-sm text-blue-800 mb-3">Quick Response Code (QR)</p>
-                      <div className="bg-white p-4 rounded border-2 border-blue-200 flex items-center justify-center h-40">
+                      <div className="bg-white p-4 rounded border-2 border-green-200 flex items-center justify-center h-40">
                         <div className="text-gray-400 text-sm">
                           📲 QR Code<br/>
                           (Scan for UPI Payment)
@@ -807,7 +807,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                   </button>
                   <button
                     onClick={handleCompletePayment}
-                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition"
+                    className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition"
                   >
                     Pay Now
                   </button>
@@ -839,7 +839,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
                 className={`px-6 py-2 rounded-lg font-medium transition ${
                   currentStep === 6 && (!formData.passportPhoto || !formData.aadhaarCard || !formData.marksheet)
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-green-500 text-white hover:bg-green-600'
                 }`}
               >
                 Next →
@@ -854,7 +854,7 @@ export default function StudentAdmissionModal({ isOpen, onClose }) {
             ) : currentStep === 7 && paymentDone ? (
               <button
                 onClick={handleNext}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition"
+                className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition"
               >
                 Next →
               </button>

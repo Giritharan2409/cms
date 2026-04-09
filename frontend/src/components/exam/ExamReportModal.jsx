@@ -108,8 +108,8 @@ export default function ExamReportModal({ isOpen, onClose, exam }) {
         <div className="p-6 space-y-6">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[#1162d4]/5 p-4 rounded-lg border border-[#1162d4]/20">
-              <p className="text-xs font-semibold text-[#1162d4] uppercase mb-1">Registered</p>
+            <div className="bg-[green-600]/5 p-4 rounded-lg border border-[green-600]/20">
+              <p className="text-xs font-semibold text-[green-600] uppercase mb-1">Registered</p>
               <p className="text-2xl font-bold text-slate-900">{stats.totalRegistered}</p>
             </div>
             <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
@@ -229,7 +229,7 @@ export default function ExamReportModal({ isOpen, onClose, exam }) {
             <button
               onClick={handlePublishResults}
               disabled={stats.pending > 0}
-              className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Publish Results
             </button>

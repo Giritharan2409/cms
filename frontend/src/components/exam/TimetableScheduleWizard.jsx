@@ -193,7 +193,7 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
               <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, position: 'relative' }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600,
-                  background: isActive || isPassed ? '#1162d4' : '#e5e7eb',
+                  background: isActive || isPassed ? 'green-600' : '#e5e7eb',
                   color: isActive || isPassed ? '#fff' : '#6b7280',
                   marginBottom: 8, zIndex: 2
                 }}>
@@ -201,7 +201,7 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
                 </div>
                 <div style={{ fontSize: 12, fontWeight: isActive ? 600 : 500, color: isActive ? '#1f2937' : '#6b7280' }}>{label}</div>
                 {idx < 2 && (
-                  <div style={{ position: 'absolute', top: 16, left: '50%', width: '100%', height: 2, background: isPassed ? '#1162d4' : '#e5e7eb', zIndex: 1 }} />
+                  <div style={{ position: 'absolute', top: 16, left: '50%', width: '100%', height: 2, background: isPassed ? 'green-600' : '#e5e7eb', zIndex: 1 }} />
                 )}
               </div>
             );
@@ -365,7 +365,7 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
 
               <button
                 onClick={handleAddExam}
-                style={{ width: '100%', padding: 12, background: '#f0f9ff', color: '#1162d4', border: '2px dashed #1162d4', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ width: '100%', padding: 12, background: '#f0f9ff', color: 'green-600', border: '2px dashed green-600', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
               >
                 + Add Another Exam
               </button>
@@ -451,7 +451,7 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
                 </button>
                 <button
                   onClick={handleSubmitForApproval}
-                  style={{ padding: '8px 16px', background: '#1162d4', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                  style={{ padding: '8px 16px', background: 'green-600', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
                 >
                   Submit for Approval
                 </button>
@@ -461,7 +461,7 @@ export default function TimetableScheduleWizard({ isOpen, onClose, onSave }) {
             {wizardStep < 3 && (
               <button
                 onClick={handleNext}
-                style={{ padding: '8px 16px', background: '#1162d4', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                style={{ padding: '8px 16px', background: 'green-600', color: '#fff', border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
               >
                 Next
               </button>

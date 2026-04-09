@@ -49,7 +49,7 @@ export default function TimetableApprovalModal({ onClose, onApprove }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'Draft': return 'bg-slate-100 text-slate-700';
-      case 'Submitted': return 'bg-[#1162d4]/10 text-[#1162d4]';
+      case 'Submitted': return 'bg-[green-600]/10 text-[green-600]';
       case 'Approved': return 'bg-emerald-100 text-emerald-700';
       case 'Rejected': return 'bg-red-100 text-red-700';
       default: return 'bg-slate-100 text-slate-700';
@@ -59,7 +59,7 @@ export default function TimetableApprovalModal({ onClose, onApprove }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        <div className="bg-[#1162d4] text-white px-6 py-4">
+        <div className="bg-[green-600] text-white px-6 py-4">
           <h2 className="text-xl font-semibold flex items-center">
             <span className="material-symbols-outlined mr-2">approval</span>
             Timetable Approval Management
@@ -97,7 +97,7 @@ export default function TimetableApprovalModal({ onClose, onApprove }) {
                       <div className="flex gap-2">
                         <button
                           onClick={() => setSelectedDraft(draft.id)}
-                          className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 text-sm flex items-center gap-1"
+                          className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 text-sm flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-sm">visibility</span>
                           Review
@@ -140,7 +140,7 @@ export default function TimetableApprovalModal({ onClose, onApprove }) {
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleAction(draft.id, 'approve')}
-                          className="px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 flex items-center gap-2"
+                          className="px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 flex items-center gap-2"
                         >
                           <span className="material-symbols-outlined text-sm">check_circle</span>
                           Approve

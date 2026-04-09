@@ -50,19 +50,6 @@ export default function FacultyPage() {
   return (
     <Layout title="Faculty Directory">
       <div className="page-container">
-        <div className="page-header">
-        <div>
-          <h1 className="page-title">Faculty Management</h1>
-          <p className="page-subtitle">Manage faculty profiles, course mappings, and performance</p>
-        </div>
-        <div className="page-actions">
-          <button className="btn btn-primary" onClick={() => { setEditFaculty(null); setIsModalOpen(true); }}>
-            <UserPlus className="btn-icon" />
-            Add Faculty
-          </button>
-        </div>
-      </div>
-
       <div className="stats-grid">
         <StatCard 
           icon="group" 

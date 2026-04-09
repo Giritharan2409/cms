@@ -214,24 +214,6 @@ export default function InvoicePage() {
   return (
     <Layout title="Invoices & Bills">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Invoices & Bills</h1>
-          <p className="text-blue-100">Your invoices and payment details</p>
-        </div>
-
-        {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-bold text-blue-900 mb-3">About This Page</h3>
-          <ul className="space-y-2 text-sm text-blue-800">
-            <li>• See all your generated invoices</li>
-            <li>• Review fee breakdowns</li>
-            <li>• Filter by status</li>
-            <li>• Download as PDF/Text</li>
-            <li>• Click to view full details</li>
-          </ul>
-        </div>
-
         {/* Search Section */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -243,7 +225,7 @@ export default function InvoicePage() {
                 type="text"
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                 placeholder="Enter name..."
               />
             </div>
@@ -255,7 +237,7 @@ export default function InvoicePage() {
                 type="text"
                 value={searchDept}
                 onChange={(e) => setSearchDept(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                 placeholder="Enter course..."
               />
             </div>
@@ -283,7 +265,7 @@ export default function InvoicePage() {
                 }
                 className={`px-4 py-2 rounded-lg transition ${
                   statusFilter === status || (statusFilter === 'all' && status === 'all')
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-green-500 text-white'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
@@ -376,7 +358,7 @@ export default function InvoicePage() {
                         e.stopPropagation();
                         handleDownloadPDF(invoice);
                       }}
-                      className="flex-1 bg-blue-500 text-white py-2 rounded text-sm hover:bg-blue-600 transition"
+                      className="flex-1 bg-green-500 text-white py-2 rounded text-sm hover:bg-green-600 transition"
                     >
                       Download
                     </button>
@@ -520,7 +502,7 @@ export default function InvoicePage() {
             <div className="flex gap-3 mb-3">
               <button
                 onClick={() => handleDownloadPDF(selectedInvoice)}
-                className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition flex items-center justify-center gap-2"
+                className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">download</span>
                 Download PDF

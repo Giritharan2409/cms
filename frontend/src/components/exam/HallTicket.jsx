@@ -70,7 +70,7 @@ export default function HallTicket({ exam, studentInfo, subjects = [], onClose }
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1162d4] text-white rounded-lg hover:bg-[#1162d4]/90 transition-colors text-sm font-semibold"
+              className="flex items-center gap-2 px-4 py-2 bg-[green-600] text-white rounded-lg hover:bg-[green-600]/90 transition-colors text-sm font-semibold"
             >
               <span className="material-symbols-outlined text-lg">download</span>
               Download PDF
@@ -89,7 +89,7 @@ export default function HallTicket({ exam, studentInfo, subjects = [], onClose }
           <div className="text-center border-b-2 border-slate-900 pb-4">
             <h1 className="text-2xl font-bold text-slate-900">COLLEGE MANAGEMENT SYSTEM</h1>
             <p className="text-sm text-slate-600 mt-1">Department of {resolvedDepartment}</p>
-            <h2 className="text-xl font-bold text-[#1162d4] mt-3">EXAMINATION HALL TICKET</h2>
+            <h2 className="text-xl font-bold text-[green-600] mt-3">EXAMINATION HALL TICKET</h2>
           </div>
 
           {/* Hall Ticket Meta */}
@@ -162,7 +162,7 @@ export default function HallTicket({ exam, studentInfo, subjects = [], onClose }
                   {normalizedSubjects.map((subject, index) => (
                     <tr key={`${subject.code}-${index}`} className="text-sm text-slate-700">
                       <td className="px-4 py-3">{index + 1}</td>
-                      <td className="px-4 py-3 font-semibold text-[#1162d4]">{subject.code || '-'}</td>
+                      <td className="px-4 py-3 font-semibold text-[green-600]">{subject.code || '-'}</td>
                       <td className="px-4 py-3">{subject.name || '-'}</td>
                       <td className="px-4 py-3">{subject.credits ?? 4}</td>
                       <td className="px-4 py-3">{subject.semester || resolvedSemester}</td>
@@ -180,23 +180,23 @@ export default function HallTicket({ exam, studentInfo, subjects = [], onClose }
             </h3>
             <ul className="space-y-2 text-xs text-slate-700">
               <li className="flex gap-2">
-                <span className="text-[#1162d4]">•</span>
+                <span className="text-[green-600]">•</span>
                 <span>Students must report to the examination hall 15 minutes before the scheduled time.</span>
               </li>
               <li className="flex gap-2">
-                <span className="text-[#1162d4]">•</span>
+                <span className="text-[green-600]">•</span>
                 <span>Carry this hall ticket along with your college ID card to the examination hall.</span>
               </li>
               <li className="flex gap-2">
-                <span className="text-[#1162d4]">•</span>
+                <span className="text-[green-600]">•</span>
                 <span>Mobile phones and electronic devices are strictly prohibited in the examination hall.</span>
               </li>
               <li className="flex gap-2">
-                <span className="text-[#1162d4]">•</span>
+                <span className="text-[green-600]">•</span>
                 <span>Use of unfair means will lead to cancellation of the examination.</span>
               </li>
               <li className="flex gap-2">
-                <span className="text-[#1162d4]">•</span>
+                <span className="text-[green-600]">•</span>
                 <span>Follow all instructions given by the invigilator during the examination.</span>
               </li>
             </ul>

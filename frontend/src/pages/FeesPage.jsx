@@ -324,12 +324,6 @@ export default function FeesPage() {
   return (
     <Layout title="Fee Management">
       <div className="space-y-8">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-8 rounded-lg shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Fee Management</h1>
-          <p className="text-blue-100">Track and pay semester fees</p>
-        </div>
-
         {/* Fee Cards Grid */}
         <div className="bg-white rounded-lg shadow p-6">
           {studentFees.length === 0 ? (
@@ -423,7 +417,7 @@ export default function FeesPage() {
                   {fee.paymentStatus === 'pending' ? (
                     <button
                       onClick={() => handlePayClick(fee)}
-                      className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition font-medium"
+                      className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition font-medium"
                     >
                       Pay Now
                     </button>
@@ -448,7 +442,7 @@ export default function FeesPage() {
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl">
             <h2 className="text-2xl font-bold mb-6">Pay {selectedFee.semester} Fee</h2>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-600 mb-2">
                 <span className="font-semibold">Amount:</span> ₹{selectedFee.totalFee.toLocaleString()}
               </p>
@@ -464,7 +458,7 @@ export default function FeesPage() {
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
               >
                 <option value="">-- Select Payment Method --</option>
                 <option value="Debit Card">Debit Card</option>
@@ -487,7 +481,7 @@ export default function FeesPage() {
               </button>
               <button
                 onClick={handleSelectPaymentMethod}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition"
               >
                 Next
               </button>
@@ -526,7 +520,7 @@ export default function FeesPage() {
                     value={paymentDetails.cardHolderName}
                     onChange={handlePaymentDetailsChange}
                     placeholder="John Doe"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                 </div>
                 <div>
@@ -539,7 +533,7 @@ export default function FeesPage() {
                     value={paymentDetails.cardNumber}
                     onChange={handlePaymentDetailsChange}
                     placeholder="1234 5678 9012 3456"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -553,7 +547,7 @@ export default function FeesPage() {
                       value={paymentDetails.expiryDate}
                       onChange={handlePaymentDetailsChange}
                       placeholder="MM/YY"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div>
@@ -566,7 +560,7 @@ export default function FeesPage() {
                       value={paymentDetails.cvv}
                       onChange={handlePaymentDetailsChange}
                       placeholder="123"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                 </div>
@@ -586,12 +580,12 @@ export default function FeesPage() {
                     value={paymentDetails.upiId}
                     onChange={handlePaymentDetailsChange}
                     placeholder="username@upi or 9876543210"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <p className="text-sm text-blue-800 mb-3">Quick Response Code (QR)</p>
-                  <div className="bg-white p-4 rounded border-2 border-blue-200 flex items-center justify-center h-40">
+                <div className="bg-green-50 p-4 rounded-lg text-center">
+                  <p className="text-sm text-green-800 mb-3">Quick Response Code (QR)</p>
+                  <div className="bg-white p-4 rounded border-2 border-green-200 flex items-center justify-center h-40">
                     <div className="text-gray-400 text-sm text-center">
                       📲 QR Code<br />
                       (Scan for UPI Payment)
@@ -604,8 +598,8 @@ export default function FeesPage() {
             {/* Net Banking */}
             {paymentMethod === 'Net Banking' && (
               <div className="space-y-4 mb-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800">
                     You will be redirected to your bank's website to complete the payment.
                   </p>
                 </div>
@@ -645,7 +639,7 @@ export default function FeesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-xl">
             <div className="text-center">
-              <span className="material-symbols-outlined text-6xl text-blue-500 block mb-4 animate-spin">
+              <span className="material-symbols-outlined text-6xl text-green-500 block mb-4 animate-spin">
                 payments
               </span>
               <h2 className="text-xl font-bold text-gray-800 mb-2">Processing Payment...</h2>
@@ -653,7 +647,7 @@ export default function FeesPage() {
 
               {/* Progress Bar */}
               <div className="w-full bg-gray-300 rounded-full h-2">
-                <div className="bg-blue-500 h-2 rounded-full animate-pulse"></div>
+                <div className="bg-green-500 h-2 rounded-full animate-pulse"></div>
               </div>
             </div>
           </div>
@@ -786,7 +780,7 @@ export default function FeesPage() {
               </button>
               <button
                 onClick={() => handleDownloadInvoice(selectedInvoice)}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-medium"
               >
                 📥 Download PDF
               </button>

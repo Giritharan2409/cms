@@ -50,7 +50,7 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
       case 'success': return { icon: 'check_circle', color: 'text-emerald-600' };
       case 'warning': return { icon: 'warning', color: 'text-yellow-600' };
       case 'error': return { icon: 'error', color: 'text-red-600' };
-      default: return { icon: 'info', color: 'text-[#1162d4]' };
+      default: return { icon: 'info', color: 'text-[green-600]' };
     }
   };
 
@@ -60,7 +60,7 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
       case 'success': return 'bg-green-50 border-green-200';
       case 'warning': return 'bg-yellow-50 border-yellow-200';
       case 'error': return 'bg-red-50 border-red-200';
-      default: return 'bg-blue-50 border-blue-200';
+      default: return 'bg-green-50 border-green-200';
     }
   };
 
@@ -70,13 +70,13 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:justify-end z-50">
       <div className="bg-white rounded-t-lg sm:rounded-lg shadow-xl w-full sm:w-96 sm:mr-6 max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-[#1162d4] text-white px-6 py-4">
+        <div className="bg-[green-600] text-white px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined">notifications</span>
               <h2 className="text-lg font-semibold">Notifications</h2>
               {unreadCount > 0 && (
-                <span className="bg-white text-[#1162d4] text-xs font-bold px-2 py-1 rounded-full">
+                <span className="bg-white text-[green-600] text-xs font-bold px-2 py-1 rounded-full">
                   {unreadCount}
                 </span>
               )}
@@ -95,7 +95,7 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
           <div className="px-4 py-3 bg-slate-50 border-b">
             <button
               onClick={handleMarkAllRead}
-              className="text-sm text-[#1162d4] hover:text-[#1162d4]/80 font-medium flex items-center gap-1"
+              className="text-sm text-[green-600] hover:text-[green-600]/80 font-medium flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-sm">done_all</span>
               Mark all as read
@@ -136,7 +136,7 @@ export default function NotificationPanel({ studentId, isOpen, onClose }) {
                         {!notif.read && (
                           <button
                             onClick={() => handleMarkRead(notif.id)}
-                            className="text-xs text-[#1162d4] hover:text-[#1162d4]/80 font-medium"
+                            className="text-xs text-[green-600] hover:text-[green-600]/80 font-medium"
                           >
                             Mark as read
                           </button>

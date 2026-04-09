@@ -63,16 +63,16 @@ export default function AddMemberModal({ isOpen, onClose, type = 'student' }) {
               }}
               className={`p-6 border-2 rounded-lg transition cursor-pointer ${
                 selectedType === option.type
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-blue-300'
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 hover:border-green-300'
               }`}
             >
-              <span className="material-symbols-outlined text-4xl text-blue-500 block mb-4">
+              <span className="material-symbols-outlined text-4xl text-green-600 block mb-4">
                 {option.icon}
               </span>
               <h3 className="font-bold text-lg mb-2">{option.title}</h3>
               <p className="text-sm text-gray-600 mb-3">{option.desc}</p>
-              <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+              <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">
                 {option.steps}
               </span>
             </button>

@@ -89,7 +89,7 @@ export default function FinanceInvoicePage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                         <div className="flex items-center gap-4">
-                            <div className="bg-blue-50 p-3 rounded-xl text-blue-600">
+                            <div className="bg-green-50 p-3 rounded-xl text-green-600">
                                 <span className="material-symbols-outlined text-2xl">description</span>
                             </div>
                             <div>
@@ -132,7 +132,7 @@ export default function FinanceInvoicePage() {
                                 placeholder="Search staff name or invoice ID..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 transition-all text-sm"
                             />
                         </div>
                         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
@@ -141,7 +141,7 @@ export default function FinanceInvoicePage() {
                                     key={status}
                                     onClick={() => setStatusFilter(status)}
                                     className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${statusFilter === status
-                                        ? 'bg-blue-600 text-white shadow-md'
+                                        ? 'bg-green-600 text-white shadow-md'
                                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
                                         }`}
                                 >
@@ -201,7 +201,7 @@ export default function FinanceInvoicePage() {
                                                 <span className={`px-3 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-widest ${invoice.payment_status === 'Paid'
                                                     ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                                     : invoice.payment_status === 'Processing'
-                                                        ? 'bg-blue-50 text-blue-600 border-blue-100'
+                                                        ? 'bg-green-50 text-green-600 border-green-100'
                                                         : 'bg-slate-100 text-slate-500 border-slate-200'
                                                     }`}>
                                                     {invoice.payment_status}
@@ -212,7 +212,7 @@ export default function FinanceInvoicePage() {
                                                     {invoice.payment_status === 'Draft' && (
                                                         <button
                                                             onClick={() => handleStatusUpdate(invoice.id, 'Processing')}
-                                                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm"
+                                                            className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-sm"
                                                         >
                                                             Process Payment
                                                         </button>
