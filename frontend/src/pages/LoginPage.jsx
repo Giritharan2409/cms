@@ -98,7 +98,7 @@ export default function LoginPage() {
             <h2>Welcome to the smart MIT workspace</h2>
             <p>
               One secure place for students, faculty, finance, and administration teams to manage academics,
-              records, billing, and campus operations at Movi Institute of Technology.
+              records, payroll, billing, and campus operations at Movi Institute of Technology.
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export default function LoginPage() {
             </article>
             <article className="showcase-card">
               <h3>Administration</h3>
-              <p>Admissions, fee control, and invoice handling.</p>
+              <p>Admissions, fee control, payroll, and invoice handling.</p>
             </article>
             <article className="showcase-card">
               <h3>Intelligence</h3>
